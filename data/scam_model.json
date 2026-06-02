@@ -1,5 +1,5 @@
 {
-  "analyses": 3,
+  "analyses": 5,
   "confirmed_fakes": 3,
   "confirmed_real": 1,
   "brand_risk_adjustments": {
@@ -13,5 +13,5 @@
     }
   },
   "price_floor_adjustments": {},
-  "last_updated": "2026-06-02T16:28:43.137554"
+  "last_updated": "2026-06-02T16:39:51.810978"
 }

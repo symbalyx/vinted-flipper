@@ -12,6 +12,7 @@ sys.path.insert(0, str(BASE_DIR))
 from flipper import FlipEngine, BRAND_FACTOR
 from scanner import ScamDetector
 from listing import ListingGenerator
+from deals import DealFinder, cmd_deals, cmd_plan
 
 C = {"g": "\033[92m", "r": "\033[91m", "y": "\033[93m", "c": "\033[96m", "b": "\033[1m", "n": "\033[0m"}
 p = lambda t, c="": print(f"{c}{t}{C['n']}")
@@ -239,10 +240,10 @@ def cmd_summary(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Vinted Flipper — Analyse, Scanne, Génère")
-    parser.add_argument("cmd", nargs="?", default="analyze",
+    parser.add_argument("cmd", nargs="?", default="deals",
                         choices=["analyze", "batch", "stats", "history",
                                 "export", "scam", "generate",
-                                "optimize", "summary"],
+                                "optimize", "summary", "deals", "plan"],
                         help="Commande")
     parser.add_argument("--file", "-f", help="Fichier export")
     args = parser.parse_args()
@@ -257,6 +258,8 @@ def main():
         "generate": cmd_generate,
         "optimize": cmd_optimize,
         "summary": cmd_summary,
+        "deals": cmd_deals,
+        "plan": cmd_plan,
     }
 
     header(f"VINTED FLIPPER — {args.cmd.upper()}")
