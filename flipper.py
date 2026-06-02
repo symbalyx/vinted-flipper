@@ -264,7 +264,9 @@ class FlipEngine:
     def stats(self) -> dict:
         h = self.history
         if h["total_flips"] == 0:
-            return {"flips": 0, "profit": 0, "wr": 0}
+            return {"flips": 0, "profit": 0, "wr": 0, "spent": 0,
+                    "revenue": 0, "wins": 0, "losses": 0,
+                    "avg_profit": 0, "roi_total": 0}
         wr = h["wins"] / h["total_flips"] * 100
         total_invested = sum(f["buy"] for f in h["flips"])
         return {
@@ -287,6 +289,110 @@ class FlipEngine:
         lines.append(f"  Profit NET: {r['profit_net']:+.2f}€ ({r['marge_pct']:+.1f}%) | ROI: {r['roi_pct']:+.1f}%")
         lines.append(f"  Confiance: {r['confiance']}% → {r['recommandation']}")
         lines.append(f"  {r['raison']}")
+        return "\n".join(lines)
+
+    # ── Moteur d'auto-apprentissage ─────────────────────────────
+
+    def optimize(self):
+        """Optimise les coefficients à partir de l'historique réel des ventes.
+        À appeler après avoir enregistré des flips réels. S'ajuste en fonction
+        des écarts entre estimation et vente réelle."""
+        if self.history["total_flips"] < 3:
+            return {"status": "need_more_data", "flips": self.history["total_flips"]}
+
+        # Analyser l'écart entre estimation et réalité
+        total_error = 0
+        brand_errors = {}
+        category_errors = {}
+
+        for f in self.history["flips"]:
+            # Re-calculer l'estimation avec les données du flip
+            est = self.analyze(f["title"], f["buy"], "bon état", "", "")
+            est_price = est["estimation_revente"]
+            real_price = f["sell"]
+
+            if est_price > 0 and real_price > 0:
+                error = (real_price - est_price) / est_price
+                total_error += abs(error)
+
+                # Par marque
+                detected_brand = est.get("marque", "").lower()
+                if detected_brand:
+                    brand_errors.setdefault(detected_brand, []).append(error)
+
+                # Par catégorie
+                detected_cat = est.get("categorie", "").lower()
+                if detected_cat:
+                    category_errors.setdefault(detected_cat, []).append(error)
+
+        # Calculer l'erreur moyenne
+        n = self.history["total_flips"]
+        mae = total_error / n if n > 0 else 0
+
+        # Ajuster les facteurs de marque si assez de données
+        adjustments = {"brand": 0, "category": 0}
+        for brand, errors in brand_errors.items():
+            if len(errors) >= 3:
+                avg_error = sum(errors) / len(errors)
+                # Si on vend systématiquement plus cher que l'estimation, augmenter le coef
+                if brand in BRAND_FACTOR:
+                    old = BRAND_FACTOR[brand]
+                    adj = avg_error * 0.5  # Ajustement progressif (50% de l'erreur)
+                    new = max(0.05, min(2.0, old + adj))
+                    BRAND_FACTOR[brand] = round(new, 3)
+                    adjustments["brand"] += 1
+
+        for cat, errors in category_errors.items():
+            if len(errors) >= 3:
+                avg_error = sum(errors) / len(errors)
+                if cat in CATEGORY_DEMAND:
+                    old = CATEGORY_DEMAND[cat]
+                    adj = avg_error * 0.3
+                    new = max(0.1, min(2.0, old + adj))
+                    CATEGORY_DEMAND[cat] = round(new, 3)
+                    adjustments["category"] += 1
+
+        # Sauvegarder les ajustements dans l'historique
+        self.history["last_optimization"] = {
+            "date": datetime.now().isoformat(),
+            "mae": round(mae * 100, 1),
+            "adjustments": adjustments,
+            "flips_used": n,
+        }
+        self._save_json(self.history_path, self.history)
+
+        return {
+            "status": "optimized",
+            "flips_used": n,
+            "mae_pct": round(mae * 100, 1),
+            "brand_adjustments": adjustments["brand"],
+            "category_adjustments": adjustments["category"],
+        }
+
+    def get_confidence(self) -> float:
+        """Score de confiance 0-100 basé sur l'historique."""
+        h = self.history
+        if h["total_flips"] == 0:
+            return 30.0
+        wr = h["wins"] / h["total_flips"] * 100 if h["total_flips"] > 0 else 0
+        confidence = 30 + wr * 0.5 + min(h["total_flips"] * 2, 20)
+        return min(100, round(confidence, 1))
+
+    def summary(self) -> str:
+        """Résumé complet de l'état du moteur."""
+        s = self.stats()
+        opt = self.history.get("last_optimization", {})
+        conf = self.get_confidence()
+        lines = [
+            f"── FLIPPER ENGINE ──",
+            f"  Flips: {s['flips']} | WR: {s['wr']}% | Profit: {s['profit']:+.2f}€",
+            f"  ROI: {s['roi_total']:+.1f}% | Confiance: {conf}%",
+            f"  Marques: {len(BRAND_FACTOR)} | Catégories: {len(CATEGORY_DEMAND)}",
+        ]
+        if opt:
+            lines.append(f"  Dernière optimisation: MAE {opt.get('mae','?')}% ({opt.get('flips_used',0)} flips)")
+            lines.append(f"    Ajustements: {opt.get('adjustments',{}).get('brand',0)} marques, "
+                        f"{opt.get('adjustments',{}).get('category',0)} catégories")
         return "\n".join(lines)
 
 

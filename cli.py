@@ -9,7 +9,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(BASE_DIR))
-from flipper import FlipEngine
+from flipper import FlipEngine, BRAND_FACTOR
 from scanner import ScamDetector
 from listing import ListingGenerator
 
@@ -207,11 +207,42 @@ def cmd_export(args):
     p(f"  ✅ Exporté: {path} ({len(fe.history['flips'])} flips)", C['g'])
 
 
+def cmd_optimize(args):
+    """Optimise les coefficients du moteur selon l'historique."""
+    fe = FlipEngine()
+    p(f"  Optimisation du moteur d'apprentissage...", C['y'])
+    result = fe.optimize()
+    if result["status"] == "need_more_data":
+        p(f"  ⚠ Besoin d'au moins 3 flips enregistrés (actuel: {result['flips']})", C['y'])
+    else:
+        p(f"  ✅ Optimisation terminée!", C['g'])
+        p(f"     Flips utilisés: {result['flips_used']}")
+        p(f"     Erreur moyenne (MAE): {result['mae_pct']}%")
+        p(f"     Marques ajustées: {result['brand_adjustments']}")
+        p(f"     Catégories ajustées: {result['category_adjustments']}")
+        p(f"  Le moteur est maintenant plus précis pour tes prochaines estimations.", C['g'])
+
+
+def cmd_summary(args):
+    """Résumé complet de l'état du moteur."""
+    fe = FlipEngine()
+    print(f"  {fe.summary()}")
+    # Stats des marques
+    p(f"\n  Top 5 marques (coeff revente):", C['b'])
+    for brand, coeff in sorted(BRAND_FACTOR.items(), key=lambda x: -x[1])[:5]:
+        bar = "█" * max(1, int(coeff * 10))
+        p(f"    {brand:20s} {bar} x{coeff:.2f}")
+    # Stats du détecteur
+    sd = ScamDetector()
+    p(f"\n  Scanner: {sd.model['analyses']} analyses | {sd.model['confirmed_fakes']} faux confirmés | {sd.model['confirmed_real']} réels confirmés", C['b'])
+
+
 def main():
     parser = argparse.ArgumentParser(description="Vinted Flipper — Analyse, Scanne, Génère")
     parser.add_argument("cmd", nargs="?", default="analyze",
                         choices=["analyze", "batch", "stats", "history",
-                                "export", "scam", "generate"],
+                                "export", "scam", "generate",
+                                "optimize", "summary"],
                         help="Commande")
     parser.add_argument("--file", "-f", help="Fichier export")
     args = parser.parse_args()
@@ -224,6 +255,8 @@ def main():
         "export": cmd_export,
         "scam": cmd_scam,
         "generate": cmd_generate,
+        "optimize": cmd_optimize,
+        "summary": cmd_summary,
     }
 
     header(f"VINTED FLIPPER — {args.cmd.upper()}")
