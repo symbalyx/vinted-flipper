@@ -33,11 +33,12 @@ BRAND_FACTOR = {
     "timberland": 0.55, "doc martens": 0.58, "dr. martens": 0.58,
     "levi's": 0.48, "levis": 0.48, "ralph lauren": 0.52,
     "tommy hilfiger": 0.45, "lacoste": 0.52, "boss": 0.50,
-    "calvin klein": 0.42, "superdry": 0.35, "mango": 0.32,
-    "zara": 0.32, "h&m": 0.22, "bershka": 0.20,
+    "calvin klein": 0.42, "superdry": 0.35,
     # ── Fast fashion ──
+    "zara": 0.35, "mango": 0.35, "h&m": 0.22,
     "kiabi": 0.12, "primark": 0.08, "decathlon": 0.20,
-    "pull&bear": 0.18, "stradivarius": 0.18,
+    "pull&bear": 0.18, "stradivarius": 0.18, "bershka": 0.18,
+    "uniqlo": 0.40, "& other stories": 0.38, "other stories": 0.38,
     # ── Vintage / Mode ──
     "levis vintage": 0.60, "schott": 0.70, "barbour": 0.65,
     "burberry": 0.88, "max mara": 0.72, "agnès b.": 0.50,

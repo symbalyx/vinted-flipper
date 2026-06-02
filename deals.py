@@ -69,6 +69,14 @@ class DealFinder:
             "levis": [10, 15, 25],
             "timberland": [30, 50],
             "doc martens": [30, 50, 70],
+            # Fast fashion (bas prix, volume)
+            "zara": [5, 10, 15],
+            "mango": [5, 10, 15],
+            "pull&bear": [3, 6, 10],
+            "stradivarius": [3, 6, 10],
+            "bershka": [3, 6, 10],
+            "uniqlo": [8, 12, 18],
+            "h&m": [3, 6, 10],
         }
         
         # États testés
