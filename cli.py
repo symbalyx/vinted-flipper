@@ -236,6 +236,32 @@ def cmd_summary(args):
     # Stats du détecteur
     sd = ScamDetector()
     p(f"\n  Scanner: {sd.model['analyses']} analyses | {sd.model['confirmed_fakes']} faux confirmés | {sd.model['confirmed_real']} réels confirmés", C['b'])
+    # Coefficients persistés
+    if Path("data/coefficients.json").exists():
+        data = json.loads(Path("data/coefficients.json").read_text())
+        if data.get("brand"):
+            p(f"\n  Coefficients optimisés: {len(data['brand'])} marques ajustées", C['y'])
+            for b, v in data["brand"].items():
+                p(f"    {b}: {v}", C['y'])
+
+
+def cmd_photos(args):
+    """Affiche le guide photo pour une catégorie."""
+    from scripts.photos import photo_report
+    cat = " ".join(args._) if hasattr(args, '_') and args._ else ""
+    if not cat:
+        print(f"  Catégories disponibles: sneakers, sac, veste, montre, default")
+        cat = input(f"  {C['b']}Catégorie:{C['n']} ").strip().lower() or "default"
+    print(f"\n{photo_report(category=cat)}")
+
+
+def cmd_export(args):
+    """Exporte en JSON."""
+    fe = FlipEngine()
+    path = args.file or f"flips_{datetime.now():%Y%m%d}.json"
+    with open(path, "w") as f:
+        json.dump(fe.history, f, indent=2, ensure_ascii=False)
+    p(f"  ✅ Exporté: {path} ({len(fe.history['flips'])} flips)", C['g'])
 
 
 def main():
@@ -243,7 +269,7 @@ def main():
     parser.add_argument("cmd", nargs="?", default="deals",
                         choices=["analyze", "batch", "stats", "history",
                                 "export", "scam", "generate",
-                                "optimize", "summary", "deals", "plan"],
+                                "optimize", "summary", "deals", "plan", "photos"],
                         help="Commande")
     parser.add_argument("--file", "-f", help="Fichier export")
     args = parser.parse_args()
@@ -260,6 +286,7 @@ def main():
         "summary": cmd_summary,
         "deals": cmd_deals,
         "plan": cmd_plan,
+        "photos": cmd_photos,
     }
 
     header(f"VINTED FLIPPER — {args.cmd.upper()}")

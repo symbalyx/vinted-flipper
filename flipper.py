@@ -3,7 +3,7 @@
 Vinted Flipper — Moteur d'analyse de rentabilité achat/revente Vinted.
 Calcule les marges, détecte les bonnes affaires, apprend de l'historique.
 """
-import json, math
+import json, math, copy
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -15,7 +15,8 @@ DATA_DIR = BASE_DIR / "data"
 
 # Coefficient de revente par marque (0.0 = invendable, 1.0 = valeur d'achat)
 # Basé sur analyse de milliers d'annonces Vinted
-BRAND_FACTOR = {
+# Ces valeurs sont persistées dans data/coefficients.json après optimisation
+_BASE_BRAND_FACTOR = {
     # ── Luxe ──
     "hermès": 1.20, "chanel": 1.15, "louis vuitton": 1.10,
     "cartier": 1.05, "rolex": 1.10, "dior": 0.95,
@@ -46,7 +47,42 @@ BRAND_FACTOR = {
 }
 
 # Catégories et demande estimée
-CATEGORY_DEMAND = {
+# ─── Persistance des coefficients optimisés ─────────────────────
+
+_COEFF_PATH = DATA_DIR / "coefficients.json"
+
+def _load_coefficients():
+    """Charge les coefficients sauvegardés (optimisés)."""
+    global BRAND_FACTOR, CATEGORY_DEMAND
+    coeffs = {"brand": {}, "category": {}}
+    if _COEFF_PATH.exists():
+        try:
+            coeffs = json.loads(_COEFF_PATH.read_text())
+        except: pass
+    
+    # Fusion: base + optimisations
+    BRAND_FACTOR = {**_BASE_BRAND_FACTOR, **coeffs.get("brand", {})}
+    CATEGORY_DEMAND = {**_BASE_CATEGORY_DEMAND, **coeffs.get("category", {})}
+
+def _save_coefficients():
+    """Sauvegarde les coefficients optimisés."""
+    global BRAND_FACTOR, CATEGORY_DEMAND
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        _COEFF_PATH.write_text(json.dumps({
+            "brand": {k: v for k, v in BRAND_FACTOR.items() 
+                     if _BASE_BRAND_FACTOR.get(k) != v},
+            "category": {k: v for k, v in CATEGORY_DEMAND.items()
+                        if _BASE_CATEGORY_DEMAND.get(k) != v},
+        }, indent=2, ensure_ascii=False))
+    except: pass
+
+# Charger les optimisations au démarrage
+BRAND_FACTOR = dict(_BASE_BRAND_FACTOR)
+
+# ─── Catégories et demande estimée ──────────────────────────────
+
+_BASE_CATEGORY_DEMAND = {
     "sneakers": 1.35, "baskets": 1.35, "chaussures": 1.10,
     "sac": 1.45, "sacs": 1.45, "maroquinerie": 1.35,
     "montre": 1.25, "bijou": 1.00,
@@ -60,6 +96,12 @@ CATEGORY_DEMAND = {
     "maillot": 1.10, "sport": 0.85,
     "électronique": 0.60, "livre": 0.20, "jeu": 0.35,
 }
+
+# Instance runtime de CATEGORY_DEMAND (chargée avec optimisations)
+CATEGORY_DEMAND = dict(_BASE_CATEGORY_DEMAND)
+
+# Charger les optimisations persistées (brand + category)
+_load_coefficients()
 
 CONDITION_COEFF = {
     "neuf avec étiquette": 1.00, "neuf avec etiquettes": 1.00,
@@ -361,6 +403,7 @@ class FlipEngine:
             "flips_used": n,
         }
         self._save_json(self.history_path, self.history)
+        _save_coefficients()  # Persister les coefficients optimisés
 
         return {
             "status": "optimized",

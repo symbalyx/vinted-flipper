@@ -35,15 +35,33 @@ def quick_decide(text: str):
     title = re.sub(r'\s*\|\s*', ' | ', title)  # Normaliser les pipes
     
     if price <= 0:
-        return "  ❌ Impossible de détecter le prix. Format: 'Article 25€ état'"
+        # Essayer de détecter le prix différemment
+        price_match2 = re.search(r'(\d+[.,]?\d*)', text)
+        if price_match2:
+            price = float(price_match2.group(1).replace(',', '.'))
+            if price > 1000:  # Probablement pas un prix
+                price = 0
+    
+    if price <= 0 or price > 99999:
+        return "  ❌ Impossible de détecter le prix. Format: 'Article 25€ très bon état'"
     
     # Extraire l'état
     etat = "bon état"
-    for e in ["neuf avec étiquette", "neuf", "très bon état", "tres bon etat",
-              "bon état", "bon etat", "satisfaisant"]:
+    etat_patterns = ["neuf avec étiquette", "neuf avec etiquettes", "neuf",
+                     "très bon état", "tres bon etat", "très bon etat",
+                     "bon état", "bon etat", "satisfaisant", "endommagé", "endommage"]
+    for e in sorted(etat_patterns, key=len, reverse=True):
         if e in title.lower():
             etat = e
+            title = title.lower().replace(e, "").strip()
             break
+    
+    # Nettoyer le titre (enlever les caractères parasites)
+    title = re.sub(r'[|;:]', ' ', title).strip()
+    title = re.sub(r'\s+', ' ', title)[:80]
+    
+    if not title or len(title) < 3:
+        title = "Article"
     
     # Analyse flip
     result = fe.analyze(title, price, etat, "", "")
