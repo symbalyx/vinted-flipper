@@ -3,42 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Vinted Flipper — Analyseur achat/revente</title>
+<title>Vinted Flipper — Analyse, Détection, Annonces Pro</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0e17;color:#e0e0e0;padding:30px;line-height:1.6}
-.container{max-width:800px;margin:0 auto}
+.container{max-width:900px;margin:0 auto}
 h1{color:#09b83e;font-size:1.8rem;margin-bottom:4px}
 h2{color:#09b83e;font-size:1.2rem;margin:25px 0 10px;border-bottom:1px solid #1e293b;padding-bottom:5px}
+h3{color:#09b83e;font-size:1rem;margin:15px 0 5px}
 .tag{display:inline-block;background:#09b83e22;color:#09b83e;border:1px solid #09b83e44;padding:2px 10px;border-radius:4px;font-size:0.75rem;margin:2px}
-.stat{display:inline-block;background:#111827;border-radius:6px;padding:10px 15px;margin:5px;min-width:100px}
-.stat h3{font-size:0.65rem;color:#888;text-transform:uppercase}
-.stat .val{font-size:1.1rem;font-weight:700;margin-top:2px}
+.danger{background:#ff444422;color:#ff4444;border-color:#ff444444}
+.warning{background:#ffc10722;color:#ffc107;border-color:#ffc10744}
 pre{background:#111827;padding:12px;border-radius:6px;overflow-x:auto;font-size:0.8rem;margin:8px 0}
 code{background:#111827;padding:2px 5px;border-radius:3px;font-size:0.8rem}
 .cmd{background:#0d1625;border:1px solid #1e293b;padding:10px 14px;border-radius:6px;font-family:monospace;margin:5px 0}
 .g{color:#09b83e}.r{color:#ff4444}.y{color:#ffc107}
+.features{display:flex;gap:10px;flex-wrap:wrap;margin:15px 0}
+.feat{background:#111827;border-radius:8px;padding:14px;flex:1;min-width:180px}
+.feat h3{font-size:0.8rem;color:#888;text-transform:uppercase;margin:0 0 5px}
+.feat .val{font-size:1rem;font-weight:700}
 </style>
 </head>
 <body>
 <div class="container">
 <h1>Vinted Flipper</h1>
-<p style="color:#888">Analyseur achat/revente Vinted — calcule la rentabilité, détecte les bonnes affaires, suit tes flips.</p>
+<p style="color:#888">Analyseur achat/revente Vinted — détecte les arnaques, calcule les marges, génère des annonces pro.</p>
 
-<div style="margin:15px 0">
-<span class="tag">Python</span>
-<span class="tag">Achat/Revente</span>
-<span class="tag">Vinted</span>
-<span class="tag">Arbitrage</span>
-</div>
-
-<h2>Principe</h2>
-<p>Trouver des articles sous-évalués sur Vinted, les revendre avec une marge après frais (commission Vinted 5% + 0.70€, protection acheteur 0.8%, port, emballage).</p>
-
-<div class="stats" style="margin:15px 0">
-<div class="stat"><h3>Marge mini</h3><div class="val g">+30%</div></div>
-<div class="stat"><h3>Confiance</h3><div class="val">0-100%</div></div>
-<div class="stat"><h3>Profit net</h3><div class="val g">Après frais</div></div>
+<div class="features">
+<div class="feat"><h3>🔍 Analyse flip</h3><div class="val g">Marge + recommandation</div></div>
+<div class="feat"><h3>🚨 Détection arnaques</h3><div class="val r">Score risque 0-100</div></div>
+<div class="feat"><h3>📝 Annonces pro</h3><div class="val">Descriptions optimisées</div></div>
+<div class="feat"><h3>📊 Tracking</h3><div class="val">Stats + historique</div></div>
 </div>
 
 <h2>Installation</h2>
@@ -46,67 +41,70 @@ code{background:#111827;padding:2px 5px;border-radius:3px;font-size:0.8rem}
 cd vinted-flipper
 python3 cli.py -h</pre>
 
-<h2>Utilisation rapide</h2>
-<div class="cmd">$ python3 cli.py analyze</div>
-<p style="font-size:0.85rem;color:#888">Analyse interactive d'un article : colle le titre, le prix, l'état, la catégorie, la marque → reçoit la marge estimée et la recommandation.</p>
+<h2>Commandes</h2>
+<div class="cmd">python3 cli.py analyze</div>
+<p>Analyse interactive : colle le titre, prix, état → reçois la marge, le scan arnaque, et génère l'annonce.</p>
 
-<div class="cmd">$ python3 cli.py batch</div>
-<p style="font-size:0.85rem;color:#888">Mode lot : colle plusieurs annonces d'un coup (titre | prix | état | catégorie | marque).</p>
+<div class="cmd">python3 cli.py scam</div>
+<p>Détecte les arnaques : entre le prix, la description, les infos vendeur → score de risque + alertes.</p>
 
-<div class="cmd">$ python3 cli.py stats</div>
-<p style="font-size:0.85rem;color:#888">Statistiques de tous tes flips enregistrés : profit total, win rate, ROI.</p>
+<div class="cmd">python3 cli.py generate</div>
+<p>Génère une annonce professionnelle avec titre SEO, description détaillée, hashtags, et prix conseillé.</p>
 
-<h2>Exemple</h2>
-<pre>
-$ python3 cli.py batch
-  [1] TRES BON FLIP | +18.48€ | +73.9% | Nike Air Force 1
-  [2] SKIP          | -7.83€ | -65.2% | T-shirt Kiabi
-  [3] FLIP EXCELLENT| +894€  | +111.8%| Sac Chanel
-</pre>
+<div class="cmd">python3 cli.py batch</div>
+<p>Mode lot : analyse plusieurs annonces d'un coup.</p>
 
-<h2>Comment çà marche</h2>
-<ol style="color:#aaa;margin-left:20px">
-<li>Tu trouves un article sous-évalué sur Vinted</li>
-<li>Tu colles les infos dans <code>cli.py analyze</code></li>
-<li>Le moteur estime le prix de revente, calcule les frais, la marge</li>
-<li>Il recommande : SKIP / SI BESOIN / BON FLIP / TRES BON FLIP / FLIP EXCELLENT</li>
-<li>Si tu achètes, tu enregistres le flip pour tracker ton profit réel</li>
-</ol>
+<div class="cmd">python3 cli.py stats</div>
+<p>Statistiques : profit total, win rate, ROI, historique.</p>
 
-<h2>Marques rentables</h2>
-<p style="color:#aaa">Les marques avec le meilleur coefficient de revente :</p>
-<div style="margin:10px 0">
-<span class="tag" style="border-color:#09b83e44;color:#09b83e">Hermès (+120%)</span>
-<span class="tag" style="border-color:#09b83e44;color:#09b83e">Chanel (+115%)</span>
-<span class="tag" style="border-color:#09b83e44;color:#09b83e">Louis Vuitton (+110%)</span>
-<span class="tag" style="border-color:#09b83e44;color:#09b83e">Cartier (+105%)</span>
-<span class="tag" style="border-color:#09b83e44;color:#09b83e">Rolex (+110%)</span>
-<span class="tag" style="border-color:#ffc10744;color:#ffc107">Arc'teryx (+80%)</span>
-<span class="tag" style="border-color:#ffc10744;color:#ffc107">Stone Island (+85%)</span>
-<span class="tag" style="border-color:#ffc10744;color:#ffc107">Supreme (+85%)</span>
-<span class="tag" style="border-color:#ff444444;color:#ff4444">Kiabi (+12%)</span>
-<span class="tag" style="border-color:#ff444444;color:#ff4444">Primark (+8%)</span>
-</div>
+<h2>Détection d'arnaques</h2>
+<p>Analyse multi-facteurs :</p>
+<ul style="color:#aaa;margin-left:20px;margin-bottom:10px">
+<li><span class="r">●</span> Prix anormalement bas (luxe à 45€ = 🔴)</li>
+<li><span class="r">●</span> Phrases d'arnaque ("paiement hors Vinted", "contacte moi par SMS")</li>
+<li><span class="y">●</span> Nouveau vendeur sans avis</li>
+<li><span class="y">●</span> Photos issues d'internet</li>
+<li><span class="r">●</span> Compte très récent (&lt; 7 jours)</li>
+<li><span class="g">●</span> Téléphone vérifié, photos réelles, bons avis = ✅</li>
+</ul>
 
-<h2>Flux de travail recommandé</h2>
-<pre>1. Scanne Vinted (prix croissant) → trouve des marques à fort coefficient
-2. Analyse avec cli.py → vérifie la marge estimée
-3. Si BON FLIP et confiance > 50% → achète
-4. Nettoie, photo, mets en vente à prix estimé
-5. Enregistre le flip → stats s'améliorent
-6. Les marques les plus rentables : Chanel, Hermès, LV, Moncler, Arc'teryx</pre>
+<h2>Génération d'annonces</h2>
+<p>Descriptions professionnelles selon la catégorie :</p>
+<ul style="color:#aaa;margin-left:20px;margin-bottom:10px">
+<li>✅ Titre optimisé SEO (marque + modèle + taille + mots-clés)</li>
+<li>✅ Description structurée (points forts, infos, mesures, défauts)</li>
+<li>✅ Prix conseillé (min / conseillé / max selon le segment)</li>
+<li>✅ Hashtags Vinted générés automatiquement</li>
+<li>✅ Templates par catégorie (sneakers, sac, veste, etc.)</li>
+</ul>
 
-<h2>Frais Vinted (2026)</h2>
-<table style="width:100%;border-collapse:collapse;font-size:0.85rem">
-<tr><th style="text-align:left;padding:4px;border-bottom:1px solid #1e293b">Frais</th><th style="text-align:right;padding:4px;border-bottom:1px solid #1e293b">Montant</th></tr>
-<tr><td style="padding:4px">Commission Vinted</td><td style="text-align:right">5% + 0.70€</td></tr>
-<tr><td style="padding:4px">Protection acheteur</td><td style="text-align:right">0.8%</td></tr>
-<tr><td style="padding:4px">Port (moyen)</td><td style="text-align:right">3.50€ - 7€</td></tr>
-<tr><td style="padding:4px">Emballage</td><td style="text-align:right">~1€</td></tr>
-</table>
+<h2>Exemples</h2>
+<pre># Analyse + Scan arnaque + Annonce, tout en un :
+$ python3 cli.py analyze
+  Titre: Nike Air Force 1 blanches taille 42
+  Prix: 25
+  → PROFIT +9.48€ (BON FLIP)
+  → SCAN: 🟢 Annonce saine
+  → ANNONCE: description pro générée automatiquement
+
+# Test arnaque :
+$ python3 cli.py scam
+  Titre: SAC CHANEL URGENT
+  Prix: 45
+  → 🔴 ARNAQUE PROBABLE (score 100/100)
+  → 14 alertes : prix trop bas, contact hors plateforme,
+    nouveau compte, photos internet...</pre>
+
+<h2>Structure du projet</h2>
+<pre>vinted-flipper/
+├── flipper.py    # Moteur d'analyse des marges
+├── scanner.py    # Détection d'arnaques
+├── listing.py    # Génération d'annonces pro
+├── cli.py        # Interface CLI tout-en-un
+├── docs/         # GitHub Pages
+└── data/         # Stats & historique</pre>
 
 <p style="margin-top:30px;color:#555;font-size:0.8rem;text-align:center">
-  Vinted Flipper — Un projet Symbalyx.<br>
   <a href="https://github.com/symbalyx/vinted-flipper" style="color:#09b83e">GitHub</a>
 </p>
 </div>

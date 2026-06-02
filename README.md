@@ -1,15 +1,19 @@
 # Vinted Flipper 🔄
 
-**Analyseur achat/revente Vinted** — calcule la rentabilité d'un flip, détecte les bonnes affaires, suit tes performances.
+**Analyseur achat/revente Vinted** — détecte les arnaques, calcule les marges, génère des annonces pro, suit tes performances.
 
 ```
-Achat 25€ → Estimation revente 43€ → Profit net +9.48€ (+38%) ✓
-Achat 12€ → Estimation revente 15€ → Profit net -7.83€ (-65%) ✗
+Achat 25€ → Marge +9.48€ (+38%) → Annonce pro générée ✅
+Arnaque détectée : "Chanel à 45€" → Score risque 100/100 🔴
 ```
 
-## Pourquoi ?
+## 3 modules en 1
 
-Vinted c'est 45M d'utilisateurs. Des milliers d'articles sous-évalués chaque jour. Le problème : savoir **quand acheter**. Ce bot calcule instantanément la marge après tous les frais (commission Vinted 5% + 0.70€, protection acheteur 0.8%, port, emballage).
+| Module | Commande | Utilité |
+|---|---|---|
+| **Flipper** | `analyze` | Calcule la rentabilité (frais Vinted, marque, état, catégorie) |
+| **Scanner** | `scam` | Détecte les arnaques (prix, description, vendeur, photos) |
+| **Listing** | `generate` | Génère des annonces professionnelles |
 
 ## Installation
 
@@ -21,68 +25,74 @@ python3 cli.py -h
 
 ## Utilisation
 
-### Mode interactif
+### Analyse complète (flip + scan + annonce)
 ```bash
 python3 cli.py analyze
 ```
-Colle le titre, le prix, l'état → reçois la marge et la recommandation.
+Entre le titre, le prix, la catégorie → reçois :
+- La **marge estimée** et la recommandation
+- Le **scan d'arnaque**
+- L'**annonce pro générée**
 
-### Mode batch (plusieurs annonces d'un coup)
+### Détection d'arnaques
+```bash
+python3 cli.py scam
+```
+Détecte : prix anormal, phrases suspectes, nouveau compte, photos volées, contact hors plateforme.
+
+### Mode batch
 ```bash
 python3 cli.py batch
 ```
 ```
-  [1] TRES BON FLIP | +18.48€ | +73.9% | Nike Air Force 1
-  [2] SKIP          | -7.83€  | -65.2% | T-shirt Kiabi
-  [3] FLIP EXCELLENT| +894€   | +111.8%| Sac Chanel
+  Nike Air Force 1 | 25 | très bon état | sneakers | nike
+  → BON FLIP        | +9.48€ | +37.9%
+  
+  Sac Chanel | 45 | bon état | sac | chanel
+  → SKIP (arnaque probable)
 ```
 
-### Stats
+### Stats & Historique
 ```bash
-python3 cli.py stats
-python3 cli.py history
-python3 cli.py export
+python3 cli.py stats    # Profit total, win rate, ROI
+python3 cli.py history  # Derniers flips
+python3 cli.py export   # Export JSON
 ```
 
-## Comment çà marche
+## Comment ça marche
 
-1. **Coefficient marque** — 80+ marques analysées (Hermès 1.20 → Primark 0.08)
-2. **Demande catégorie** — sneakers/sacs/montres ont la meilleure demande
-3. **État** — neuf avec étiquette → satisfaisant (coefficient 1.0 → 0.4)
-4. **Frais réels** — commission Vinted, protection acheteur, port, emballage
-5. **Recommandation** — SKIP / SI BESOIN / BON FLIP / TRES BON FLIP / FLIP EXCELLENT
+### Flipper
+- 80+ marques avec coefficient de revente (Hermès 1.20 → Primark 0.08)
+- 20+ catégories avec demande estimée
+- Frais réels Vinted (5% + 0.70€ + 0.8% protection + port + emballage)
+
+### Scanner arnaque
+- 6 facteurs d'analyse : prix, description, titre, vendeur, photos, marque
+- 100+ phrases d'arnaque détectées
+- Score de risque 0-100 avec alertes détaillées
+
+### Listing pro
+- Templates par catégorie (sneakers, sac, veste, montre...)
+- Titre optimisé SEO Vinted
+- Prix conseillé avec fourchette (min/max)
+- Hashtags automatiques
 
 ## Marques les plus rentables
 
 | Marque | Coefficient | |
-|--------|:-:|---|
+|---|---|---|
 | Hermès, Chanel, Louis Vuitton | +110-120% | ⭐ Meilleur ROI |
 | Cartier, Rolex | +105-110% | ⭐ Montres |
 | Arc'teryx, Stone Island, Supreme | +80-85% | ⭐ Streetwear |
-| Nike, Adidas, New Balance | +50-58% | ✅ Bon marché |
-| **Kiabi, Primark** | **+8-12%** | ❌ À éviter |
+| Nike, Adidas | +50-58% | ✅ Bon marché |
+| Kiabi, Primark | +8-12% | ❌ À éviter |
 
-## Flux recommandé
+## Prochaines étapes
 
-1. Scanne Vinted → articles en **prix croissant**
-2. Filtre les **marques à fort coefficient** (Chanel, Hermès, Arc'teryx, etc.)
-3. Analyse avec `cli.py` → vérifie la marge
-4. Si **BON FLIP** et **confiance > 50%** → achète
-5. Nettoie, prends des photos propres, mets en vente
-6. Enregistre le flip → tes stats s'améliorent
-
-## Structure
-
-```
-vinted-flipper/
-├── flipper.py     # Moteur d'analyse (coeur)
-├── cli.py         # Interface CLI
-├── scripts/
-│   └── browser_search.py  # Plan navigation Vinted
-├── docs/
-│   └── index.html  # GitHub Pages
-└── data/           # Stats & historique (auto-généré)
-```
+- [ ] Interface web (Flask)
+- [ ] Monitoring automatique des nouvelles annonces
+- [ ] Alerts Telegram/Discord pour les bonnes affaires
+- [ ] Base de données des prix de vente réels
 
 ## Licence
 

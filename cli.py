@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Vinted Flipper CLI — Interface interactive.
-Analyse, tracke et optimise tes flips Vinted.
+Vinted Flipper CLI — Interface tout-en-un.
+Analyse, tracke, scanne les arnaques et génère des annonces pro.
 """
 import argparse, sys, json
 from datetime import datetime
@@ -10,13 +10,11 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.resolve()
 sys.path.insert(0, str(BASE_DIR))
 from flipper import FlipEngine
+from scanner import ScamDetector
+from listing import ListingGenerator
 
 C = {"g": "\033[92m", "r": "\033[91m", "y": "\033[93m", "c": "\033[96m", "b": "\033[1m", "n": "\033[0m"}
-
-
-def p(text, color=""):
-    print(f"{color}{text}{C['n']}")
-
+p = lambda t, c="": print(f"{c}{t}{C['n']}")
 
 def header(text):
     print(f"\n{C['b']}{C['c']}{'='*55}{C['n']}")
@@ -29,11 +27,8 @@ def cmd_analyze(args):
     fe = FlipEngine()
     titre = input(f"  {C['b']}Titre:{C['n']} ").strip()
     if not titre: return
-    prix = input(f"  {C['b']}Prix achat (€):{C['n']} ").strip().replace(",", ".")
-    if not prix: return
-    try: prix = float(prix)
-    except: p("  Prix invalide", C['r']); return
-
+    prix = _input_float("Prix achat (€)")
+    if prix is None: return
     etat = input(f"  {C['b']}État (neuf/t bon/bon/satisf):{C['n']} [bon] ").strip() or "bon état"
     cat = input(f"  {C['b']}Catégorie:{C['n']} ").strip()
     marque = input(f"  {C['b']}Marque:{C['n']} ").strip()
@@ -42,33 +37,127 @@ def cmd_analyze(args):
     r = fe.analyze(titre, prix, etat, cat, marque, ship)
     print(f"\n{C['g']}{fe.rapport(r)}{C['n']}")
 
+    # Scam check
+    print()
+    scan = input(f"  Scanner l'annonce ? (o/N) ").strip().lower()
+    if scan == 'o':
+        sd = ScamDetector()
+        sr = sd.analyze(title=titre, price=prix, category=cat, brand=marque)
+        print(f"\n{sd.rapport(sr)}")
+
     # Enregistrer ?
     save = input(f"\n  Enregistrer ce flip ? (o/N) ").strip().lower()
     if save == 'o':
-        revente = float(input(f"  {C['b']}Prix de revente réel (€):{C['n']} ").strip().replace(",", "."))
-        fe.record(titre, prix, revente)
-        s = "✅" if revente > prix else "❌"
-        p(f"  {s} Flip enregistré !", C['g'])
+        revente = _input_float("Prix de revente réel (€)")
+        if revente:
+            fe.record(titre, prix, revente)
+            p(f"  ✅ Flip enregistré !", C['g'])
+
+    # Générer annonce ?
+    gen = input(f"  Générer une annonce pro ? (o/N) ").strip().lower()
+    if gen == 'o':
+        _generate_listing(marque, cat, etat, prix, r.get("estimation_revente", prix*1.3), titre)
+
+
+def cmd_scam(args):
+    """Détecte les arnaques sur une annonce."""
+    sd = ScamDetector()
+    print(f"  Analyse d'arnaque — entre les infos de l'annonce\n")
+    titre = input(f"  {C['b']}Titre:{C['n']} ").strip() or "?"
+    prix = _input_float("Prix (€)") or 0
+    desc = input(f"  {C['b']}Description:{C['n']} ").strip() or ""
+    cat = input(f"  {C['b']}Catégorie:{C['n']} ").strip()
+    marque = input(f"  {C['b']}Marque:{C['n']} ").strip()
+
+    # Infos vendeur
+    rev = input(f"  {C['b']}Nombre d'avis vendeur:{C['n']} [0] ").strip()
+    reviews = int(rev) if rev.isdigit() else 0
+    jours = input(f"  {C['b']}Âge du compte (jours):{C['n']} [999] ").strip()
+    age = int(jours) if jours.isdigit() else 999
+    stock = input(f"  {C['b']}Photos issues d'internet ? (o/N):{C['n']} ").strip().lower() == 'o'
+    phone = input(f"  {C['b']}Téléphone vérifié ? (O/n):{C['n']} ").strip().lower() != 'n'
+
+    r = sd.analyze(
+        title=titre, price=prix, description=desc,
+        category=cat, brand=marque,
+        seller_reviews=reviews, seller_joined_days=age,
+        is_stock_photo=stock, seller_has_verified_phone=phone,
+    )
+    print(f"\n{sd.rapport(r)}")
+
+
+def cmd_generate(args):
+    """Génère une annonce pro."""
+    print(f"  Générateur d'annonce professionnelle\n")
+    marque = input(f"  {C['b']}Marque:{C['n']} ").strip()
+    if not marque: return
+    cat = input(f"  {C['b']}Catégorie:{C['n']} ").strip() or "default"
+    etat = input(f"  {C['b']}État:{C['n']} [bon état] ").strip() or "bon état"
+    taille = input(f"  {C['b']}Taille:{C['n']} ").strip()
+    couleur = input(f"  {C['b']}Couleur:{C['n']} [noir] ").strip() or "noir"
+    modele = input(f"  {C['b']}Modèle:{C['n']} ").strip()
+    matiere = input(f"  {C['b']}Matière:{C['n']} ").strip()
+    spec = input(f"  {C['b']}Point fort:{C['n']} ").strip()
+    prix_achat = _input_float("Prix d'achat (€)") or 0
+
+    _generate_listing(marque, cat, etat, prix_achat, 0, f"{marque} {modele}".strip())
+
+
+def _generate_listing(marque, cat, etat, prix_achat, prix_estime, titre_indicatif):
+    """Helper: génère et affiche une annonce."""
+    lg = ListingGenerator()
+    # Estimer prix si pas fourni
+    if prix_estime <= 0 and prix_achat > 0:
+        fe = FlipEngine()
+        r = fe.analyze(titre_indicatif, prix_achat, etat, cat, marque)
+        prix_estime = r.get("estimation_revente", prix_achat * 1.3)
+
+    # Suggérer prix si pas d'achat
+    prix_conseil = prix_estime or 50
+
+    r = lg.generate(
+        marque=marque, categorie=cat, etat=etat,
+        taille="", couleur="noir",
+        prix_achat=prix_achat, prix_estime=prix_conseil,
+    )
+
+    print(f"\n{C['g']}{lg.rapport(r)}{C['n']}")
+
+    # Sauvegarder ?
+    save = input(f"\n  Sauvegarder l'annonce ? (o/N) ").strip().lower()
+    if save == 'o':
+        path = f"annonce_{datetime.now():%Y%m%d_%H%M}.txt"
+        with open(path, "w") as f:
+            f.write(f"=== {r['titre']} ===\n\n")
+            f.write(f"Prix conseillé: {r['prix_conseille']['conseille']:.2f}€\n\n")
+            f.write(r['description'])
+        p(f"  ✅ Sauvegardée: {path}", C['g'])
+
+
+def _input_float(prompt):
+    try:
+        val = input(f"  {C['b']}{prompt}:{C['n']} ").strip().replace(",", ".")
+        return float(val) if val else None
+    except ValueError:
+        p("  Valeur invalide", C['r'])
+        return None
 
 
 def cmd_batch(args):
-    """Analyse plusieurs annonces en mode rapide."""
+    """Analyse plusieurs annonces en lot."""
     fe = FlipEngine()
     entries = 0
-    p(f"  Mode batch — colle une annonce par ligne (titre | prix | état | catégorie | marque)", C['y'])
-    p(f"  Exemple: Nike Air Force 1 | 25 | très bon état | sneakers | nike", C['y'])
-    p(f"  Ligne vide pour terminer\n")
+    p("  Mode batch — une annonce par ligne: titre | prix | état | catégorie | marque", C['y'])
+    p("  Ligne vide pour terminer\n")
     while True:
         try:
             line = input(f"  [{entries+1}] ").strip()
             if not line: break
             parts = [p.strip() for p in line.split("|")]
-            if len(parts) < 2:
-                p("    Format: titre | prix | état | catégorie | marque", C['y'])
-                continue
+            if len(parts) < 2: continue
             titre = parts[0]
             try: prix = float(parts[1].replace(",", "."))
-            except: p("    Prix invalide", C['r']); continue
+            except: continue
             etat = parts[2] if len(parts) > 2 else "bon état"
             cat = parts[3] if len(parts) > 3 else ""
             marque = parts[4] if len(parts) > 4 else ""
@@ -82,75 +171,49 @@ def cmd_batch(args):
 
 
 def cmd_stats(args):
-    """Affiche les stats de flips."""
+    """Affiche les stats."""
     fe = FlipEngine()
     s = fe.stats()
     if s["flips"] == 0:
         p("  Aucun flip enregistré.", C['y'])
     else:
-        p("  STATS FLIPS", C['b'])
+        p(f"  STATS FLIPS", C['b'])
         p(f"  Total: {s['flips']} | WR: {s['wr']}% ({s['wins']}W/{s['losses']}L)")
         p(f"  Investi: {s['spent']:.2f}€ | Revenu: {s['revenue']:.2f}€")
-        profit = s['profit']
-        profit_color = C['g'] if profit > 0 else C['r']
-        p(f"  Profit total: {profit_color}{profit:+.2f}€{C['n']}")
-        p(f"  Profit moyen/flip: {s['avg_profit']:.2f}€")
-        p(f"  ROI total: {s['roi_total']:+.1f}%")
-
-        if s["flips"] > 0:
-            p(f"\n  Derniers flips:", C['b'])
-            for f in fe.history["flips"][-5:]:
-                prof = f['profit']
-                c = C['g'] if prof > 0 else C['r']
-                p(f"  {c}{prof:+.2f}€{C['n']} | {f['title'][:45]}")
+        profit_color = C['g'] if s['profit'] > 0 else C['r']
+        p(f"  Profit total: {profit_color}{s['profit']:+.2f}€{C['n']}")
+        p(f"  Profit moyen: {s['avg_profit']:.2f}€ | ROI: {s['roi_total']:+.1f}%")
 
 
 def cmd_history(args):
-    """Liste tous les flips."""
+    """Liste les flips."""
     fe = FlipEngine()
     if not fe.history["flips"]:
-        p("  Aucun flip enregistré.", C['y']); return
+        p("  Aucun flip.", C['y']); return
     p(f"  {'Date':<12} {'Profit':>8} {'Titre':<45}", C['b'])
-    p(f"  {'-'*65}", C['b'])
+    p(f"  {'-'*65}")
     for f in reversed(fe.history["flips"][-20:]):
-        d = f['date'][:10]
         prof = f['profit']
         c = C['g'] if prof > 0 else C['r']
-        p(f"  {d:<12} {c}{prof:>+8.2f}€{C['n']} {f['title'][:45]}")
-
-
-def cmd_watch(args):
-    """Gère la watchlist."""
-    fe = FlipEngine()
-    if args.action == "add":
-        q = input("  Recherche: ").strip()
-        mx = input("  Prix max (0=aucun): ").strip()
-        fe.add_search(q, float(mx) if mx else 0)
-        p(f"  ✅ Recherche ajoutée: {q}", C['g'])
-    elif args.action == "list":
-        if not fe.watchlist["searches"]:
-            p("  Aucune recherche surveillée.", C['y'])
-        else:
-            for s in fe.watchlist["searches"]:
-                p(f"  #{s['id']} {s['query']} (max {s['max_price']:.0f}€)")
+        p(f"  {f['date'][:10]:<12} {c}{prof:>+8.2f}€{C['n']} {f['title'][:45]}")
 
 
 def cmd_export(args):
-    """Exporte les flips en JSON."""
+    """Exporte en JSON."""
     fe = FlipEngine()
-    path = args.file or f"flips_export_{datetime.now():%Y%m%d}.json"
+    path = args.file or f"flips_{datetime.now():%Y%m%d}.json"
     with open(path, "w") as f:
         json.dump(fe.history, f, indent=2, ensure_ascii=False)
     p(f"  ✅ Exporté: {path} ({len(fe.history['flips'])} flips)", C['g'])
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Vinted Flipper CLI")
+    parser = argparse.ArgumentParser(description="Vinted Flipper — Analyse, Scanne, Génère")
     parser.add_argument("cmd", nargs="?", default="analyze",
-                        choices=["analyze", "batch", "stats", "history", "watch", "export"],
+                        choices=["analyze", "batch", "stats", "history",
+                                "export", "scam", "generate"],
                         help="Commande")
-    parser.add_argument("--action", default="add", help="Action pour watch")
-    parser.add_argument("--file", "-f", help="Fichier pour export")
+    parser.add_argument("--file", "-f", help="Fichier export")
     args = parser.parse_args()
 
     cmds = {
@@ -158,8 +221,9 @@ def main():
         "batch": cmd_batch,
         "stats": cmd_stats,
         "history": cmd_history,
-        "watch": cmd_watch,
         "export": cmd_export,
+        "scam": cmd_scam,
+        "generate": cmd_generate,
     }
 
     header(f"VINTED FLIPPER — {args.cmd.upper()}")
