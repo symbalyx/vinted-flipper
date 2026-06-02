@@ -1,3 +1,15 @@
-*.pyc
+node_modules/
+data/cache/
+data/coefficients.json
+data/scam_model.json
+data/flip_history.json
+data/flipper_config.json
+data/watchlist.json
 __pycache__/
-data/*.json
+*.pyc
+.env
+*.json
+!package.json
+!package-lock.json
+search_*.json
+vinted_cookies.json
