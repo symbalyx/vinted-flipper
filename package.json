@@ -1,0 +1,30 @@
+{
+  "name": "vinted-flipper",
+  "version": "1.0.0",
+  "description": "**Analyseur achat/revente Vinted** — détecte les arnaques, calcule les marges, génère des annonces pro, suit tes performances.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://symbalyx: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@github.com/symbalyx/vinted-flipper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/symbalyx/vinted-flipper/issues"
+  },
+  "homepage": "https://github.com/symbalyx/vinted-flipper#readme",
+  "dependencies": {
+    "@powerm1nt/vinted-api": "^2.14.15",
+    "playwright": "^1.60.0",
+    "puppeteer-core": "^25.1.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
