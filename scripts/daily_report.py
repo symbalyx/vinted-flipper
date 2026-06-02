@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Vinted Flipper — Rapport quotidien.
-Lance le Deal Finder, conseils saisonniers + stratégies pro.
+Vinted Flipper — Rapport quotidien v2.
+Ton sobre, style note perso. Pas de marketinguiserie.
 """
 import sys, calendar
 from datetime import datetime
@@ -17,89 +17,88 @@ from scanner import ScamDetector
 
 def main():
     now = datetime.now()
-    print("=" * 55)
-    print("  VINTED FLIPPER — RAPPORT QUOTIDIEN")
-    print(f"  {now:%d/%m/%Y %H:%M}")
-    print("=" * 55)
-
+    month = now.month
+    day = now.day
+    
+    print("=" * 50)
+    print(f"  VINTED FLIPPER — {now:%d/%m/%Y}")
+    print("=" * 50)
+    
     # Stats du moteur
     fe = FlipEngine()
     stats = fe.stats()
     if stats["flips"] > 0:
-        print(f"\n  📊 FLIPS: {stats['flips']} | WR: {stats['wr']}% | "
-              f"Profit: {stats['profit']:+.2f}€ | ROI: {stats['roi_total']:+.1f}%")
-
+        wr_color = "vert" if stats["wr"] >= 60 else "rouge"
+        print(f"\n  Bilan: {stats['flips']} flips | {stats['wr']}% reussite | "
+              f"+{stats['profit']:.0f}€ | ROI {stats['roi_total']:+.0f}%")
+    
     # Stats du scanner
     sd = ScamDetector()
     if sd.model["analyses"] > 0:
-        print(f"  🛡️ SCANNER: {sd.model['analyses']} analyses | "
-              f"{sd.model['confirmed_fakes']} faux | {sd.model['confirmed_real']} authentiques")
-
+        print(f"  Scanner: {sd.model['analyses']} annonces analysees | "
+              f"{sd.model['confirmed_fakes']} fausses | {sd.model['confirmed_real']} authentiques")
+    
     # Deal Finder
     df = DealFinder()
-
+    
     # Plan pour 3 budgets
+    budgets_info = []
     for budget in [100, 200, 500]:
         plan = df.daily_plan(budget=budget)
         if plan["items_to_buy"] > 0:
-            print(f"\n  🎯 BUDGET {budget}€/JOUR: "
-                  f"{plan['items_to_buy']} articles → +{plan['total_profit_est']:.0f}€ "
-                  f"(ROI {plan['roi_est']:+.0f}%, revente {plan['time_to_sell']})")
-            weekly = plan['total_profit_est'] * 5
-            monthly = plan['total_profit_est'] * 22
-            print(f"     Semaine: +{weekly:.0f}€ | Mois: +{monthly:.0f}€")
-
-    # Top recommandations
-    print(f"\n  🔍 RECHERCHES À FAIRE AUJOURD'HUI:")
+            budgets_info.append(
+                f"  Budget {budget}€/j: {plan['items_to_buy']} achats -> +{plan['total_profit_est']:.0f}€ "
+                f"(ROI {plan['roi_est']:+.0f}%, vente sous {plan['time_to_sell']})"
+            )
+    
+    if budgets_info:
+        print(f"\n  Plans par budget:")
+        for line in budgets_info:
+            print(line)
+    
+    # Top recherches du jour
+    print(f"\n  Recherches du jour:")
     df.scan_all()
     small = [o for o in df.opportunities if o["buy_price"] <= 40][:3]
     medium = [o for o in df.opportunities if 40 < o["buy_price"] <= 100][:3]
     for o in small[:3]:
-        print(f"    • {o['brand'].title()} {o['category']} → "
-              f"~{o['buy_price']}€ → ~{o['est_sell']:.0f}€ (+{o['profit_net']:.0f}€)")
+        print(f"    - {o['brand'].title()} {o['category']}: "
+              f"~{o['buy_price']:.0f}€ -> ~{o['est_sell']:.0f}€ (+{o['profit_net']:.0f}€)")
     for o in medium[:3]:
-        print(f"    • {o['brand'].title()} {o['category']} → "
-              f"~{o['buy_price']:.0f}€ → ~{o['est_sell']:.0f}€ (+{o['profit_net']:.0f}€)")
-
+        print(f"    - {o['brand'].title()} {o['category']}: "
+              f"~{o['buy_price']:.0f}€ -> ~{o['est_sell']:.0f}€ (+{o['profit_net']:.0f}€)")
+    
     print()
-
-    # ── CONSEIL SAISONNIER ──
+    
+    # Conseil saisonnier
     season_tips = {
-        1: "Janvier: Soldes d'hiver → achète des articles d'été à prix brader. Vends manteaux, doudounes, pulls.",
-        2: "Février: Dernière ligne droite pour l'hiver. Achète des articles de printemps en préparation.",
-        3: "Mars: Prépare le printemps. Vends trenchs, blousons légers, pulls fins. Achète robes, t-shirts.",
-        4: "Avril: Le printemps est là. Vends vestes mi-saison, chemises. Stocke robes, shorts, sandales.",
-        5: "Mai: Pleine saison printemps. Vends robes, t-shirts, baskets. Vestes d'hiver = invendables.",
-        6: "Juin: Prépare l'été. Vends maillots, shorts, sandales. Achète articles d'automne en vide-greniers.",
-        7: "Juillet: Basse saison Vinted. Profite pour acheter en lot. Vends plage, chapeaux, lunettes.",
-        8: "Août: Prépare la rentrée. Vends vêtements scolaires, sacs à dos. Achète pulls, vestes.",
-        9: "Septembre: RENTRÉE — forte demande. Vends sweats, pulls, vestes légères, chemises.",
-        10: "Octobre: L'hiver arrive. Vends doudounes, parkas, manteaux, boots. Achète en brocante.",
-        11: "Novembre: BLACK FRIDAY — promos. Vends accessoires, bijoux, sacs, articles de fête.",
-        12: "Décembre: FÊTES — pic d'achat. Vends robes soirée, costumes, accessoires, bijoux, sacs.",
+        1: "Janvier: soldes d'hiver, achete articles d'ete a prix bradé. Vends manteaux, doudounes.",
+        2: "Fevrier: derniere ligne droite pour l'hiver. Achete articles de printemps en preparation.",
+        3: "Mars: prepare le printemps. Vends trenchs, blousons, pulls fins.",
+        4: "Avril: le printemps arrive. Vends vestes mi-saison, chemises. Stocke robes, shorts.",
+        5: "Mai: pleine saison. Vends robes, t-shirts, baskets. Vestes d'hiver invendables.",
+        6: "Juin: prepare l'ete. Vends maillots, shorts. Achete articles d'automne en vide-greniers.",
+        7: "Juillet: basse saison Vinted. Profite pour acheter en lot.",
+        8: "Aout: prepare la rentrée. Vends vetements scolaires. Achete pulls, vestes.",
+        9: "Septembre: RENTREE. Forte demande. Vends sweats, pulls, vestes legeres.",
+        10: "Octobre: l'hiver arrive. Vends doudounes, parkas, boots.",
+        11: "Novembre: Black Friday. Vends accessoires, bijoux, sacs.",
+        12: "Decembre: fetes. Vends robes soiree, costumes, accessoires.",
     }
-    tip = season_tips.get(now.month, "")
+    tip = season_tips.get(month, "")
     if tip:
-        print(f"  📅 {calendar.month_name[now.month].upper()}:")
-        for line in tip.split(". "):
-            print(f"     • {line.strip()}")
+        print(f"  Calendrier:")
+        print(f"    {tip}")
         print()
-
-    # 💡 STRATÉGIES PRO
-    print(f"  💡 STRATÉGIES DES PROS:")
-    strategies = [
-        "Sourcing: vide-greniers, Emmaüs, dépôts-vente → prix ×0.3 par rapport à Vinted",
-        "Photos: fond blanc + lumière naturelle + 5+ photos = +40% de vues",
-        "Prix: commencer 20% au-dessus du prix cible, accepter offres -10%",
-        "Descriptions: marque + taille + état + matière + mesures + hashtags",
-        "Publication: dimanche/lundi matin (9h-11h) = meilleur trafic",
-        "Gestion stock: FIFO — brader -20% après 30 jours, -40% après 60 jours",
-        "Achats décalés: acheter l'hiver en juillet, l'été en janvier",
-    ]
-    for s in strategies:
-        print(f"     • {s}")
-
-    print(f"\n  💡 Utilité: cli.py analyze | scam | generate | deals | plan | batch")
+    
+    # 2-3 conseils rapides
+    print(f"  Conseils:")
+    print(f"    Sources: vide-greniers, Emmaüs, depots-vente -> prix x0.3 vs Vinted")
+    print(f"    Photos: fond clair + lumiere naturelle + 5 photos = +40% de vues")
+    print(f"    Publication: dimanche/lundi matin (9h-11h) = meilleur trafic")
+    print(f"    Stock: brader -20% apres 30 jours, -40% apres 60 jours")
+    
+    print(f"\n  Commandes: analyze | scam | generate | deals | plan | batch")
     print()
 
 

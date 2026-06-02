@@ -219,7 +219,7 @@ class ScamDetector:
                     if cat_key in c or not c:
                         if price < floor * 0.3:
                             score += 40
-                            self._alert("Prix absurde pour cette marque", "CRITIQUE",
+                            self._alert("Prix tres bas pour cette marque luxe", "CRITIQUE",
                                 f"{b.title()} {cat_key} à {price:.0f}€ — authentique coûte {floor}€ minimum")
                         elif price < floor * 0.6:
                             score += 20
@@ -480,25 +480,25 @@ class ScamDetector:
         return result
 
     def _alert(self, titre: str, niveau: str, detail: str):
-        icon = {"CRITIQUE": "🔴", "ÉLEVÉ": "🟠", "MOYEN": "🟡", "FAIBLE": "🟢"}
+        icon = {"CRITIQUE": "[CRITIQUE]", "ÉLEVÉ": "[ELEVE]", "MOYEN": "[MOYEN]", "FAIBLE": "[FAIBLE]"}
         self.alertes.append({
             "titre": titre, "niveau": niveau,
-            "detail": detail, "icone": icon.get(niveau, "⚪"),
+            "detail": detail, "icone": icon.get(niveau, "[-]"),
         })
 
     def rapport(self, r: dict) -> str:
-        """Rapport formaté complet."""
+        """Rapport formaté complet — ton sobre."""
         lines = []
         n = r['niveau']
         s = r['score_risque']
 
-        if n == "CRITIQUE": h = "🔴 FAUSSE MARQUE / ARNAQUE"
-        elif n == "ÉLEVÉ": h = "🟠 RISQUE ÉLEVÉ"
-        elif n == "MOYEN": h = "🟡 VIGILANCE REQUISE"
-        elif n == "FAIBLE": h = "🟢 PRESQUE SAIN"
-        else: h = "✅ ANNONCE SAINE"
+        if n == "CRITIQUE": h = "FAUSSE MARQUE / ARNAQUE"
+        elif n == "ÉLEVÉ": h = "RISQUE ELEVE"
+        elif n == "MOYEN": h = "VIGILANCE"
+        elif n == "FAIBLE": h = "PRESQUE SAIN"
+        else: h = "ANNONCE SAINE"
 
-        lines.append(f"── {h} ──")
+        lines.append(f"  Analyse: {h}")
         lines.append(f"  Score risque: {s}/{MAX_SCAM_SCORE}")
         lines.append(f"  {r['recommandation']}")
 
@@ -506,20 +506,19 @@ class ScamDetector:
         am = r.get('analyse_marque', {})
         if am.get('risque_contrefaçon'):
             rc = am['risque_contrefaçon']
-            icon = {"TRÈS ÉLEVÉ": "🔴", "ÉLEVÉ": "🟠", "MOYEN": "🟡", "FAIBLE": "🟢"}
-            lines.append(f"  Marque '{am['marque']}': risque contrefaçon {icon.get(rc,'')} {rc}")
+            lines.append(f"  Marque '{am['marque']}': risque contrefaçon {rc}")
             if 'pct_contrefacon' in am:
-                lines.append(f"    {am['pct_contrefacon']:.0f}% des annonces de cette marque sont des fausses")
+                lines.append(f"    {am['pct_contrefacon']:.0f}% fausses signalees")
             if 'alerte_prix' in am:
-                lines.append(f"    ⚠ {am['alerte_prix']}")
+                lines.append(f"    Alerte: {am['alerte_prix']}")
 
         if r['alertes']:
-            lines.append(f"  Alertes ({len(r['alertes'])}):")
+            lines.append(f"  Points ({len(r['alertes'])}):")
             for a in r['alertes']:
-                lines.append(f"    {a['icone']} {a['titre']}")
-                lines.append(f"       {a['detail']}")
+                lines.append(f"    - {a['titre']} [{a['niveau']}]")
+                lines.append(f"      {a['detail']}")
         else:
-            lines.append(f"  ✅ Aucune alerte")
+            lines.append(f"  Aucune alerte")
 
         return "\n".join(lines)
 
