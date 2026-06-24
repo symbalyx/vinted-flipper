@@ -365,10 +365,10 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 
 /* ---------- marquee valeurs ---------- */
 .marquee{ border-block:1px solid var(--line); padding-block:18px; overflow:hidden; white-space:nowrap; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent) }
-.marquee .track{ display:inline-flex; gap:0; animation:mq 36s linear infinite; will-change:transform }
-.marquee span{ font-family:var(--serif); font-size:clamp(1.3rem,3vw,2.1rem); color:var(--ash); padding-inline:28px }
-.marquee span em{ color:var(--gold-soft); font-style:normal }
-.marquee .dot{ color:var(--ember); padding-inline:8px }
+.marquee .track{ display:inline-flex; gap:0; animation:mq 60s linear infinite; will-change:transform }
+.marquee span{ font-family:var(--serif); font-style:italic; font-size:clamp(1rem,2.1vw,1.45rem); color:var(--ash-dim); padding-inline:26px; font-weight:400 }
+.marquee span em{ color:var(--gold-soft); font-style:italic }
+.marquee .dot{ color:rgba(201,162,75,.5); padding-inline:6px; font-size:.6em; vertical-align:middle }
 @keyframes mq{ to{ transform:translateX(-50%) } }
 @media (prefers-reduced-motion: reduce){ .marquee .track{ animation:none } .scroll-hint .bar{ animation:none } }
 
@@ -412,6 +412,8 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 .step p{ margin:0; font-size:.92rem; color:var(--ash) }
 .panel-img{ aspect-ratio:4/5; border-radius:var(--r-lg); border:1px solid var(--line); overflow:hidden; position:relative; background:var(--ink-2) }
 .panel-img canvas{ width:100%; height:100%; display:block }
+.bag-canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; transition:opacity .8s var(--ease) }
+.bag-canvas.on{ opacity:1 }
 .panel-cap{ position:absolute; left:16px; bottom:14px; z-index:2; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ash); background:rgba(8,7,6,.55); border:1px solid var(--line); padding:6px 11px; border-radius:999px }
 
 /* audiences (débutants/confirmés) */
@@ -506,18 +508,28 @@ footer{ border-top:1px solid var(--line); padding-block:48px 40px; margin-top:30
 @media (prefers-reduced-motion: reduce){ .reveal{ opacity:1; transform:none; transition:none } }
 
 /* ---------- avis Google (bande de confiance subtile) ---------- */
-.reviews-band{ display:flex; flex-wrap:wrap; align-items:center; gap:18px 30px; justify-content:space-between;
-  border:1px solid var(--line); border-radius:var(--r-lg); padding:22px 26px; background:var(--ink-3); margin-bottom:14px }
-.reviews-band .score{ display:flex; align-items:center; gap:16px }
-.reviews-band .score b{ font-family:var(--display); font-size:3rem; font-weight:400; letter-spacing:.02em; line-height:1; color:var(--bone) }
-.reviews-band .stars{ font-size:1.05rem; letter-spacing:2px }
-.reviews-band .score span{ display:block; font-size:.78rem; color:var(--ash); margin-top:3px }
+.reviews-band{ display:flex; flex-wrap:wrap; align-items:center; gap:20px 34px; justify-content:space-between;
+  border:1px solid var(--line); border-radius:var(--r-lg); padding:24px 28px; background:linear-gradient(180deg,rgba(243,237,226,.03),transparent),var(--ink-3); margin-bottom:16px }
+.reviews-band .score{ display:flex; align-items:center; gap:18px }
+.reviews-band .glogo{ width:48px; height:48px; border-radius:50%; background:#fff; display:grid; place-items:center; flex:none; box-shadow:0 6px 20px -8px rgba(0,0,0,.6) }
+.reviews-band .score b{ font-family:var(--display); font-size:2.9rem; font-weight:400; letter-spacing:.02em; line-height:.95; color:var(--bone) }
+.reviews-band .stars{ font-size:1.08rem; letter-spacing:3px; margin:2px 0 1px }
+.reviews-band .score span{ display:block; font-size:.8rem; color:var(--ash) }
+.reviews-band .score span b{ font-family:var(--sans); font-size:.8rem; color:var(--bone); font-weight:600 }
 .reviews{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px }
-.rev{ border:1px solid var(--line); border-radius:var(--r-md); padding:22px; background:linear-gradient(180deg,rgba(243,237,226,.025),transparent) }
-.rev .stars{ font-size:.85rem; letter-spacing:1px; margin-bottom:12px }
-.rev p{ font-family:var(--serif); font-size:1.05rem; line-height:1.4; color:var(--bone); margin:0 0 14px }
-.rev .src{ font-size:.74rem; letter-spacing:.04em; color:var(--ash-dim) }
-.rev .src strong{ color:var(--bone); font-weight:600 }
+.rev{ border:1px solid var(--line); border-radius:var(--r-md); padding:24px; background:linear-gradient(180deg,rgba(243,237,226,.028),transparent);
+  display:flex; flex-direction:column; transition:border-color .4s var(--ease),transform .5s var(--ease-out) }
+.rev:hover{ border-color:var(--line-strong); transform:translateY(-3px) }
+.rev-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px }
+.rev .stars{ font-size:.92rem; letter-spacing:2px }
+.rev p{ font-family:var(--serif); font-size:1.04rem; line-height:1.45; color:var(--bone); margin:0 0 18px; flex:1 }
+.rev-author{ display:flex; align-items:center; gap:12px }
+.rev-author .av{ width:40px; height:40px; flex:none; border-radius:50%; display:grid; place-items:center;
+  font-family:var(--sans); font-weight:700; font-size:.82rem; color:#1c0d05;
+  background:linear-gradient(140deg,var(--gold-soft),var(--ember)); letter-spacing:.02em }
+.rev-author .who{ display:flex; flex-direction:column; line-height:1.25 }
+.rev-author .who strong{ font-family:var(--sans); font-weight:600; font-size:.9rem; color:var(--bone) }
+.rev-author .who span{ font-size:.74rem; color:var(--ash-dim) }
 
 /* ---------- carte (iframe OSM) ---------- */
 .map-embed{ position:absolute; inset:0; width:100%; height:100%; border:0; z-index:1; filter:grayscale(.3) contrast(1.05) brightness(.9) }
@@ -533,12 +545,14 @@ footer{ border-top:1px solid var(--line); padding-block:48px 40px; margin-top:30
   .coaches{ grid-template-columns:1fr }
   .gallery{ grid-template-columns:repeat(2,1fr) }
   .info-grid,.contact-grid{ grid-template-columns:1fr }
-  .reviews{ grid-template-columns:1fr }
+  .reviews{ grid-template-columns:repeat(2,1fr) }
   .card.lg,.card.md,.card.sm{ grid-column:span 12; min-height:260px }
   .manifesto p{ max-width:none }
 }
 @media (max-width:560px){
-  .values,.aud{ grid-template-columns:1fr }
+  .values,.aud,.reviews{ grid-template-columns:1fr }
+  .reviews-band{ padding:18px 20px }
+  .reviews-band .score b{ font-size:2.4rem }
   .gallery{ grid-template-columns:1fr 1fr }
   .gtile.wide{ grid-column:span 2 }
   .hero-meta{ gap:14px 22px }
@@ -768,9 +782,10 @@ img,canvas,svg,video{ max-width:100% }
           </div>
         </div>
         <div class="reveal">
-          <div class="panel-img">
+          <div class="panel-img" id="bagPanel">
             <canvas data-art="training" aria-hidden="true"></canvas>
-            <span class="panel-cap">Visuel d'ambiance — média officiel à intégrer</span>
+            <canvas id="bagCanvas" class="bag-canvas" aria-hidden="true"></canvas>
+            <span class="panel-cap" id="bagCap">Visuel d'ambiance — média officiel à intégrer</span>
           </div>
         </div>
       </div>
@@ -863,34 +878,52 @@ img,canvas,svg,video{ max-width:100% }
       </div>
       <div class="reviews-band reveal">
         <div class="score">
-          <b>5,0</b>
-          <div><div class="stars" data-stars="5"></div><span>Note moyenne · 45 avis Google</span></div>
+          <span class="glogo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="30" height="30"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.56c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.76c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.11a6.6 6.6 0 0 1 0-4.22V7.05H2.18a11 11 0 0 0 0 9.9l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.05l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+          </span>
+          <div>
+            <b data-count="5" data-dec="1">5,0</b>
+            <div class="stars" data-stars="5"></div>
+            <span>Note Google · <b class="cnt" data-count="45">45</b> avis</span>
+          </div>
         </div>
         <a class="btn btn-ghost" href="https://www.google.com/maps/search/?api=1&amp;query=The%20Temple%20Bordeaux%203%20Quai%20de%20Brazza" target="_blank" rel="noopener" style="padding:12px 14px 12px 20px;font-size:.86rem">Lire les avis sur Google
           <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </a>
       </div>
       <div class="reviews">
-        <article class="rev reveal"><div class="stars" data-stars="5"></div>
-          <p>« L'une des meilleures salles de boxe que j'ai pu tester. Elle est vraiment superbe. Les coachs, les séances, le lieu. On s'y sent très bien. »</p>
-          <div class="src"><strong>Benjamin Giavarini</strong> · Avis Google</div></article>
-        <article class="rev reveal"><div class="stars" data-stars="5"></div>
-          <p>« Le meilleur club pour pratiquer la boxe sur Bordeaux, avec bienveillance, respect et passion. Il y a de la technique et de la pédagogie dans tout ce qui est dispensé. »</p>
-          <div class="src"><strong>Kheops K.</strong> · Avis Google</div></article>
-        <article class="rev reveal"><div class="stars" data-stars="5"></div>
-          <p>« Les membres comme les entraineurs sont accueillants et bienveillants. Le niveau général semble élevé, mais même les néophytes y trouvent facilement leur place. »</p>
-          <div class="src"><strong>Matt B.</strong> · Avis Google</div></article>
-        <article class="rev reveal"><div class="stars" data-stars="5"></div>
-          <p>« Mes 2 enfants sont inscrits aux séances de Ninja Kids : l'ambiance est super, les coachs sont à l'écoute et bienveillants, les enfants s'amusent et progressent. »</p>
-          <div class="src"><strong>Abdel Hadi</strong> · Avis Google</div></article>
-        <article class="rev reveal"><div class="stars" data-stars="5"></div>
-          <p>« Excellente école, coach franco-cambodgien très fort, beaucoup d'expérience (carrière au pays du Siam), très beau style — Kun Khmer, Muay Thaï. Arts et culture. »</p>
-          <div class="src"><strong>Pierre Latapie</strong> · Avis Google</div></article>
-        <article class="rev reveal"><div class="stars" data-stars="5"></div>
-          <p>« Super club, bonne ambiance dans le respect. Dépassement de soi tous les jours, travail à thème, physique et sparring. Un plaisir à chaque séance. »</p>
-          <div class="src"><strong>Simon Quesnel</strong> · Avis Google</div></article>
+        <article class="rev reveal">
+          <div class="rev-top"><span class="stars" data-stars="5"></span></div>
+          <p>L'une des meilleures salles de boxe que j'ai pu tester. Elle est vraiment superbe. Les coachs, les séances, le lieu. On s'y sent très bien.</p>
+          <div class="rev-author"><span class="av">BG</span><span class="who"><strong>Benjamin Giavarini</strong><span>Avis Google</span></span></div>
+        </article>
+        <article class="rev reveal">
+          <div class="rev-top"><span class="stars" data-stars="5"></span></div>
+          <p>Le meilleur club pour pratiquer la boxe sur Bordeaux, avec bienveillance, respect et passion. De la technique et de la pédagogie dans tout ce qui est dispensé.</p>
+          <div class="rev-author"><span class="av">KK</span><span class="who"><strong>Kheops K.</strong><span>Avis Google</span></span></div>
+        </article>
+        <article class="rev reveal">
+          <div class="rev-top"><span class="stars" data-stars="5"></span></div>
+          <p>Les membres comme les entraineurs sont accueillants et bienveillants. Le niveau général semble élevé, mais même les néophytes y trouvent facilement leur place.</p>
+          <div class="rev-author"><span class="av">MB</span><span class="who"><strong>Matt B.</strong><span>Avis Google</span></span></div>
+        </article>
+        <article class="rev reveal">
+          <div class="rev-top"><span class="stars" data-stars="5"></span></div>
+          <p>Mes 2 enfants sont inscrits aux séances de Ninja Kids : l'ambiance est super, les coachs sont à l'écoute et bienveillants, les enfants s'amusent et progressent.</p>
+          <div class="rev-author"><span class="av">AH</span><span class="who"><strong>Abdel Hadi</strong><span>Avis Google</span></span></div>
+        </article>
+        <article class="rev reveal">
+          <div class="rev-top"><span class="stars" data-stars="5"></span></div>
+          <p>Excellente école, coach franco-cambodgien très fort, beaucoup d'expérience (carrière au pays du Siam), très beau style — Kun Khmer, Muay Thaï.</p>
+          <div class="rev-author"><span class="av">PL</span><span class="who"><strong>Pierre Latapie</strong><span>Avis Google</span></span></div>
+        </article>
+        <article class="rev reveal">
+          <div class="rev-top"><span class="stars" data-stars="5"></span></div>
+          <p>Super club, bonne ambiance dans le respect. Dépassement de soi tous les jours, travail à thème, physique et sparring. Un plaisir à chaque séance.</p>
+          <div class="rev-author"><span class="av">SQ</span><span class="who"><strong>Simon Quesnel</strong><span>Avis Google</span></span></div>
+        </article>
       </div>
-      <p class="tiny reveal" style="margin-top:14px">Avis publiés par les pratiquants sur Google (5/5 · 45 avis). Comme sur Google, ces avis ne sont pas vérifiés.</p>
+      <p class="tiny reveal" style="margin-top:16px">Avis publiés par les pratiquants sur Google (5/5 · 45 avis). Comme sur Google, ces avis ne sont pas vérifiés.</p>
     </div>
   </section>
 
@@ -995,7 +1028,7 @@ img,canvas,svg,video{ max-width:100% }
         <div class="map-card reveal">
           <canvas data-art="map" aria-hidden="true"></canvas>
           <iframe class="map-embed" title="Carte de localisation — The Temple Bordeaux, 3 Quai de Brazza, 33100 Bordeaux"
-            loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+            loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups"
             src="https://www.openstreetmap.org/export/embed.html?bbox=-0.55352%2C44.85447%2C-0.53752%2C44.86247&amp;layer=mapnik&amp;marker=44.85847%2C-0.54552"></iframe>
           <div class="mc-body" style="z-index:2">
             <b style="font-family:var(--serif);font-size:1.25rem">3 Quai de Brazza</b>
@@ -1254,12 +1287,27 @@ img,canvas,svg,video{ max-width:100% }
     artCanvases.forEach(function(cv){ if(cv.dataset.painted){ paint(cv); } });
   }, 220); }, {passive:true});
 
-  /* Avis Google : rendu compact des étoiles (note vérifiée 4,9/5) */
+  /* Avis Google : rendu compact des étoiles */
   [].slice.call(DOC.querySelectorAll('[data-stars]')).forEach(function(el){
     var n = parseFloat(el.getAttribute('data-stars'))||5, full=Math.round(n), s='';
     for(var i=0;i<5;i++){ s += '<span aria-hidden="true" style="color:'+(i<full?'#e3c178':'rgba(243,237,226,.2)')+'">★</span>'; }
     el.innerHTML = s;
   });
+  /* CountUp léger sur les nombres marqués data-count (note & nb d'avis) */
+  function fmtN(v,d){ return v.toFixed(d).replace('.', ','); }
+  function animCount(el){
+    var target=parseFloat(el.getAttribute('data-count'))||0, dec=parseInt(el.getAttribute('data-dec')||'0',10);
+    if(prefersReduced){ el.textContent=fmtN(target,dec); return; }
+    var t0=null, dur=1100;
+    function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur), e=1-Math.pow(1-p,3);
+      el.textContent=fmtN(target*e,dec); if(p<1) requestAnimationFrame(step); else el.textContent=fmtN(target,dec); }
+    requestAnimationFrame(step);
+  }
+  var counts=[].slice.call(DOC.querySelectorAll('[data-count]'));
+  if('IntersectionObserver' in W){
+    var ioC=new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ animCount(e.target); ioC.unobserve(e.target); } }); },{threshold:.6});
+    counts.forEach(function(el){ ioC.observe(el); });
+  } else { counts.forEach(animCount); }
 
   /* =========================================================================
      SCÈNE 3D — Chorégraphie de gants de Muay Thaï (Three.js, procédural)
@@ -1298,33 +1346,36 @@ img,canvas,svg,video{ max-width:100% }
     var trimMat    = new THREE.MeshStandardMaterial({color:0xc9a24b, roughness:.3, metalness:.85, emissive:0x3a2a00, emissiveIntensity:.5});
     var seamMat    = new THREE.MeshStandardMaterial({color:0x1b0c07, roughness:.85, metalness:0});
 
-    // masse principale (poing), allongée vers l'avant
+    var ks = Math.max(8,(seg/2)|0);
+    // masse du poing : compacte (pas allongée -> évite l'effet "patate")
     var body = new THREE.Mesh(new THREE.SphereGeometry(1, seg, seg), leather);
-    body.scale.set(1.02, 1.0, 1.22); g.add(body);
-    // rouleau des phalanges = surface de frappe (plus plat)
-    var knuckle = new THREE.Mesh(new THREE.SphereGeometry(.93, seg, seg), leather);
-    knuckle.position.set(0, .26, .66); knuckle.scale.set(1.0, .6, .64); g.add(knuckle);
-    // bourrelet supérieur (dos)
-    var topRoll = new THREE.Mesh(new THREE.SphereGeometry(.7, seg, seg), leather);
-    topRoll.position.set(0, .56, -.12); topRoll.scale.set(.96, .58, .92); g.add(topRoll);
-    // couture de séparation des doigts (tore aplati à l'avant)
-    var seam = new THREE.Mesh(new THREE.TorusGeometry(.56, .045, 8, seg), seamMat);
-    seam.position.set(0, .10, .92); seam.rotation.x = Math.PI/2; seam.scale.set(1, .55, 1); g.add(seam);
-    // pouce (capsule)
-    var thumb = new THREE.Mesh(new THREE.CapsuleGeometry(.3, .44, 4, cap), leather);
-    thumb.position.set(-.92, -.26, .52); thumb.rotation.set(.42, 0, .95); g.add(thumb);
-    // poignet / manchette tronc-conique
-    var cuff = new THREE.Mesh(new THREE.CylinderGeometry(.64, .82, .98, seg), leatherDk);
-    cuff.position.set(0, -.36, -1.05); cuff.rotation.x = Math.PI/2; g.add(cuff);
-    // sangle (velcro) sombre
-    var strap = new THREE.Mesh(new THREE.BoxGeometry(1.25, .26, .2), leatherDk);
-    strap.position.set(0, -.5, -1.0); g.add(strap);
+    body.scale.set(1.12, 1.04, 0.96); g.add(body);
+    // face de frappe : disque bombé aplati orienté vers la caméra (+z)
+    var face = new THREE.Mesh(new THREE.SphereGeometry(.95, seg, seg), leather);
+    face.position.set(0, -.04, .58); face.scale.set(1.02, 1.0, .46); g.add(face);
+    // 4 phalanges marquées sur la face de frappe
+    for(var i=0;i<4;i++){
+      var k = new THREE.Mesh(new THREE.SphereGeometry(.25, ks, ks), leather);
+      k.position.set(-.585 + i*0.39, .30, .92); k.scale.set(1.05,1.18,.82); g.add(k);
+    }
+    // rainure entre phalanges et pouce (couture sombre)
+    var groove = new THREE.Mesh(new THREE.TorusGeometry(.52,.04,8,seg), seamMat);
+    groove.position.set(.06,-.16,.82); groove.rotation.set(Math.PI/2,0,.18); groove.scale.set(1,.66,1); g.add(groove);
+    // pouce (capsule), replié sur le côté
+    var thumb = new THREE.Mesh(new THREE.CapsuleGeometry(.29, .5, 4, cap), leather);
+    thumb.position.set(-.88, -.32, .42); thumb.rotation.set(.5, 0, 1.02); g.add(thumb);
+    // manchette : cylindre net, légèrement incliné vers l'arrière
+    var cuff = new THREE.Mesh(new THREE.CylinderGeometry(.66, .8, 1.15, seg), leatherDk);
+    cuff.position.set(0, -.52, -.62); cuff.rotation.set(Math.PI/2 - .12, 0, 0); g.add(cuff);
+    // sangle velcro sombre
+    var strap = new THREE.Mesh(new THREE.BoxGeometry(1.18, .24, .2), leatherDk);
+    strap.position.set(0, -.66, -.52); strap.rotation.x = -.12; g.add(strap);
     // liseré or à l'ouverture du poignet
-    var trim = new THREE.Mesh(new THREE.TorusGeometry(.8, .085, 10, seg), trimMat);
-    trim.position.set(0, -.32, -1.42); g.add(trim);
-    // emblème or sur le dos
-    var emblem = new THREE.Mesh(new THREE.CylinderGeometry(.17, .17, .06, 18), trimMat);
-    emblem.position.set(0, .78, -.05); emblem.rotation.set(Math.PI/2 - .45, 0, 0); g.add(emblem);
+    var trim = new THREE.Mesh(new THREE.TorusGeometry(.78, .08, 10, seg), trimMat);
+    trim.position.set(0, -.78, -1.04); trim.rotation.x = Math.PI/2 - .12; g.add(trim);
+    // emblème or sur le dos du gant
+    var emblem = new THREE.Mesh(new THREE.CylinderGeometry(.16, .16, .05, 18), trimMat);
+    emblem.position.set(0, .56, -.18); emblem.rotation.set(Math.PI/2 - .6, 0, 0); g.add(emblem);
 
     g.userData.body = body;
     return g;
@@ -1522,6 +1573,104 @@ img,canvas,svg,video{ max-width:100% }
       if(particles) gsap.to(particles.material, {opacity:0.12, ease:'none', scrollTrigger:st3d});
     }
   }
+})();
+</script>
+<script>
+/* ===========================================================================
+   SAC DE FRAPPE 3D — scène secondaire (Three.js), pendule réactif au curseur
+   Désactivé sur mobile/appareils modestes & sans WebGL (le visuel procédural
+   reste affiché). Pause hors écran et onglet caché.
+   =========================================================================== */
+(function(){
+  var DOC=document, W=window;
+  var canvas=DOC.getElementById('bagCanvas'); if(!canvas || typeof THREE==='undefined') return;
+  var reduce=W.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var isMobile=W.matchMedia('(max-width: 820px)').matches;
+  var cores=navigator.hardwareConcurrency||4, mem=navigator.deviceMemory||4;
+  if(isMobile || cores<=4 || mem<=4) return;          // garde le canvas procédural
+  function hasWebGL(){ try{var c=DOC.createElement('canvas');return !!(W.WebGLRenderingContext&&(c.getContext('webgl')||c.getContext('experimental-webgl')));}catch(e){return false;} }
+  if(!hasWebGL()) return;
+
+  var renderer,scene,camera,pivot,raf=null,running=false,clock;
+  var ang=0,angV=0,angX=0,angVX=0,t=0;
+  var seg=(cores>=8&&mem>=8)?40:24;
+
+  function mat(c,r,m,e,ei){ return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m,emissive:e||0x000000,emissiveIntensity:ei||1}); }
+
+  function buildBag(){
+    var leather=mat(0x18130f,.72,.08,0x0d0907), gold=mat(0xc9a24b,.32,.85,0x3a2a00,.45);
+    var p=new THREE.Group();
+    // anneau d'attache
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(.18,.05,10,24),gold); ring.position.y=.08; p.add(ring);
+    // sangles convergentes
+    var straps=new THREE.Mesh(new THREE.CylinderGeometry(.17,.58,.72,seg),leather); straps.position.y=-.36; p.add(straps);
+    // corps
+    var body=new THREE.Mesh(new THREE.CylinderGeometry(.62,.6,3.0,seg),leather); body.position.y=-1.95; p.add(body);
+    // capuchons
+    var top=new THREE.Mesh(new THREE.SphereGeometry(.62,seg,Math.max(8,seg/2|0),0,6.29,0,Math.PI/2),leather); top.position.y=-.45; p.add(top);
+    var bot=new THREE.Mesh(new THREE.SphereGeometry(.6,seg,Math.max(8,seg/2|0),0,6.29,Math.PI/2,Math.PI/2),leather); bot.position.y=-3.45; p.add(bot);
+    // bandes or
+    var b1=new THREE.Mesh(new THREE.CylinderGeometry(.635,.635,.14,seg),gold); b1.position.y=-1.05; p.add(b1);
+    var b2=new THREE.Mesh(new THREE.CylinderGeometry(.615,.615,.12,seg),gold); b2.position.y=-2.8; p.add(b2);
+    return p;
+  }
+
+  function build(){
+    renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(W.devicePixelRatio||1,1.8));
+    scene=new THREE.Scene();
+    camera=new THREE.PerspectiveCamera(40,1,.1,100); camera.position.set(0,-1.7,6.6);
+    clock=new THREE.Clock();
+    scene.add(new THREE.AmbientLight(0x3a2a22,.7));
+    var key=new THREE.DirectionalLight(0xfff0e0,1.2); key.position.set(3,4,6); scene.add(key);
+    var ember=new THREE.PointLight(0xff5a2c,1.4,30); ember.position.set(-4,-1,4); scene.add(ember);
+    var rim=new THREE.DirectionalLight(0xffb070,.9); rim.position.set(-3,2,-6); scene.add(rim);
+    pivot=buildBag(); scene.add(pivot);
+    resize();
+  }
+  function resize(){
+    var w=canvas.clientWidth||canvas.parentElement.clientWidth, h=canvas.clientHeight||canvas.parentElement.clientHeight;
+    if(!w||!h) return; renderer.setSize(w,h,false); camera.aspect=w/h;
+    camera.position.z = w<480?8.2:6.6; camera.updateProjectionMatrix(); camera.lookAt(0,-1.9,0);
+  }
+  function render(){
+    raf=requestAnimationFrame(render);
+    var dt=Math.min(clock.getDelta(),.05); t+=dt;
+    if(!reduce){
+      // pendule amorti (ressort) sur 2 axes
+      angV += -7.0*ang*dt; angV *= (1-1.6*dt); ang += angV*dt;
+      angVX += -7.0*angX*dt; angVX *= (1-1.6*dt); angX += angVX*dt;
+      if(Math.abs(ang)+Math.abs(angV) < 0.015){ ang += Math.sin(t*0.7)*0.0008; } // brise légère au repos
+      pivot.rotation.z=ang; pivot.rotation.x=angX;
+    }
+    renderer.render(scene,camera);
+  }
+  function start(){ if(running)return; running=true; clock.start(); render(); }
+  function stop(){ running=false; if(raf)cancelAnimationFrame(raf); raf=null; }
+
+  try{
+    build(); canvas.classList.add('on');
+    var cap=DOC.getElementById('bagCap'); if(cap) cap.textContent = reduce ? 'Sac de frappe 3D' : 'Sac de frappe 3D · bougez le curseur';
+    if(reduce){ renderer.render(scene,camera); }      // pose statique
+    else {
+      var panel=DOC.getElementById('bagPanel');
+      if('IntersectionObserver' in W){
+        new IntersectionObserver(function(es){ es.forEach(function(e){ e.isIntersecting?start():stop(); }); },{threshold:.1}).observe(panel);
+      } else start();
+      DOC.addEventListener('visibilitychange',function(){ if(DOC.hidden)stop(); });
+      // réaction curseur / toucher
+      var lastX=null;
+      panel.addEventListener('pointermove',function(e){
+        var r=panel.getBoundingClientRect();
+        if(lastX!=null){ angV += (e.clientX-lastX)*0.0016; }
+        lastX=e.clientX;
+        angVX += (e.movementY||0)*0.0006;
+      },{passive:true});
+      panel.addEventListener('pointerdown',function(e){ var r=panel.getBoundingClientRect();
+        angV += ((e.clientX-r.left)/r.width - .5) > 0 ? 0.5 : -0.5; },{passive:true});
+      var rs; W.addEventListener('resize',function(){ clearTimeout(rs); rs=setTimeout(resize,160); },{passive:true});
+    }
+  }catch(err){ if(canvas) canvas.classList.remove('on'); if(raf)cancelAnimationFrame(raf); }
 })();
 </script>
 <script>
