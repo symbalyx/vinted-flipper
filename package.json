@@ -21,8 +21,11 @@
   },
   "homepage": "https://github.com/symbalyx/vinted-flipper#readme",
   "dependencies": {
+    "@fontsource/anton": "^5.2.7",
+    "@fontsource/archivo": "^5.2.8",
     "@fontsource/fraunces": "^5.2.9",
     "@fontsource/space-grotesk": "^5.2.10",
+    "@fontsource/spectral": "^5.2.8",
     "@powerm1nt/vinted-api": "^2.14.15",
     "framer-motion": "^12.41.0",
     "gsap": "^3.12.5",
