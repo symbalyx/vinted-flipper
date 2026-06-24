@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<!--
+  ============================================================================
+  THE TEMPLE BORDEAUX — Démonstration de site premium (Muay Thaï)
+  ============================================================================
+  SOURCES UTILISÉES POUR LE CONTENU (recherche web, juin 2026) :
+   - Site officiel : templebordeaux.com
+   - Ville de Bordeaux : bordeaux.fr/associations/temple-bordeaux
+   - HelloAsso : helloasso.com/associations/the-temple-bordeaux
+   - SeniorsReporters Bordeaux (article 2022) ; CSMPQ ; Rue89 Bordeaux ;
+     PagesJaunes ; net1901 ; assohome ; muaythaitv.
+
+  INFORMATIONS VÉRIFIÉES (multi-sources concordantes) :
+   - Nom : The Temple Bordeaux (TTB), association sportive et culturelle.
+   - Adresse : 3 Quai de Brazza, 33100 Bordeaux.
+   - Création : 2011, par Albert Chey et Bria Chey.
+   - Albert Chey : président depuis 2011, ancien boxeur, multiple champion.
+   - Bria Chey : ancienne championne de Muay Thaï.
+   - Disciplines : Muay Thaï, Kun Khmer (boxe khmère), Cardio Boxing,
+     Gym Kidz (18 mois–8 ans), Ninja Kidz (4–8 ans), cours privés.
+   - ~500 membres, tous âges. Téléphone : 06 68 77 33 33.
+   - Adhésion gérée via HelloAsso.
+
+  INFORMATIONS À CONFIRMER AUPRÈS DU CLUB (NON inventées ici, marquées dans la page) :
+   - Planning / horaires détaillés des cours.
+   - Tarifs précis et formules d'adhésion.
+   - E-mail de contact officiel.
+   - Comptes réseaux sociaux officiels (Instagram / Facebook) exacts.
+   - Modalités exactes du cours d'essai.
+   - Photos officielles (tous les visuels de cette démo sont des compositions
+     graphiques/3D originales — emplacements premium prévus pour les médias réels).
+
+  MÉDIAS : aucun hotlink. Toutes les images sont générées (canvas/SVG/3D
+  procédural). Aucune personne représentée n'est présentée comme un membre réel.
+  ============================================================================
+-->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Temple Bordeaux — Club de Muay Thaï · Quai de Brazza</title>
+<meta name="description" content="The Temple Bordeaux — club de boxe thaïlandaise (Muay Thaï & Kun Khmer) quai de Brazza à Bordeaux. Cours pour débutants et confirmés, enfants et adultes. Réservez votre cours d'essai." />
+<meta name="theme-color" content="#0b0a09" />
+<meta name="author" content="The Temple Bordeaux" />
+<link rel="canonical" href="https://templebordeaux.com/" />
+
+<!-- Open Graph / réseaux -->
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="fr_FR" />
+<meta property="og:site_name" content="The Temple Bordeaux" />
+<meta property="og:title" content="The Temple Bordeaux — Club de Muay Thaï · Quai de Brazza" />
+<meta property="og:description" content="Boxe thaïlandaise à Bordeaux. Puissance, discipline, transmission. Cours débutants & confirmés, enfants & adultes. Cours d'essai sur demande." />
+<meta property="og:url" content="https://templebordeaux.com/" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="The Temple Bordeaux — Muay Thaï à Bordeaux" />
+<meta name="twitter:description" content="Club de boxe thaïlandaise quai de Brazza, Bordeaux. Cours d'essai sur demande." />
+
+<!-- Polices premium self-hostées (aucune requête externe, fonctionnent en file://) -->
+
+<!--
+  Données structurées : uniquement des champs VÉRIFIÉS.
+  (Pas d'horaires/tarifs inventés, pas d'avis fabriqués.)
+-->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SportsActivityLocation",
+  "name": "The Temple Bordeaux",
+  "description": "Club de boxe thaïlandaise (Muay Thaï) et boxe khmère (Kun Khmer) à Bordeaux. Association sportive et culturelle créée en 2011.",
+  "url": "https://templebordeaux.com/",
+  "telephone": "+33668773333",
+  "foundingDate": "2011",
+  "sport": ["Muay Thaï", "Kun Khmer", "Cardio Boxing"],
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "3 Quai de Brazza",
+    "postalCode": "33100",
+    "addressLocality": "Bordeaux",
+    "addressCountry": "FR"
+  },
+  "areaServed": "Bordeaux"
+}
+</script>
+
+<style>
+/* ---- Polices self-hostées (latin, woff2) ---- */
+@font-face{ font-family:"Fraunces"; font-style:normal; font-weight:400; font-display:swap;
+  src:url("assets/fonts/fraunces-latin-400-normal.woff2") format("woff2"); }
+@font-face{ font-family:"Fraunces"; font-style:normal; font-weight:500; font-display:swap;
+  src:url("assets/fonts/fraunces-latin-500-normal.woff2") format("woff2"); }
+@font-face{ font-family:"Fraunces"; font-style:normal; font-weight:600; font-display:swap;
+  src:url("assets/fonts/fraunces-latin-600-normal.woff2") format("woff2"); }
+@font-face{ font-family:"Space Grotesk"; font-style:normal; font-weight:400; font-display:swap;
+  src:url("assets/fonts/space-grotesk-latin-400-normal.woff2") format("woff2"); }
+@font-face{ font-family:"Space Grotesk"; font-style:normal; font-weight:500; font-display:swap;
+  src:url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+@font-face{ font-family:"Space Grotesk"; font-style:normal; font-weight:600; font-display:swap;
+  src:url("assets/fonts/space-grotesk-latin-600-normal.woff2") format("woff2"); }
+
+/* ===========================================================================
+   DESIGN SYSTEM — The Temple Bordeaux
+   Direction artistique : "Editorial Luxury × Dark Ember"
+   - charbon profond, braise (ember), or sacré (mongkol/prajioud), os/crème
+   - serif éditorial (Fraunces) + grotesque géométrique (Space Grotesk)
+   =========================================================================== */
+:root{
+  --ink:#0b0a09;            /* fond charbon */
+  --ink-2:#100e0c;          /* surfaces */
+  --ink-3:#16130f;          /* cartes */
+  --bone:#f3ede2;           /* texte principal */
+  --ash:#9a9088;            /* texte secondaire */
+  --ash-dim:#6b6258;        /* texte tertiaire */
+  --ember:#e2542b;          /* accent braise */
+  --ember-soft:#ff6f3c;
+  --gold:#c9a24b;           /* or sacré */
+  --gold-soft:#e3c178;
+  --line:rgba(243,237,226,.10);
+  --line-strong:rgba(243,237,226,.18);
+  --glass:rgba(18,15,12,.55);
+
+  --maxw:1240px;
+  --gut:clamp(20px,5vw,64px);
+  --r-lg:26px;
+  --r-md:18px;
+  --r-sm:12px;
+
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:"Space Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+
+  --ease:cubic-bezier(.22,.61,.18,1);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth }
+@media (prefers-reduced-motion: reduce){ html{ scroll-behavior:auto } }
+
+html,body{ margin:0; padding:0; width:100%; overflow-x:clip }
+body{
+  background:var(--ink);
+  color:var(--bone);
+  font-family:var(--sans);
+  font-size:clamp(15px,1.05vw,17px);
+  line-height:1.6;
+  font-weight:400;
+  letter-spacing:.005em;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-wrap:break-word;
+}
+
+/* ---- background ambient (radial braise + or, très subtil) ---- */
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(120% 80% at 78% -10%, rgba(226,84,43,.16), transparent 55%),
+    radial-gradient(90% 70% at 8% 110%, rgba(201,162,75,.10), transparent 60%),
+    linear-gradient(180deg,#0c0a09,#0b0a09 40%,#080706);
+}
+/* ---- grain filmique (fixe, non interactif) ---- */
+.grain{
+  position:fixed; inset:0; z-index:60; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* ---------- typographie ---------- */
+h1,h2,h3,h4{ font-family:var(--serif); font-weight:500; line-height:1.02; letter-spacing:-.01em; margin:0 }
+.display{ font-size:clamp(2.9rem,11.5vw,9.5rem); line-height:.9; font-weight:600; letter-spacing:-.025em }
+h2.section-title{ font-size:clamp(2rem,5.5vw,4.2rem); font-weight:500 }
+h3{ font-size:clamp(1.25rem,2.4vw,1.7rem) }
+p{ margin:0 0 1em }
+a{ color:inherit; text-decoration:none }
+
+.eyebrow{
+  display:inline-flex; align-items:center; gap:.6em;
+  font-family:var(--sans); font-size:.7rem; font-weight:600;
+  text-transform:uppercase; letter-spacing:.32em; color:var(--gold-soft);
+}
+.eyebrow::before{ content:""; width:26px; height:1px; background:linear-gradient(90deg,var(--gold),transparent) }
+.lede{ font-size:clamp(1.05rem,1.7vw,1.32rem); color:var(--ash); max-width:60ch }
+.muted{ color:var(--ash) }
+.tiny{ font-size:.78rem; color:var(--ash-dim); letter-spacing:.02em }
+
+/* ---------- layout ---------- */
+.wrap{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--gut) }
+section{ position:relative; padding-block:clamp(72px,11vw,160px) }
+.sec-head{ max-width:64ch; margin-bottom:clamp(36px,5vw,68px) }
+.sec-head .eyebrow{ margin-bottom:18px }
+
+/* ---------- skip link / a11y ---------- */
+.skip{
+  position:fixed; left:14px; top:-120px; z-index:200;
+  background:var(--ember); color:#1a0c06; padding:12px 18px; border-radius:10px;
+  font-weight:600; transition:top .25s var(--ease);
+}
+.skip:focus{ top:14px }
+:focus-visible{ outline:2px solid var(--gold-soft); outline-offset:3px; border-radius:6px }
+
+/* ---------- boutons (button-in-button island) ---------- */
+.btn{
+  position:relative; display:inline-flex; align-items:center; gap:.7em;
+  font-family:var(--sans); font-weight:600; font-size:.92rem; letter-spacing:.01em;
+  padding:14px 16px 14px 24px; border-radius:999px; cursor:pointer;
+  border:1px solid transparent; transition:transform .5s var(--ease-out),background .4s var(--ease),color .4s var(--ease),border-color .4s var(--ease);
+  -webkit-tap-highlight-color:transparent; text-align:left;
+}
+.btn .ico{
+  width:32px; height:32px; border-radius:999px; flex:none;
+  display:grid; place-items:center; transition:transform .5s var(--ease-out),background .4s var(--ease);
+}
+.btn .ico svg{ width:15px; height:15px }
+.btn-primary{ background:var(--ember); color:#1a0c06 }
+.btn-primary .ico{ background:rgba(26,12,6,.16) }
+.btn-primary:hover{ background:var(--ember-soft); transform:translateY(-2px) }
+.btn-primary:hover .ico{ transform:translate(2px,-1px) }
+.btn-primary:active{ transform:scale(.98) }
+.btn-ghost{ background:rgba(243,237,226,.04); color:var(--bone); border-color:var(--line-strong) }
+.btn-ghost .ico{ background:rgba(243,237,226,.08) }
+.btn-ghost:hover{ background:rgba(243,237,226,.09); transform:translateY(-2px) }
+.btn-ghost:hover .ico{ transform:translate(2px,-1px) }
+
+/* ---------- header / nav ---------- */
+.nav{
+  position:fixed; inset:14px 0 auto 0; z-index:100; display:flex; justify-content:center;
+  padding-inline:var(--gut); pointer-events:none;
+}
+.nav-inner{
+  pointer-events:auto; width:100%; max-width:var(--maxw);
+  display:flex; align-items:center; justify-content:space-between; gap:18px;
+  padding:11px 12px 11px 22px; border-radius:999px;
+  border:1px solid var(--line); background:rgba(11,10,9,.5);
+  backdrop-filter:blur(16px) saturate(140%); -webkit-backdrop-filter:blur(16px) saturate(140%);
+  transition:background .4s var(--ease),border-color .4s var(--ease),box-shadow .4s var(--ease);
+}
+.nav.scrolled .nav-inner{ background:rgba(11,10,9,.82); border-color:var(--line-strong); box-shadow:0 18px 50px -28px rgba(0,0,0,.9) }
+.brand{ display:flex; align-items:center; gap:11px; font-family:var(--serif); font-weight:600; font-size:1.06rem; letter-spacing:.01em }
+.brand .mark{ width:30px; height:30px; flex:none }
+.brand small{ display:block; font-family:var(--sans); font-size:.56rem; letter-spacing:.34em; text-transform:uppercase; color:var(--gold-soft); margin-top:1px }
+.nav-links{ display:flex; align-items:center; gap:6px }
+.nav-links a{ font-size:.86rem; font-weight:500; color:var(--ash); padding:9px 14px; border-radius:999px; transition:color .3s var(--ease),background .3s var(--ease) }
+.nav-links a:hover{ color:var(--bone); background:rgba(243,237,226,.05) }
+.nav-cta{ display:inline-flex }
+.nav-cta .btn{ padding:11px 12px 11px 18px; font-size:.84rem }
+
+/* hamburger */
+.burger{
+  pointer-events:auto; display:none; width:46px; height:46px; flex:none;
+  border-radius:999px; border:1px solid var(--line-strong); background:rgba(243,237,226,.04);
+  position:relative; cursor:pointer;
+}
+.burger span{ position:absolute; left:13px; right:13px; height:2px; background:var(--bone); border-radius:2px; transition:transform .4s var(--ease),opacity .3s var(--ease) }
+.burger span:nth-child(1){ top:17px } .burger span:nth-child(2){ top:23px } .burger span:nth-child(3){ top:29px }
+body.menu-open .burger span:nth-child(1){ transform:translateY(6px) rotate(45deg) }
+body.menu-open .burger span:nth-child(2){ opacity:0 }
+body.menu-open .burger span:nth-child(3){ transform:translateY(-6px) rotate(-45deg) }
+
+/* overlay mobile */
+.menu{
+  position:fixed; inset:0; z-index:95; display:flex; flex-direction:column; justify-content:center;
+  padding:var(--gut); gap:6px; background:rgba(8,7,6,.92);
+  backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px);
+  opacity:0; visibility:hidden; transition:opacity .5s var(--ease),visibility .5s;
+}
+body.menu-open .menu{ opacity:1; visibility:visible }
+.menu a{ font-family:var(--serif); font-size:clamp(2rem,9vw,3.4rem); font-weight:500; color:var(--bone);
+  padding:8px 0; opacity:0; transform:translateY(22px); transition:opacity .5s var(--ease),transform .5s var(--ease),color .3s }
+.menu a:hover{ color:var(--gold-soft) }
+body.menu-open .menu a{ opacity:1; transform:none }
+body.menu-open .menu a:nth-child(1){ transition-delay:.10s }
+body.menu-open .menu a:nth-child(2){ transition-delay:.16s }
+body.menu-open .menu a:nth-child(3){ transition-delay:.22s }
+body.menu-open .menu a:nth-child(4){ transition-delay:.28s }
+body.menu-open .menu a:nth-child(5){ transition-delay:.34s }
+body.menu-open .menu a:nth-child(6){ transition-delay:.40s }
+.menu .menu-foot{ margin-top:30px; opacity:0; transition:opacity .5s .46s var(--ease); font-size:.9rem; color:var(--ash) }
+body.menu-open .menu .menu-foot{ opacity:1 }
+
+/* ---------- HERO ---------- */
+.hero{ position:relative; min-height:100svh; display:flex; align-items:flex-end; overflow:clip; padding-bottom:clamp(40px,7vw,84px) }
+#scene{ position:absolute; inset:0; width:100%; height:100%; z-index:0; display:block }
+.hero-fallback{ position:absolute; inset:0; z-index:0; display:none;
+  background:
+    radial-gradient(60% 50% at 70% 30%, rgba(226,84,43,.30), transparent 60%),
+    radial-gradient(50% 40% at 30% 80%, rgba(201,162,75,.18), transparent 60%),
+    #0a0908;
+}
+.no-webgl .hero-fallback{ display:block } .no-webgl #scene{ display:none }
+/* scrims pour garantir la lisibilité par-dessus la 3D */
+.hero::after{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(180deg,rgba(8,7,6,.5) 0%,transparent 22%,transparent 48%,rgba(8,7,6,.62) 82%,rgba(8,7,6,.92) 100%) }
+.hero::before{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(95deg,rgba(8,7,6,.78) 0%,rgba(8,7,6,.30) 42%,transparent 70%) }
+.hero .wrap{ position:relative; z-index:2; width:100% }
+.hero-eyebrow{ margin-bottom:clamp(18px,3vw,26px) }
+.display .l1{ display:block; color:var(--bone) }
+.display .l2{ display:block; color:transparent; -webkit-text-stroke:1.3px rgba(243,237,226,.55); paint-order:stroke fill }
+.hero-sub{ display:flex; flex-wrap:wrap; gap:18px 30px; align-items:flex-end; margin-top:clamp(24px,4vw,40px) }
+.hero-sub .lede{ flex:1 1 320px }
+.hero-actions{ display:flex; flex-wrap:wrap; gap:12px; margin-top:clamp(26px,4vw,38px) }
+.hero-meta{ display:flex; flex-wrap:wrap; gap:10px 26px; margin-top:clamp(30px,5vw,52px); padding-top:22px; border-top:1px solid var(--line) }
+.hero-meta div{ display:flex; flex-direction:column; gap:2px }
+.hero-meta b{ font-family:var(--serif); font-size:1.5rem; font-weight:600; color:var(--bone); line-height:1 }
+.hero-meta span{ font-size:.72rem; text-transform:uppercase; letter-spacing:.18em; color:var(--ash-dim) }
+.scroll-hint{ position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:2;
+  font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:var(--ash-dim); display:flex; flex-direction:column; align-items:center; gap:8px }
+.scroll-hint .bar{ width:1px; height:34px; background:linear-gradient(var(--gold),transparent); animation:sd 2.4s var(--ease) infinite }
+@keyframes sd{ 0%{transform:scaleY(.2);transform-origin:top;opacity:.3} 50%{transform:scaleY(1);opacity:1} 100%{transform:scaleY(.2);transform-origin:bottom;opacity:.3} }
+
+/* badge état 3D (perf/reduced) */
+.scene-note{ position:absolute; right:var(--gut); top:calc(14px + 70px); z-index:2; font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; color:var(--ash-dim); display:none }
+
+/* ---------- marquee valeurs ---------- */
+.marquee{ border-block:1px solid var(--line); padding-block:18px; overflow:hidden; white-space:nowrap; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent) }
+.marquee .track{ display:inline-flex; gap:0; animation:mq 36s linear infinite; will-change:transform }
+.marquee span{ font-family:var(--serif); font-size:clamp(1.3rem,3vw,2.1rem); color:var(--ash); padding-inline:28px }
+.marquee span em{ color:var(--gold-soft); font-style:normal }
+.marquee .dot{ color:var(--ember); padding-inline:8px }
+@keyframes mq{ to{ transform:translateX(-50%) } }
+@media (prefers-reduced-motion: reduce){ .marquee .track{ animation:none } .scroll-hint .bar{ animation:none } }
+
+/* ---------- manifesto ---------- */
+.manifesto p{ font-family:var(--serif); font-size:clamp(1.5rem,3.6vw,2.7rem); line-height:1.25; font-weight:400; max-width:20ch+ ; max-width:24ch }
+.manifesto .big{ max-width:28ch; color:var(--bone) }
+.manifesto .big .hl{ color:var(--ember-soft) }
+.manifesto .by{ margin-top:30px; color:var(--ash); font-family:var(--sans); font-size:.95rem }
+
+/* ---------- values grid ---------- */
+.values{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px }
+.value{ padding:26px; border:1px solid var(--line); border-radius:var(--r-md); background:linear-gradient(180deg,rgba(243,237,226,.025),transparent); position:relative; overflow:hidden }
+.value .n{ font-family:var(--serif); font-size:.95rem; color:var(--ember); opacity:.8 }
+.value h3{ margin:14px 0 8px }
+.value p{ margin:0; font-size:.92rem; color:var(--ash) }
+
+/* ---------- disciplines (bento) ---------- */
+.bento{ display:grid; grid-template-columns:repeat(12,1fr); gap:14px }
+.card{ position:relative; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--ink-3); overflow:hidden; min-height:230px; display:flex; flex-direction:column; justify-content:flex-end; padding:24px;
+  transition:transform .6s var(--ease-out),border-color .5s var(--ease) }
+.card:hover{ transform:translateY(-4px); border-color:var(--line-strong) }
+.card .art{ position:absolute; inset:0; z-index:0; opacity:.9 }
+.card .art::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 30%,rgba(13,11,9,.55) 70%,rgba(13,11,9,.92)) }
+.card .body{ position:relative; z-index:1 }
+.card .kbadge{ display:inline-block; font-size:.66rem; letter-spacing:.22em; text-transform:uppercase; color:var(--gold-soft); margin-bottom:10px }
+.card h3{ margin-bottom:6px }
+.card p{ margin:0; font-size:.9rem; color:var(--ash) }
+.card.lg{ grid-column:span 8; min-height:340px }
+.card.md{ grid-column:span 4; min-height:340px }
+.card.sm{ grid-column:span 4 }
+.tag{ position:absolute; top:18px; right:18px; z-index:1; font-size:.64rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ash); background:rgba(8,7,6,.5); border:1px solid var(--line); padding:6px 10px; border-radius:999px }
+
+/* ---------- experience / steps ---------- */
+.split{ display:grid; grid-template-columns:1.05fr .95fr; gap:clamp(30px,5vw,70px); align-items:center }
+.steps{ display:flex; flex-direction:column; gap:2px; counter-reset:s }
+.step{ display:grid; grid-template-columns:auto 1fr; gap:20px; padding:22px 0; border-top:1px solid var(--line) }
+.step:last-child{ border-bottom:1px solid var(--line) }
+.step .si{ counter-increment:s; font-family:var(--serif); font-size:1.1rem; color:var(--ember) }
+.step .si::before{ content:counter(s,decimal-leading-zero) }
+.step h3{ font-size:1.18rem; margin-bottom:5px }
+.step p{ margin:0; font-size:.92rem; color:var(--ash) }
+.panel-img{ aspect-ratio:4/5; border-radius:var(--r-lg); border:1px solid var(--line); overflow:hidden; position:relative; background:var(--ink-2) }
+.panel-img canvas{ width:100%; height:100%; display:block }
+.panel-cap{ position:absolute; left:16px; bottom:14px; z-index:2; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ash); background:rgba(8,7,6,.55); border:1px solid var(--line); padding:6px 11px; border-radius:999px }
+
+/* audiences (débutants/confirmés) */
+.aud{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:18px }
+.aud .a{ padding:24px; border:1px solid var(--line); border-radius:var(--r-md); background:linear-gradient(180deg,rgba(243,237,226,.03),transparent) }
+.aud .a h3{ font-size:1.15rem; margin-bottom:8px }
+.aud .a ul{ margin:10px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px }
+.aud .a li{ font-size:.9rem; color:var(--ash); display:flex; gap:10px; align-items:flex-start }
+.aud .a li::before{ content:""; width:7px; height:7px; margin-top:7px; flex:none; border-radius:2px; background:var(--ember); transform:rotate(45deg) }
+
+/* ---------- coaches ---------- */
+.coaches{ display:grid; grid-template-columns:1fr 1fr; gap:16px }
+.coach{ border:1px solid var(--line); border-radius:var(--r-lg); overflow:hidden; background:var(--ink-3) }
+.coach .ph{ aspect-ratio:4/3; position:relative; background:var(--ink-2) }
+.coach .ph canvas{ width:100%; height:100%; display:block }
+.coach .ph .ini{ position:absolute; inset:0; display:grid; place-items:center; font-family:var(--serif); font-size:3.4rem; color:rgba(243,237,226,.16) }
+.coach .ph .cap{ position:absolute; left:14px; bottom:12px; font-size:.62rem; letter-spacing:.13em; text-transform:uppercase; color:var(--ash); background:rgba(8,7,6,.55); border:1px solid var(--line); padding:5px 10px; border-radius:999px }
+.coach .info{ padding:22px }
+.coach .info h3{ font-size:1.3rem }
+.coach .role{ font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold-soft); margin:6px 0 12px }
+.coach .info p{ margin:0; font-size:.92rem; color:var(--ash) }
+
+/* ---------- galerie ---------- */
+.gallery{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px }
+.gtile{ position:relative; border-radius:var(--r-md); overflow:hidden; border:1px solid var(--line); aspect-ratio:3/4; background:var(--ink-2) }
+.gtile.wide{ grid-column:span 2; aspect-ratio:3/2 }
+.gtile canvas{ width:100%; height:100%; display:block }
+.gtile .gc{ position:absolute; left:12px; bottom:10px; font-size:.6rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ash); background:rgba(8,7,6,.5); padding:5px 9px; border-radius:999px; border:1px solid var(--line) }
+
+/* ---------- infos pratiques / horaires / tarifs ---------- */
+.info-grid{ display:grid; grid-template-columns:1.1fr .9fr; gap:14px }
+.infocard{ border:1px solid var(--line); border-radius:var(--r-lg); padding:28px; background:var(--ink-3) }
+.infocard h3{ font-size:1.4rem; margin-bottom:6px }
+.note{ display:flex; gap:11px; align-items:flex-start; margin-top:16px; padding:14px 16px; border-radius:var(--r-sm);
+  background:rgba(226,84,43,.07); border:1px solid rgba(226,84,43,.22); font-size:.86rem; color:var(--bone) }
+.note svg{ width:18px; height:18px; flex:none; color:var(--ember-soft); margin-top:1px }
+.sched{ width:100%; border-collapse:collapse; margin-top:10px }
+.sched th,.sched td{ text-align:left; padding:11px 8px; border-bottom:1px solid var(--line); font-size:.86rem }
+.sched th{ color:var(--ash-dim); font-weight:600; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase }
+.sched td:first-child{ color:var(--bone); font-weight:500 }
+.sched .tbc{ color:var(--ash-dim); font-style:italic }
+.pricelist{ list-style:none; margin:6px 0 0; padding:0; display:flex; flex-direction:column; gap:0 }
+.pricelist li{ display:flex; justify-content:space-between; gap:16px; padding:14px 0; border-bottom:1px solid var(--line); font-size:.92rem }
+.pricelist li span:first-child{ color:var(--bone) }
+.pricelist li span:last-child{ color:var(--ash) }
+
+/* ---------- contact ---------- */
+.contact-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px }
+.contact-card{ border:1px solid var(--line); border-radius:var(--r-lg); padding:28px; background:var(--ink-3); display:flex; flex-direction:column; gap:18px }
+.cline{ display:flex; gap:14px; align-items:flex-start }
+.cline .ci{ width:40px; height:40px; flex:none; border-radius:11px; display:grid; place-items:center; background:rgba(243,237,226,.05); border:1px solid var(--line) }
+.cline .ci svg{ width:18px; height:18px; color:var(--gold-soft) }
+.cline .ct b{ display:block; font-family:var(--sans); font-weight:600; font-size:.95rem; color:var(--bone) }
+.cline .ct span{ font-size:.85rem; color:var(--ash) }
+.cline a.ct-link{ color:var(--bone); border-bottom:1px solid var(--line-strong); transition:border-color .3s,color .3s }
+.cline a.ct-link:hover{ color:var(--gold-soft); border-color:var(--gold-soft) }
+.socials{ display:flex; flex-wrap:wrap; gap:10px; margin-top:4px }
+.socials a{ font-size:.82rem; padding:9px 15px; border-radius:999px; border:1px solid var(--line-strong); color:var(--ash); transition:color .3s,border-color .3s,background .3s }
+.socials a:hover{ color:var(--bone); border-color:var(--gold-soft); background:rgba(243,237,226,.04) }
+.map-card{ border:1px solid var(--line); border-radius:var(--r-lg); overflow:hidden; position:relative; min-height:320px; background:var(--ink-2); display:flex; flex-direction:column; justify-content:flex-end }
+.map-card canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0 }
+.map-card .mc-body{ position:relative; z-index:1; padding:24px; background:linear-gradient(180deg,transparent,rgba(8,7,6,.85)) }
+.map-card .pin{ position:absolute; left:50%; top:46%; transform:translate(-50%,-50%); z-index:1 }
+.map-card .pin .dot{ width:14px; height:14px; border-radius:999px; background:var(--ember); box-shadow:0 0 0 0 rgba(226,84,43,.6); animation:pulse 2.6s var(--ease) infinite }
+@keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(226,84,43,.55)} 70%{box-shadow:0 0 0 22px rgba(226,84,43,0)} 100%{box-shadow:0 0 0 0 rgba(226,84,43,0)} }
+@media (prefers-reduced-motion: reduce){ .map-card .pin .dot{ animation:none } }
+
+/* ---------- final CTA ---------- */
+.cta-final{ text-align:center; border:1px solid var(--line-strong); border-radius:var(--r-lg);
+  padding:clamp(40px,7vw,84px) var(--gut); background:
+    radial-gradient(80% 120% at 50% -20%, rgba(226,84,43,.18), transparent 60%),
+    linear-gradient(180deg,rgba(243,237,226,.03),transparent), var(--ink-2);
+  position:relative; overflow:hidden }
+.cta-final h2{ font-size:clamp(2.2rem,6vw,4.6rem); margin-bottom:18px }
+.cta-final .lede{ margin-inline:auto; margin-bottom:30px }
+.cta-final .hero-actions{ justify-content:center }
+
+/* ---------- footer ---------- */
+footer{ border-top:1px solid var(--line); padding-block:48px 40px; margin-top:30px }
+.foot-grid{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:24px; align-items:flex-start }
+.foot-brand{ max-width:34ch }
+.foot-brand .lede{ font-size:.92rem; margin-top:12px }
+.foot-cols{ display:flex; gap:clamp(28px,5vw,64px); flex-wrap:wrap }
+.fcol h4{ font-family:var(--sans); font-size:.68rem; letter-spacing:.2em; text-transform:uppercase; color:var(--ash-dim); margin-bottom:14px; font-weight:600 }
+.fcol a,.fcol p{ display:block; font-size:.88rem; color:var(--ash); margin-bottom:9px; transition:color .3s }
+.fcol a:hover{ color:var(--gold-soft) }
+.foot-bottom{ display:flex; flex-wrap:wrap; gap:12px; justify-content:space-between; margin-top:40px; padding-top:20px; border-top:1px solid var(--line); font-size:.76rem; color:var(--ash-dim) }
+
+/* ---------- reveal (JS-driven, GPU only) ---------- */
+.reveal{ opacity:0; transform:translateY(26px); transition:opacity .9s var(--ease-out),transform .9s var(--ease-out) }
+.reveal.in{ opacity:1; transform:none }
+@media (prefers-reduced-motion: reduce){ .reveal{ opacity:1; transform:none; transition:none } }
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media (max-width:980px){
+  .nav-links,.nav-cta{ display:none }
+  .burger{ display:block }
+  .values{ grid-template-columns:1fr 1fr }
+  .split{ grid-template-columns:1fr; gap:36px }
+  .coaches{ grid-template-columns:1fr }
+  .gallery{ grid-template-columns:repeat(2,1fr) }
+  .info-grid,.contact-grid{ grid-template-columns:1fr }
+  .card.lg,.card.md,.card.sm{ grid-column:span 12; min-height:260px }
+  .manifesto p{ max-width:none }
+}
+@media (max-width:560px){
+  .values,.aud{ grid-template-columns:1fr }
+  .gallery{ grid-template-columns:1fr 1fr }
+  .gtile.wide{ grid-column:span 2 }
+  .hero-meta{ gap:14px 22px }
+  .hero-meta b{ font-size:1.25rem }
+  .btn{ padding:13px 14px 13px 20px; font-size:.88rem }
+  .nav-inner{ padding:9px 9px 9px 16px }
+  .display .l2{ -webkit-text-stroke-width:1px }
+}
+
+/* sécurité : pas de débordement horizontal */
+img,canvas,svg,video{ max-width:100% }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<a class="skip" href="#main">Aller au contenu</a>
+
+<!-- ===================== NAV ===================== -->
+<header class="nav" id="nav">
+  <nav class="nav-inner" aria-label="Navigation principale">
+    <a class="brand" href="#top" aria-label="The Temple Bordeaux — accueil">
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+        <defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#e3c178"/><stop offset="1" stop-color="#c9a24b"/></linearGradient></defs>
+        <path d="M20 3 L34 11 V19 C34 28 28 34 20 37 C12 34 6 28 6 19 V11 Z" fill="none" stroke="url(#g1)" stroke-width="1.6"/>
+        <path d="M20 11 L26 14.5 V20 C26 24.5 23.4 27.5 20 29 C16.6 27.5 14 24.5 14 20 V14.5 Z" fill="none" stroke="#e2542b" stroke-width="1.4"/>
+        <circle cx="20" cy="19.5" r="2.1" fill="#e3c178"/>
+      </svg>
+      <span>The Temple<small>Bordeaux · Muay Thaï</small></span>
+    </a>
+    <div class="nav-links">
+      <a href="#identite">Le club</a>
+      <a href="#disciplines">Disciplines</a>
+      <a href="#experience">Entraînement</a>
+      <a href="#coachs">Coachs</a>
+      <a href="#infos">Infos &amp; tarifs</a>
+      <a href="#contact">Contact</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-primary" href="#contact">Cours d'essai
+        <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+    </div>
+    <button class="burger" id="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<!-- ===================== MENU MOBILE ===================== -->
+<div class="menu" id="menu" role="dialog" aria-modal="true" aria-label="Menu" aria-hidden="true">
+  <a href="#identite">Le club</a>
+  <a href="#disciplines">Disciplines</a>
+  <a href="#experience">Entraînement</a>
+  <a href="#coachs">Coachs</a>
+  <a href="#infos">Infos &amp; tarifs</a>
+  <a href="#contact">Contact</a>
+  <div class="menu-foot">3 Quai de Brazza, 33100 Bordeaux · 06 68 77 33 33</div>
+</div>
+
+<span id="top"></span>
+<main id="main">
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" aria-label="The Temple Bordeaux — boxe thaïlandaise">
+    <canvas id="scene" aria-hidden="true"></canvas>
+    <div class="hero-fallback" aria-hidden="true"></div>
+    <div class="scene-note" id="sceneNote"></div>
+    <div class="wrap">
+      <span class="eyebrow hero-eyebrow">Muay Thaï · Kun Khmer · Bordeaux</span>
+      <h1 class="display">
+        <span class="l1">THE</span>
+        <span class="l2">TEMPLE</span>
+      </h1>
+      <div class="hero-sub">
+        <p class="lede">L'art des huit membres, enseigné quai de Brazza depuis 2011.
+        Puissance, discipline et respect — pour les débutants comme pour les combattants.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#contact">Réserver un cours d'essai
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </a>
+        <a class="btn btn-ghost" href="#disciplines">Découvrir les disciplines
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M6 13l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </a>
+      </div>
+      <div class="hero-meta">
+        <div><b>2011</b><span>Année de création</span></div>
+        <div><b>~500</b><span>Membres, tous âges</span></div>
+        <div><b>6+</b><span>Disciplines &amp; formats</span></div>
+        <div><b>Brazza</b><span>Rive droite, Bordeaux</span></div>
+      </div>
+    </div>
+    <div class="scroll-hint" aria-hidden="true"><span class="bar"></span>Défiler</div>
+  </section>
+
+  <!-- ===================== MARQUEE VALEURS ===================== -->
+  <div class="marquee" aria-hidden="true">
+    <div class="track" id="mqtrack">
+      <span>Puissance<span class="dot">◆</span></span><span>Discipline<span class="dot">◆</span></span>
+      <span>Maîtrise<span class="dot">◆</span></span><span>Respect<span class="dot">◆</span></span>
+      <span>Progression<span class="dot">◆</span></span><span><em>Transmission</em><span class="dot">◆</span></span>
+      <span>Puissance<span class="dot">◆</span></span><span>Discipline<span class="dot">◆</span></span>
+      <span>Maîtrise<span class="dot">◆</span></span><span>Respect<span class="dot">◆</span></span>
+      <span>Progression<span class="dot">◆</span></span><span><em>Transmission</em><span class="dot">◆</span></span>
+    </div>
+  </div>
+
+  <!-- ===================== IDENTITÉ / MANIFESTO ===================== -->
+  <section id="identite">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Le club</span>
+        <h2 class="section-title">Un temple dédié<br>à la boxe thaïlandaise.</h2>
+      </div>
+      <div class="manifesto reveal">
+        <p class="big">The Temple Bordeaux est une association sportive et culturelle qui transmet
+        le <span class="hl">Muay Thaï</span> et le <span class="hl">Kun Khmer</span> avec exigence et bienveillance.
+        On y vient pour se dépasser — on y reste pour l'esprit.</p>
+        <p class="by">Fondé en 2011 par Albert &amp; Bria Chey · 3 Quai de Brazza, Bordeaux</p>
+      </div>
+
+      <div class="values" style="margin-top:clamp(40px,6vw,72px)">
+        <div class="value reveal"><div class="n">/ 01</div><h3>Puissance &amp; maîtrise</h3><p>Frappe, timing, gestion de la distance. La force au service de la technique, jamais l'inverse.</p></div>
+        <div class="value reveal"><div class="n">/ 02</div><h3>Discipline</h3><p>La régularité construit le combattant. Un cadre clair, des rituels, une progression mesurable.</p></div>
+        <div class="value reveal"><div class="n">/ 03</div><h3>Respect</h3><p>Du wai khru à la poignée de main : le respect du partenaire et de l'art est au cœur du club.</p></div>
+        <div class="value reveal"><div class="n">/ 04</div><h3>Progression</h3><p>Chaque niveau a sa place, du tout premier cours au sparring encadré.</p></div>
+        <div class="value reveal"><div class="n">/ 05</div><h3>Transmission</h3><p>Un savoir partagé par des pratiquants expérimentés, transmis avec patience.</p></div>
+        <div class="value reveal"><div class="n">/ 06</div><h3>Esprit bordelais</h3><p>Une communauté conviviale sur la rive droite, du plus jeune au plus aguerri.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DISCIPLINES ===================== -->
+  <section id="disciplines">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Disciplines</span>
+        <h2 class="section-title">Ce que l'on travaille</h2>
+        <p class="lede" style="margin-top:14px">Des disciplines de combat authentiques et des formats accessibles à tous les âges.</p>
+      </div>
+      <div class="bento">
+        <article class="card lg reveal">
+          <canvas class="art" data-art="ring" aria-hidden="true"></canvas>
+          <span class="tag">Discipline reine</span>
+          <div class="body"><span class="kbadge">Art des huit membres</span>
+            <h3>Muay Thaï</h3>
+            <p>Poings, coudes, genoux, tibias. Technique, clinch et conditionnement — l'essence du club.</p></div>
+        </article>
+        <article class="card md reveal">
+          <canvas class="art" data-art="khmer" aria-hidden="true"></canvas>
+          <div class="body"><span class="kbadge">Boxe khmère</span>
+            <h3>Kun Khmer</h3>
+            <p>La tradition cambodgienne enseignée par les fondateurs du club.</p></div>
+        </article>
+        <article class="card sm reveal">
+          <canvas class="art" data-art="cardio" aria-hidden="true"></canvas>
+          <div class="body"><span class="kbadge">Cardio &amp; condition</span>
+            <h3>Cardio Boxing</h3>
+            <p>L'intensité de la boxe, sans contact dur. Idéal pour se renforcer.</p></div>
+        </article>
+        <article class="card sm reveal">
+          <canvas class="art" data-art="kids" aria-hidden="true"></canvas>
+          <div class="body"><span class="kbadge">4–8 ans</span>
+            <h3>Ninja Kidz</h3>
+            <p>Motricité, coordination et confiance, en s'amusant.</p></div>
+        </article>
+        <article class="card sm reveal">
+          <canvas class="art" data-art="gym" aria-hidden="true"></canvas>
+          <div class="body"><span class="kbadge">18 mois–8 ans</span>
+            <h3>Gym Kidz</h3>
+            <p>Éveil moteur encadré pour les tout-petits.</p></div>
+        </article>
+        <article class="card md reveal">
+          <canvas class="art" data-art="private" aria-hidden="true"></canvas>
+          <div class="body"><span class="kbadge">Sur rendez-vous</span>
+            <h3>Cours privés</h3>
+            <p>Coaching individuel ou en petit comité, objectifs sur mesure.</p></div>
+        </article>
+        <article class="card lg reveal">
+          <canvas class="art" data-art="spar" aria-hidden="true"></canvas>
+          <span class="tag">Encadré</span>
+          <div class="body"><span class="kbadge">Pratique avancée</span>
+            <h3>Technique &amp; sparring</h3>
+            <p>Pour les pratiquants confirmés : travail technique, clinch et sparring progressif, sous supervision.</p></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== EXPÉRIENCE D'ENTRAÎNEMENT ===================== -->
+  <section id="experience">
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <div class="sec-head reveal" style="margin-bottom:30px">
+            <span class="eyebrow">L'entraînement</span>
+            <h2 class="section-title">Une séance au Temple</h2>
+          </div>
+          <div class="steps reveal">
+            <div class="step"><span class="si"></span><div><h3>Échauffement &amp; rituel</h3><p>Corde, mobilité, shadow. On entre dans la séance avec intention.</p></div></div>
+            <div class="step"><span class="si"></span><div><h3>Technique guidée</h3><p>Décomposition des frappes et déplacements, au rythme de chacun.</p></div></div>
+            <div class="step"><span class="si"></span><div><h3>Travail aux paos &amp; au sac</h3><p>Puissance, précision et timing. L'intensité monte, le geste reste propre.</p></div></div>
+            <div class="step"><span class="si"></span><div><h3>Clinch &amp; application</h3><p>Mise en situation contrôlée, sparring progressif pour les confirmés.</p></div></div>
+            <div class="step"><span class="si"></span><div><h3>Retour au calme</h3><p>Étirements, respiration, salut. On repart plus fort et plus serein.</p></div></div>
+          </div>
+        </div>
+        <div class="reveal">
+          <div class="panel-img">
+            <canvas data-art="training" aria-hidden="true"></canvas>
+            <span class="panel-cap">Visuel d'ambiance — média officiel à intégrer</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="aud" style="margin-top:clamp(36px,5vw,60px)">
+        <div class="a reveal">
+          <h3>Débutant·e ? Bienvenue.</h3>
+          <p class="muted" style="font-size:.92rem">Aucun niveau requis. On vous accompagne pas à pas, dans un cadre bienveillant.</p>
+          <ul>
+            <li>Premier cours sans pression, encadré</li>
+            <li>Apprentissage progressif des bases</li>
+            <li>Matériel expliqué, gestes corrigés</li>
+            <li>Une communauté qui accueille</li>
+          </ul>
+        </div>
+        <div class="a reveal">
+          <h3>Confirmé·e ? On vous pousse.</h3>
+          <p class="muted" style="font-size:.92rem">Des coachs titrés, du sparring encadré et un vrai exigence technique.</p>
+          <ul>
+            <li>Travail technique avancé &amp; clinch</li>
+            <li>Sparring progressif supervisé</li>
+            <li>Préparation physique spécifique</li>
+            <li>Accompagnement vers la compétition</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== COACHS ===================== -->
+  <section id="coachs">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">L'encadrement</span>
+        <h2 class="section-title">Les fondateurs</h2>
+        <p class="lede" style="margin-top:14px">Le club a été créé en 2011 par deux anciens boxeurs qui transmettent leur art.</p>
+      </div>
+      <div class="coaches">
+        <article class="coach reveal">
+          <div class="ph"><canvas data-art="portraitA" aria-hidden="true"></canvas><span class="ini" aria-hidden="true">AC</span><span class="cap">Portrait officiel à intégrer</span></div>
+          <div class="info">
+            <h3>Albert Chey</h3>
+            <div class="role">Président &amp; coach · depuis 2011</div>
+            <p>Ancien boxeur, fondateur du club. Plusieurs fois titré, il dirige l'enseignement du Muay Thaï et du Kun Khmer au Temple.</p>
+          </div>
+        </article>
+        <article class="coach reveal">
+          <div class="ph"><canvas data-art="portraitB" aria-hidden="true"></canvas><span class="ini" aria-hidden="true">BC</span><span class="cap">Portrait officiel à intégrer</span></div>
+          <div class="info">
+            <h3>Bria Chey</h3>
+            <div class="role">Cofondatrice · coach</div>
+            <p>Ancienne championne de Muay Thaï, cofondatrice du club. Elle accompagne la transmission auprès de tous les publics.</p>
+          </div>
+        </article>
+      </div>
+      <p class="tiny reveal" style="margin-top:18px">Équipe pédagogique complète et palmarès détaillé à confirmer auprès du club.</p>
+    </div>
+  </section>
+
+  <!-- ===================== GALERIE ===================== -->
+  <section id="galerie">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">L'univers</span>
+        <h2 class="section-title">L'esthétique du ring</h2>
+        <p class="lede" style="margin-top:14px">Compositions originales — emplacements premium réservés aux photos et vidéos officielles du club.</p>
+      </div>
+      <div class="gallery">
+        <div class="gtile wide reveal"><canvas data-art="g1" aria-hidden="true"></canvas><span class="gc">Ambiance · à remplacer</span></div>
+        <div class="gtile reveal"><canvas data-art="g2" aria-hidden="true"></canvas><span class="gc">Frappe</span></div>
+        <div class="gtile reveal"><canvas data-art="g3" aria-hidden="true"></canvas><span class="gc">Garde</span></div>
+        <div class="gtile reveal"><canvas data-art="g4" aria-hidden="true"></canvas><span class="gc">Cordes</span></div>
+        <div class="gtile reveal"><canvas data-art="g5" aria-hidden="true"></canvas><span class="gc">Mongkol</span></div>
+        <div class="gtile wide reveal"><canvas data-art="g6" aria-hidden="true"></canvas><span class="gc">Salle · à remplacer</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== INFOS PRATIQUES / HORAIRES / TARIFS ===================== -->
+  <section id="infos">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Infos pratiques</span>
+        <h2 class="section-title">Horaires &amp; adhésion</h2>
+      </div>
+      <div class="info-grid">
+        <div class="infocard reveal">
+          <h3>Planning des cours</h3>
+          <p class="muted" style="font-size:.9rem">Structure indicative des créneaux par public.</p>
+          <table class="sched">
+            <thead><tr><th>Public</th><th>Créneaux</th></tr></thead>
+            <tbody>
+              <tr><td>Muay Thaï adultes</td><td class="tbc">À confirmer</td></tr>
+              <tr><td>Muay Thaï débutants</td><td class="tbc">À confirmer</td></tr>
+              <tr><td>Cardio Boxing</td><td class="tbc">À confirmer</td></tr>
+              <tr><td>Ninja Kidz (4–8 ans)</td><td class="tbc">À confirmer</td></tr>
+              <tr><td>Gym Kidz (18 mois–8 ans)</td><td class="tbc">À confirmer</td></tr>
+              <tr><td>Cours privés</td><td>Sur rendez-vous</td></tr>
+            </tbody>
+          </table>
+          <div class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Informations et horaires à confirmer auprès du club.</span></div>
+        </div>
+        <div class="infocard reveal">
+          <h3>Adhésion &amp; tarifs</h3>
+          <p class="muted" style="font-size:.9rem">Adhésion gérée en ligne via HelloAsso.</p>
+          <ul class="pricelist">
+            <li><span>Cours d'essai</span><span>Sur demande</span></li>
+            <li><span>Adhésion saison</span><span class="tbc" style="font-style:italic;color:var(--ash-dim)">Tarif à confirmer</span></li>
+            <li><span>Enfants (Kidz)</span><span class="tbc" style="font-style:italic;color:var(--ash-dim)">Tarif à confirmer</span></li>
+            <li><span>Cours privés</span><span class="tbc" style="font-style:italic;color:var(--ash-dim)">Sur devis</span></li>
+          </ul>
+          <div class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Tarifs précis à confirmer auprès du club.</span></div>
+          <div class="hero-actions" style="margin-top:20px">
+            <a class="btn btn-primary" href="https://www.helloasso.com/associations/the-temple-bordeaux" target="_blank" rel="noopener">Adhérer via HelloAsso
+              <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CONTACT / ITINÉRAIRE ===================== -->
+  <section id="contact">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Contact &amp; accès</span>
+        <h2 class="section-title">Venez pousser la porte</h2>
+      </div>
+      <div class="contact-grid">
+        <div class="contact-card reveal">
+          <div class="cline">
+            <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+            <div class="ct"><b>Adresse</b><span>3 Quai de Brazza, 33100 Bordeaux</span></div>
+          </div>
+          <div class="cline">
+            <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5c0 9 6 15 15 15a2 2 0 0 0 2-2v-2.4a1 1 0 0 0-.8-1l-3.3-.7a1 1 0 0 0-1 .4l-.9 1.2a12 12 0 0 1-5.2-5.2l1.2-.9a1 1 0 0 0 .4-1L10.4 4.8a1 1 0 0 0-1-.8H7a2 2 0 0 0-2 2Z"/></svg></span>
+            <div class="ct"><b>Téléphone</b><a class="ct-link" href="tel:+33668773333">06 68 77 33 33</a></div>
+          </div>
+          <div class="cline">
+            <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span>
+            <div class="ct"><b>Site officiel</b><a class="ct-link" href="https://templebordeaux.com" target="_blank" rel="noopener">templebordeaux.com</a></div>
+          </div>
+          <div class="cline">
+            <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg></span>
+            <div class="ct"><b>Adhésion en ligne</b><a class="ct-link" href="https://www.helloasso.com/associations/the-temple-bordeaux" target="_blank" rel="noopener">HelloAsso · The Temple Bordeaux</a></div>
+          </div>
+          <div>
+            <b style="font-family:var(--sans);font-size:.78rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ash-dim)">Réseaux</b>
+            <div class="socials">
+              <a href="https://templebordeaux.com" target="_blank" rel="noopener">Site web ↗</a>
+              <a href="https://www.helloasso.com/associations/the-temple-bordeaux" target="_blank" rel="noopener">HelloAsso ↗</a>
+              <a href="#contact" title="Comptes à confirmer auprès du club">Instagram · à confirmer</a>
+              <a href="#contact" title="Comptes à confirmer auprès du club">Facebook · à confirmer</a>
+            </div>
+          </div>
+          <div class="hero-actions" style="margin-top:6px">
+            <a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&amp;destination=3+Quai+de+Brazza+33100+Bordeaux" target="_blank" rel="noopener">Itinéraire
+              <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </a>
+            <a class="btn btn-ghost" href="tel:+33668773333">Appeler le club
+              <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 4h3l1.5 5-2 1.5a11 11 0 0 0 5 5l1.5-2 5 1.5V19a2 2 0 0 1-2 2A16 16 0 0 1 5 6 2 2 0 0 1 5 4Z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </a>
+          </div>
+        </div>
+        <div class="map-card reveal" role="img" aria-label="Plan stylisé de la situation du club, quai de Brazza, rive droite de la Garonne à Bordeaux">
+          <canvas data-art="map" aria-hidden="true"></canvas>
+          <div class="pin" aria-hidden="true"><div class="dot"></div></div>
+          <div class="mc-body">
+            <b style="font-family:var(--serif);font-size:1.25rem">Quai de Brazza</b>
+            <p class="muted" style="margin:6px 0 0;font-size:.88rem">Rive droite de la Garonne, Bordeaux · accès depuis le pont Saint-Jean / pont Chaban-Delmas.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA FINAL -->
+      <div class="cta-final reveal" style="margin-top:clamp(28px,4vw,46px)">
+        <span class="eyebrow" style="justify-content:center">Prêt·e à commencer ?</span>
+        <h2 style="margin-top:16px">Votre premier round<br>commence ici.</h2>
+        <p class="lede">Réservez un cours d'essai et découvrez le Muay Thaï dans le respect de la tradition, encadré par des passionnés.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="tel:+33668773333">Réserver mon cours d'essai
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </a>
+          <a class="btn btn-ghost" href="https://templebordeaux.com" target="_blank" rel="noopener">Voir le site officiel
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 17 17 7M9 7h8v8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top" aria-label="The Temple Bordeaux">
+          <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M20 3 L34 11 V19 C34 28 28 34 20 37 C12 34 6 28 6 19 V11 Z" fill="none" stroke="#c9a24b" stroke-width="1.6"/>
+            <path d="M20 11 L26 14.5 V20 C26 24.5 23.4 27.5 20 29 C16.6 27.5 14 24.5 14 20 V14.5 Z" fill="none" stroke="#e2542b" stroke-width="1.4"/>
+            <circle cx="20" cy="19.5" r="2.1" fill="#e3c178"/>
+          </svg>
+          <span>The Temple<small>Bordeaux · Muay Thaï</small></span>
+        </a>
+        <p class="lede">Club de boxe thaïlandaise et khmère, quai de Brazza à Bordeaux. Puissance, discipline, transmission.</p>
+      </div>
+      <div class="foot-cols">
+        <div class="fcol">
+          <h4>Naviguer</h4>
+          <a href="#identite">Le club</a>
+          <a href="#disciplines">Disciplines</a>
+          <a href="#experience">Entraînement</a>
+          <a href="#coachs">Coachs</a>
+          <a href="#infos">Infos &amp; tarifs</a>
+        </div>
+        <div class="fcol">
+          <h4>Contact</h4>
+          <p>3 Quai de Brazza<br>33100 Bordeaux</p>
+          <a href="tel:+33668773333">06 68 77 33 33</a>
+          <a href="https://templebordeaux.com" target="_blank" rel="noopener">templebordeaux.com</a>
+        </div>
+        <div class="fcol">
+          <h4>Adhésion</h4>
+          <a href="https://www.helloasso.com/associations/the-temple-bordeaux" target="_blank" rel="noopener">HelloAsso ↗</a>
+          <a href="#contact">Cours d'essai</a>
+          <a href="#contact">Itinéraire</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span id="yr"></span> The Temple Bordeaux — Démonstration. Visuels 3D/graphiques originaux.</span>
+      <span>Informations susceptibles d'évoluer — à confirmer auprès du club.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Bibliothèques vendorisées (fonctionnent en file://, sans serveur) -->
+<script src="assets/lib/three.min.js"></script>
+<script src="assets/lib/gsap.min.js"></script>
+<script src="assets/lib/ScrollTrigger.min.js"></script>
+<script>
+/* ===========================================================================
+   THE TEMPLE BORDEAUX — Interactions, 3D & médias procéduraux
+   =========================================================================== */
+(function(){
+  "use strict";
+  var DOC = document, W = window;
+  var prefersReduced = W.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- détection des capacités (qualité adaptative) ---- */
+  var isMobile = W.matchMedia("(max-width: 820px)").matches || ('ontouchstart' in W && W.innerWidth < 900);
+  var cores = navigator.hardwareConcurrency || 4;
+  var mem = navigator.deviceMemory || 4;
+  var lowPower = isMobile || cores <= 4 || mem <= 4;
+  var tier = prefersReduced ? 'reduced' : (lowPower ? 'low' : (cores >= 8 && mem >= 8 ? 'high' : 'mid'));
+
+  DOC.getElementById('yr').textContent = new Date().getFullYear();
+
+  /* =========================================================================
+     NAV : état scrollé + menu mobile accessible (focus trap léger + Esc)
+     ========================================================================= */
+  var nav = DOC.getElementById('nav');
+  var burger = DOC.getElementById('burger');
+  var menu = DOC.getElementById('menu');
+  var menuLinks = [].slice.call(menu.querySelectorAll('a'));
+  var lastFocused = null;
+
+  function setMenu(open){
+    DOC.body.classList.toggle('menu-open', open);
+    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+    burger.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu');
+    menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if(open){ lastFocused = DOC.activeElement; menuLinks[0] && menuLinks[0].focus(); }
+    else if(lastFocused){ lastFocused.focus(); }
+  }
+  burger.addEventListener('click', function(){ setMenu(!DOC.body.classList.contains('menu-open')); });
+  menuLinks.forEach(function(a){ a.addEventListener('click', function(){ setMenu(false); }); });
+  DOC.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && DOC.body.classList.contains('menu-open')) setMenu(false);
+  });
+
+  var navScroll = function(){ nav.classList.toggle('scrolled', W.scrollY > 24); };
+  navScroll(); W.addEventListener('scroll', navScroll, {passive:true});
+
+  /* =========================================================================
+     RÉVÉLATIONS au scroll (IntersectionObserver — pas de listener scroll)
+     ========================================================================= */
+  var reveals = [].slice.call(DOC.querySelectorAll('.reveal'));
+  if(prefersReduced || !('IntersectionObserver' in W)){
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, {rootMargin:'0px 0px -8% 0px', threshold:.12});
+    reveals.forEach(function(el){ io.observe(el); });
+  }
+
+  /* =========================================================================
+     MÉDIAS PROCÉDURAUX (canvas 2D) — textures originales, aucune photo
+     Dessinés une seule fois quand visibles, puis figés (perf).
+     ========================================================================= */
+  function px(c){ return Math.max(1, Math.min(W.devicePixelRatio||1, lowPower?1.5:2)); }
+  function fit(cv){ var r=cv.getBoundingClientRect(); var d=px(cv);
+    cv.width=Math.max(2,Math.round(r.width*d)); cv.height=Math.max(2,Math.round(r.height*d)); return d; }
+
+  // bruit/grain leger
+  function grain(ctx,w,h,a){ a=a||0.05; var n=(w*h)/22|0; ctx.save();
+    for(var i=0;i<n;i++){ var x=Math.random()*w,y=Math.random()*h,v=Math.random();
+      ctx.fillStyle='rgba('+(v>0.5?'255,255,255':'0,0,0')+','+(Math.random()*a)+')'; ctx.fillRect(x,y,1,1);} ctx.restore(); }
+
+  function bg(ctx,w,h,c1,c2){ var g=ctx.createLinearGradient(0,0,w,h); g.addColorStop(0,c1); g.addColorStop(1,c2);
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h); }
+
+  function emberGlow(ctx,w,h,cx,cy,r,col){ var g=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    g.addColorStop(0,col); g.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,w,h); }
+
+  // gant stylisé (silhouette) pour cartes/galerie
+  function drawGlove(ctx,x,y,s,rot,col){
+    ctx.save(); ctx.translate(x,y); ctx.rotate(rot); ctx.scale(s,s);
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.moveTo(-34,-6);
+    ctx.quadraticCurveTo(-40,-44,0,-46);
+    ctx.quadraticCurveTo(44,-46,44,-2);
+    ctx.quadraticCurveTo(44,30,18,36);
+    ctx.quadraticCurveTo(-6,40,-22,34);
+    ctx.quadraticCurveTo(-36,28,-34,-6);
+    ctx.closePath(); ctx.fill();
+    // pouce
+    ctx.beginPath(); ctx.ellipse(-30,16,12,16,-0.5,0,7); ctx.fill();
+    // poignet
+    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(-20,34,46,16);
+    // reflet
+    ctx.fillStyle='rgba(255,255,255,.12)'; ctx.beginPath(); ctx.ellipse(6,-20,16,10,-0.4,0,7); ctx.fill();
+    ctx.restore();
+  }
+
+  var painters = {
+    ring:function(ctx,w,h){ bg(ctx,w,h,'#1a0f0a','#0c0807'); emberGlow(ctx,w,h,w*.7,h*.3,h*1.1,'rgba(226,84,43,.5)');
+      // cordes du ring
+      ctx.strokeStyle='rgba(243,237,226,.10)'; ctx.lineWidth=2;
+      for(var i=1;i<=4;i++){ ctx.beginPath(); ctx.moveTo(0,h*0.2*i); ctx.lineTo(w,h*0.2*i-20); ctx.stroke(); }
+      drawGlove(ctx,w*.32,h*.62,Math.min(w,h)/90,-0.3,'#c4361c');
+      grain(ctx,w,h,.05); },
+    khmer:function(ctx,w,h){ bg(ctx,w,h,'#15110b','#0b0807'); emberGlow(ctx,w,h,w*.3,h*.6,h*1.1,'rgba(201,162,75,.42)');
+      drawGlove(ctx,w*.6,h*.58,Math.min(w,h)/110,0.25,'#8a6a2c'); grain(ctx,w,h,.05); },
+    cardio:function(ctx,w,h){ bg(ctx,w,h,'#1a0f0a','#0c0807'); emberGlow(ctx,w,h,w*.5,h*.4,h*1.1,'rgba(226,84,43,.4)');
+      ctx.strokeStyle='rgba(243,237,226,.5)'; ctx.lineWidth=2; ctx.beginPath();
+      for(var x=0;x<=w;x+=6){ var yy=h*.6+Math.sin(x*.05)*h*.16*Math.exp(-x/w); ctx.lineTo(x,yy);} ctx.stroke(); grain(ctx,w,h,.05); },
+    kids:function(ctx,w,h){ bg(ctx,w,h,'#1d130c','#0c0807'); emberGlow(ctx,w,h,w*.5,h*.45,h,'rgba(227,193,120,.4)');
+      drawGlove(ctx,w*.5,h*.55,Math.min(w,h)/130,0,'#c9a24b'); grain(ctx,w,h,.05); },
+    gym:function(ctx,w,h){ bg(ctx,w,h,'#171009','#0b0807'); emberGlow(ctx,w,h,w*.4,h*.5,h,'rgba(201,162,75,.34)');
+      ctx.fillStyle='rgba(243,237,226,.5)'; for(var i=0;i<5;i++){ ctx.beginPath(); ctx.arc(w*(.2+i*.15),h*.55,4,0,7); ctx.fill(); } grain(ctx,w,h,.05); },
+    private:function(ctx,w,h){ bg(ctx,w,h,'#19100a','#0b0807'); emberGlow(ctx,w,h,w*.7,h*.4,h,'rgba(226,84,43,.36)');
+      drawGlove(ctx,w*.4,h*.6,Math.min(w,h)/120,-0.4,'#c4361c'); drawGlove(ctx,w*.62,h*.5,Math.min(w,h)/130,0.5,'#7a2414'); grain(ctx,w,h,.05); },
+    spar:function(ctx,w,h){ bg(ctx,w,h,'#1a0f0a','#0a0706'); emberGlow(ctx,w,h,w*.5,h*.35,h*1.2,'rgba(226,84,43,.46)');
+      drawGlove(ctx,w*.36,h*.6,Math.min(w,h)/95,-0.2,'#c4361c'); drawGlove(ctx,w*.66,h*.56,Math.min(w,h)/95,Math.PI+0.2,'#1e1b18');
+      // étincelle d'impact
+      ctx.strokeStyle='rgba(255,200,120,.8)'; ctx.lineWidth=2;
+      for(var a=0;a<10;a++){ var an=a/10*6.28; ctx.beginPath(); ctx.moveTo(w*.51,h*.5); ctx.lineTo(w*.51+Math.cos(an)*22,h*.5+Math.sin(an)*22); ctx.stroke(); }
+      grain(ctx,w,h,.06); },
+    training:function(ctx,w,h){ bg(ctx,w,h,'#160f0a','#090706'); emberGlow(ctx,w,h,w*.5,h*.2,h*1.3,'rgba(226,84,43,.5)');
+      // rais de lumière
+      ctx.save(); ctx.globalAlpha=.5; var lg=ctx.createLinearGradient(w*.5,0,w*.2,h); lg.addColorStop(0,'rgba(255,210,150,.5)'); lg.addColorStop(1,'rgba(255,210,150,0)');
+      ctx.fillStyle=lg; ctx.beginPath(); ctx.moveTo(w*.4,0); ctx.lineTo(w*.65,0); ctx.lineTo(w*.35,h); ctx.lineTo(w*.05,h); ctx.closePath(); ctx.fill(); ctx.restore();
+      // sac de frappe
+      ctx.fillStyle='#241813'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(w*.46,h*.28,w*.12,h*.5,18):ctx.rect(w*.46,h*.28,w*.12,h*.5); ctx.fill();
+      ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(w*.46,h*.28,w*.12,12);
+      ctx.strokeStyle='rgba(243,237,226,.18)'; ctx.beginPath(); ctx.moveTo(w*.52,0); ctx.lineTo(w*.52,h*.28); ctx.stroke();
+      grain(ctx,w,h,.06); },
+    portraitA:function(ctx,w,h){ bg(ctx,w,h,'#211711','#0c0908'); emberGlow(ctx,w,h,w*.5,h*.3,h,'rgba(226,84,43,.34)');
+      ctx.fillStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(w*.5,h*.92,w*.28,h*.3,0,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(w*.5,h*.42,Math.min(w,h)*.18,0,7); ctx.fill(); grain(ctx,w,h,.05); },
+    portraitB:function(ctx,w,h){ bg(ctx,w,h,'#1c1610','#0c0908'); emberGlow(ctx,w,h,w*.5,h*.3,h,'rgba(201,162,75,.34)');
+      ctx.fillStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(w*.5,h*.92,w*.28,h*.3,0,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(w*.5,h*.42,Math.min(w,h)*.18,0,7); ctx.fill(); grain(ctx,w,h,.05); },
+    map:function(ctx,w,h){ bg(ctx,w,h,'#0e1614','#0a0f0e');
+      // Garonne
+      ctx.fillStyle='rgba(60,90,110,.5)'; ctx.beginPath(); ctx.moveTo(0,h*.36); ctx.bezierCurveTo(w*.3,h*.3,w*.5,h*.6,w,h*.5); ctx.lineTo(w,h*.74); ctx.bezierCurveTo(w*.5,h*.84,w*.3,h*.54,0,h*.6); ctx.closePath(); ctx.fill();
+      // routes
+      ctx.strokeStyle='rgba(243,237,226,.08)'; ctx.lineWidth=2;
+      for(var i=0;i<7;i++){ ctx.beginPath(); ctx.moveTo(Math.random()*w,0); ctx.lineTo(Math.random()*w,h); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,Math.random()*h); ctx.lineTo(w,Math.random()*h); ctx.stroke(); }
+      // quai (rive droite)
+      ctx.strokeStyle='rgba(226,84,43,.5)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(w*.1,h*.66); ctx.bezierCurveTo(w*.4,h*.6,w*.7,h*.7,w*.95,h*.62); ctx.stroke();
+      grain(ctx,w,h,.04); },
+    g1:function(ctx,w,h){ bg(ctx,w,h,'#1a0f0a','#0a0706'); emberGlow(ctx,w,h,w*.6,h*.4,h*1.2,'rgba(226,84,43,.5)'); drawGlove(ctx,w*.5,h*.55,Math.min(w,h)/120,-0.2,'#c4361c'); grain(ctx,w,h,.06); },
+    g2:function(ctx,w,h){ bg(ctx,w,h,'#1c120b','#0a0706'); emberGlow(ctx,w,h,w*.5,h*.5,h,'rgba(255,140,60,.5)'); drawGlove(ctx,w*.5,h*.55,Math.min(w,h)/85,0.2,'#7a2414'); grain(ctx,w,h,.06); },
+    g3:function(ctx,w,h){ bg(ctx,w,h,'#15110b','#0a0807'); emberGlow(ctx,w,h,w*.4,h*.4,h,'rgba(201,162,75,.42)'); drawGlove(ctx,w*.4,h*.5,Math.min(w,h)/95,-0.3,'#c9a24b'); drawGlove(ctx,w*.62,h*.62,Math.min(w,h)/100,0.3,'#8a6a2c'); grain(ctx,w,h,.06); },
+    g4:function(ctx,w,h){ bg(ctx,w,h,'#140d09','#0a0706'); ctx.strokeStyle='rgba(226,84,43,.5)'; ctx.lineWidth=3;
+      for(var i=1;i<=4;i++){ ctx.beginPath(); ctx.moveTo(0,h*0.22*i); ctx.lineTo(w,h*0.22*i-18); ctx.stroke(); } grain(ctx,w,h,.06); },
+    g5:function(ctx,w,h){ bg(ctx,w,h,'#1a130a','#0a0807'); emberGlow(ctx,w,h,w*.5,h*.45,h,'rgba(227,193,120,.5)');
+      ctx.strokeStyle='#e3c178'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(w*.5,h*.5,Math.min(w,h)*.26,0.3,Math.PI-0.3); ctx.stroke();
+      ctx.beginPath(); ctx.arc(w*.5,h*.5,Math.min(w,h)*.2,0.3,Math.PI-0.3); ctx.stroke(); grain(ctx,w,h,.06); },
+    g6:function(ctx,w,h){ bg(ctx,w,h,'#160f0a','#090706'); emberGlow(ctx,w,h,w*.5,h*.2,h*1.3,'rgba(226,84,43,.46)');
+      ctx.fillStyle='#241813'; ctx.fillRect(w*.45,h*.3,w*.1,h*.45); ctx.strokeStyle='rgba(243,237,226,.16)'; ctx.beginPath(); ctx.moveTo(w*.5,0); ctx.lineTo(w*.5,h*.3); ctx.stroke(); grain(ctx,w,h,.06); }
+  };
+
+  function paint(cv){
+    var key = cv.getAttribute('data-art'); var fn = painters[key]; if(!fn) return;
+    var d = fit(cv); var ctx = cv.getContext('2d'); ctx.save(); ctx.scale(d,d);
+    var r = cv.getBoundingClientRect(); fn(ctx, r.width, r.height); ctx.restore();
+    cv.dataset.painted = '1';
+  }
+  var artCanvases = [].slice.call(DOC.querySelectorAll('canvas[data-art]'));
+  if('IntersectionObserver' in W){
+    var io2 = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){ if(en.isIntersecting && !en.target.dataset.painted){ paint(en.target); io2.unobserve(en.target); } });
+    }, {rootMargin:'120px'});
+    artCanvases.forEach(function(cv){ io2.observe(cv); });
+  } else { artCanvases.forEach(paint); }
+  // repeindre au redimensionnement (debounce) pour la netteté
+  var rT; W.addEventListener('resize', function(){ clearTimeout(rT); rT=setTimeout(function(){
+    artCanvases.forEach(function(cv){ if(cv.dataset.painted){ paint(cv); } });
+  }, 220); }, {passive:true});
+
+  /* =========================================================================
+     SCÈNE 3D — Chorégraphie de gants de Muay Thaï (Three.js, procédural)
+     Fallback élégant si WebGL indisponible ; qualité adaptative ; pause si
+     onglet caché ou héro hors écran ; respect de prefers-reduced-motion.
+     ========================================================================= */
+  var noteEl = DOC.getElementById('sceneNote');
+  function showNote(t){ if(noteEl){ noteEl.textContent=t; noteEl.style.display='block'; } }
+
+  function hasWebGL(){
+    try{ var c=DOC.createElement('canvas');
+      return !!(W.WebGLRenderingContext && (c.getContext('webgl')||c.getContext('experimental-webgl'))); }
+    catch(e){ return false; }
+  }
+
+  if(typeof THREE === 'undefined' || !hasWebGL()){
+    DOC.body.classList.add('no-webgl');
+    showNote('Mode visuel simplifié');
+    return; // contenu et fallback CSS prennent le relais
+  }
+
+  var canvas = DOC.getElementById('scene');
+  var renderer, scene, camera, raf=null, running=false, clock;
+  var fighter, gloveL, gloveR, particles, shock, keyLight, emberLight, goldLight;
+  var pointer = {x:0,y:0,tx:0,ty:0};
+  var DPR_CAP = tier==='high'?2 : tier==='mid'?1.6 : 1.25;
+  var PCOUNT = tier==='high'?900 : tier==='mid'?450 : tier==='low'?180 : 120;
+
+  function makeGlove(color){
+    var g = new THREE.Group();
+    var mat = new THREE.MeshStandardMaterial({color:color, roughness:.55, metalness:.05});
+    var trimMat = new THREE.MeshStandardMaterial({color:0xc9a24b, roughness:.35, metalness:.7});
+    var seg = tier==='high'?32:tier==='mid'?20:14;
+    // corps
+    var body = new THREE.Mesh(new THREE.SphereGeometry(1,seg,seg), mat);
+    body.scale.set(1,.92,1.18); g.add(body);
+    // pad des phalanges
+    var pad = new THREE.Mesh(new THREE.SphereGeometry(.62,seg,seg), mat);
+    pad.position.set(0,.18,.95); pad.scale.set(1.05,.8,.6); g.add(pad);
+    // pouce
+    var thumb = new THREE.Mesh(new THREE.SphereGeometry(.42,seg,seg), mat);
+    thumb.position.set(-.85,-.35,.35); thumb.scale.set(.8,1.1,1); g.add(thumb);
+    // poignet / manchette
+    var cuff = new THREE.Mesh(new THREE.CylinderGeometry(.7,.78,.7,seg), mat);
+    cuff.position.set(0,-.15,-1); cuff.rotation.x=Math.PI/2; g.add(cuff);
+    // liseré or
+    var trim = new THREE.Mesh(new THREE.TorusGeometry(.72,.08,8,seg), trimMat);
+    trim.position.set(0,-.15,-1.32); g.add(trim);
+    g.userData.body=body;
+    return g;
+  }
+
+  function buildScene(){
+    renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:tier!=='low', alpha:true, powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(W.devicePixelRatio||1, DPR_CAP));
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x0a0706, 0.045);
+    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0.4, 9);
+    clock = new THREE.Clock();
+
+    // lumières
+    scene.add(new THREE.AmbientLight(0x3a2a22, 0.6));
+    keyLight = new THREE.DirectionalLight(0xfff0e0, 1.1); keyLight.position.set(4,6,6); scene.add(keyLight);
+    emberLight = new THREE.PointLight(0xff5a2c, 1.5, 30); emberLight.position.set(-5,1,4); scene.add(emberLight);
+    goldLight = new THREE.PointLight(0xffcf7a, 1.0, 30); goldLight.position.set(5,-2,3); scene.add(goldLight);
+
+    // paire de gants (le combattant face à la caméra)
+    fighter = new THREE.Group(); scene.add(fighter);
+    gloveL = makeGlove(0xc4361c); gloveR = makeGlove(0xa62a14);
+    gloveL.scale.setScalar(1.05); gloveR.scale.setScalar(1.05);
+    // pose de garde de départ
+    gloveL.position.set(-1.7, -0.3, 1.2); gloveL.rotation.set(0.2,0.5,0.1);
+    gloveR.position.set(1.7, -0.7, 0.6); gloveR.rotation.set(0.1,-0.5,-0.1);
+    fighter.add(gloveL); fighter.add(gloveR);
+
+    // particules braise/poussière
+    var geo = new THREE.BufferGeometry();
+    var pos = new Float32Array(PCOUNT*3), spd = new Float32Array(PCOUNT);
+    for(var i=0;i<PCOUNT;i++){
+      pos[i*3]=(Math.random()-.5)*16; pos[i*3+1]=(Math.random()-.5)*12; pos[i*3+2]=(Math.random()-.5)*8-1;
+      spd[i]=.2+Math.random()*.6;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    geo.userData.spd=spd;
+    var pmat = new THREE.PointsMaterial({color:0xff7a3c, size:tier==='high'?.07:.06, transparent:true, opacity:.55, blending:THREE.AdditiveBlending, depthWrite:false});
+    particles = new THREE.Points(geo, pmat); scene.add(particles);
+
+    // onde de choc (anneau) — invisible au repos
+    shock = new THREE.Mesh(new THREE.RingGeometry(0.6,0.85,40),
+      new THREE.MeshBasicMaterial({color:0xffb066, transparent:true, opacity:0, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false}));
+    shock.position.set(0,-0.1,1.6); scene.add(shock);
+
+    resize();
+  }
+
+  /* ---- chorégraphie GSAP : garde → jab → cross → parade → esquive ---- */
+  var tl=null;
+  function impact(){
+    if(prefersReduced) return;
+    gsap.fromTo(shock.material,{opacity:.9},{opacity:0,duration:.6,ease:'power2.out'});
+    gsap.fromTo(shock.scale,{x:.2,y:.2,z:.2},{x:3.2,y:3.2,z:3.2,duration:.6,ease:'power2.out'});
+    gsap.fromTo(emberLight,{intensity:4.5},{intensity:1.5,duration:.5,ease:'power2.out'});
+  }
+  function buildTimeline(){
+    if(prefersReduced){
+      // pose statique de garde, respiration très lente uniquement (gérée en rAF)
+      return;
+    }
+    tl = gsap.timeline({repeat:-1, defaults:{ease:'power3.inOut'}});
+    // mise en garde (léger settle)
+    tl.to(gloveL.position,{x:-1.6,y:-0.25,z:1.3,duration:.7},0)
+      .to(gloveR.position,{x:1.6,y:-0.65,z:0.7,duration:.7},0)
+    // JAB (gant gauche part vers l'avant)
+      .to(gloveL.position,{z:3.6,y:-0.1,x:-0.6,duration:.18,ease:'power4.out'},'+=0.5')
+      .to(gloveL.rotation,{x:0.05,duration:.18},'<')
+      .add(impact,'>-0.02')
+      .to(gloveL.position,{x:-1.6,y:-0.25,z:1.3,duration:.34,ease:'power2.inOut'})
+    // CROSS (gant droit, frappe lourde)
+      .to(gloveR.position,{z:4.0,y:0.0,x:0.4,duration:.2,ease:'power4.out'},'+=0.25')
+      .to(gloveR.rotation,{z:-0.25,duration:.2},'<')
+      .add(impact,'>-0.02')
+      .to(fighter.rotation,{y:0.12,duration:.2,ease:'power2.out'},'<')
+      .to(gloveR.position,{x:1.6,y:-0.65,z:0.7,duration:.36,ease:'power2.inOut'})
+      .to(fighter.rotation,{y:0,duration:.4},'<')
+    // PARADE (gant gauche se relève)
+      .to(gloveL.position,{x:-1.1,y:0.4,z:1.6,duration:.22,ease:'power2.out'},'+=0.2')
+      .to(gloveL.position,{x:-1.6,y:-0.25,z:1.3,duration:.3,ease:'power2.inOut'},'+=0.05')
+    // ESQUIVE (slip — léger déplacement du buste/caméra cible)
+      .to(fighter.position,{x:-0.5,duration:.3,ease:'power2.inOut'},'+=0.15')
+      .to(fighter.rotation,{z:0.05,duration:.3,ease:'power2.inOut'},'<')
+      .to(fighter.position,{x:0,duration:.4,ease:'power2.inOut'},'+=0.1')
+      .to(fighter.rotation,{z:0,duration:.4,ease:'power2.inOut'},'<')
+    // respiration
+      .to(fighter.position,{y:'+=0.12',duration:.8,ease:'sine.inOut'})
+      .to(fighter.position,{y:'-=0.12',duration:.8,ease:'sine.inOut'});
+  }
+
+  function resize(){
+    var w = canvas.clientWidth || canvas.parentElement.clientWidth;
+    var h = canvas.clientHeight || canvas.parentElement.clientHeight;
+    if(!w||!h) return;
+    renderer.setSize(w,h,false);
+    camera.aspect = w/h;
+    // recule la caméra sur écrans étroits pour garder les gants cadrés
+    camera.position.z = w < 680 ? 11.5 : (w < 1024 ? 10 : 9);
+    camera.updateProjectionMatrix();
+  }
+
+  var tBreath=0;
+  function render(){
+    raf = requestAnimationFrame(render);
+    var dt = Math.min(clock.getDelta(), 0.05);
+    // parallaxe curseur (lissée) — désactivée en reduced motion
+    if(!prefersReduced){
+      pointer.x += (pointer.tx - pointer.x)*0.05;
+      pointer.y += (pointer.ty - pointer.y)*0.05;
+      camera.position.x += ((pointer.x*1.2) - camera.position.x)*0.04;
+      camera.position.y += ((0.4 - pointer.y*0.8) - camera.position.y)*0.04;
+      camera.lookAt(0,0,1.5);
+    } else {
+      // pose statique : respiration très lente
+      tBreath += dt*0.5;
+      fighter.position.y = Math.sin(tBreath)*0.06;
+      camera.lookAt(0,0,1.5);
+    }
+    // particules : dérive vers le haut
+    if(particles){
+      var p = particles.geometry.attributes.position.array; var spd=particles.geometry.userData.spd;
+      var k = prefersReduced?0.1:1;
+      for(var i=0;i<spd.length;i++){
+        p[i*3+1] += spd[i]*dt*0.6*k;
+        if(p[i*3+1]>6){ p[i*3+1]=-6; p[i*3]=(Math.random()-.5)*16; }
+      }
+      particles.geometry.attributes.position.needsUpdate=true;
+      particles.rotation.y += dt*0.02*k;
+    }
+    renderer.render(scene,camera);
+  }
+
+  function start(){ if(running) return; running=true; clock.start(); if(tl) tl.play(); render(); }
+  function stop(){ running=false; if(raf) cancelAnimationFrame(raf); raf=null; if(tl) tl.pause(); }
+
+  try{
+    buildScene();
+    buildTimeline();
+    showNote(tier==='reduced'?'Animation réduite' : (tier==='low'?'Mode performance' : ''));
+
+    // démarrer seulement si le héro est visible
+    var heroEl = DOC.querySelector('.hero');
+    if('IntersectionObserver' in W){
+      var ioHero = new IntersectionObserver(function(es){
+        es.forEach(function(e){ if(e.isIntersecting) start(); else stop(); });
+      }, {threshold:.05});
+      ioHero.observe(heroEl);
+    } else { start(); }
+
+    // pause si onglet caché
+    DOC.addEventListener('visibilitychange', function(){ if(DOC.hidden) stop(); else if(isInView(heroEl)) start(); });
+    function isInView(el){ var r=el.getBoundingClientRect(); return r.bottom>0 && r.top<W.innerHeight; }
+
+    // interaction curseur / toucher
+    if(!prefersReduced){
+      W.addEventListener('pointermove', function(e){
+        pointer.tx = (e.clientX/W.innerWidth - .5)*2;
+        pointer.ty = (e.clientY/W.innerHeight - .5)*2;
+      }, {passive:true});
+      // tap/clic dans le héro => impact ponctuel
+      heroEl.addEventListener('pointerdown', function(){ impact(); }, {passive:true});
+    }
+
+    // resize propre (debounce)
+    var rs; W.addEventListener('resize', function(){ clearTimeout(rs); rs=setTimeout(resize,150); }, {passive:true});
+  }catch(err){
+    // tout échec 3D => fallback CSS, le site reste complet
+    DOC.body.classList.add('no-webgl');
+    if(raf) cancelAnimationFrame(raf);
+    showNote('Mode visuel simplifié');
+  }
+
+  /* =========================================================================
+     GSAP ScrollTrigger : parallaxe légère du titre (transform only)
+     ========================================================================= */
+  if(W.gsap && W.ScrollTrigger && !prefersReduced){
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.to('.hero .display', {yPercent:18, ease:'none',
+      scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
+    gsap.to('.hero-meta', {yPercent:30, opacity:.4, ease:'none',
+      scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
+  }
+})();
+</script>
+</body>
+</html>
