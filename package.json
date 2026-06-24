@@ -22,6 +22,7 @@
   "homepage": "https://github.com/symbalyx/vinted-flipper#readme",
   "dependencies": {
     "@powerm1nt/vinted-api": "^2.14.15",
+    "framer-motion": "^12.41.0",
     "playwright": "^1.60.0",
     "puppeteer-core": "^25.1.0",
     "puppeteer-extra": "^3.3.6",
