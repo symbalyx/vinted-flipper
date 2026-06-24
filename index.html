@@ -1283,32 +1283,50 @@ img,canvas,svg,video{ max-width:100% }
 
   var canvas = DOC.getElementById('scene');
   var renderer, scene, camera, raf=null, running=false, clock;
-  var fighter, gloveL, gloveR, particles, shock, keyLight, emberLight, goldLight;
+  var fighter, rig, gloveL, gloveR, particles, shock, keyLight, emberLight, goldLight;
   var pointer = {x:0,y:0,tx:0,ty:0};
   var DPR_CAP = tier==='high'?2 : tier==='mid'?1.6 : 1.25;
   var PCOUNT = tier==='high'?900 : tier==='mid'?450 : tier==='low'?180 : 120;
 
   function makeGlove(color){
     var g = new THREE.Group();
-    var mat = new THREE.MeshStandardMaterial({color:color, roughness:.55, metalness:.05});
-    var trimMat = new THREE.MeshStandardMaterial({color:0xc9a24b, roughness:.35, metalness:.7});
-    var seg = tier==='high'?32:tier==='mid'?20:14;
-    // corps
-    var body = new THREE.Mesh(new THREE.SphereGeometry(1,seg,seg), mat);
-    body.scale.set(1,.92,1.18); g.add(body);
-    // pad des phalanges
-    var pad = new THREE.Mesh(new THREE.SphereGeometry(.62,seg,seg), mat);
-    pad.position.set(0,.18,.95); pad.scale.set(1.05,.8,.6); g.add(pad);
-    // pouce
-    var thumb = new THREE.Mesh(new THREE.SphereGeometry(.42,seg,seg), mat);
-    thumb.position.set(-.85,-.35,.35); thumb.scale.set(.8,1.1,1); g.add(thumb);
-    // poignet / manchette
-    var cuff = new THREE.Mesh(new THREE.CylinderGeometry(.7,.78,.7,seg), mat);
-    cuff.position.set(0,-.15,-1); cuff.rotation.x=Math.PI/2; g.add(cuff);
-    // liseré or
-    var trim = new THREE.Mesh(new THREE.TorusGeometry(.72,.08,8,seg), trimMat);
-    trim.position.set(0,-.15,-1.32); g.add(trim);
-    g.userData.body=body;
+    var seg = tier==='high'?40:tier==='mid'?24:16;
+    var cap = Math.max(6, (seg/2)|0);
+    var base = new THREE.Color(color);
+    var leather    = new THREE.MeshStandardMaterial({color:color, roughness:.48, metalness:.08, emissive:base.clone().multiplyScalar(.06)});
+    var leatherDk  = new THREE.MeshStandardMaterial({color:base.clone().multiplyScalar(.66), roughness:.6, metalness:.06});
+    var trimMat    = new THREE.MeshStandardMaterial({color:0xc9a24b, roughness:.3, metalness:.85, emissive:0x3a2a00, emissiveIntensity:.5});
+    var seamMat    = new THREE.MeshStandardMaterial({color:0x1b0c07, roughness:.85, metalness:0});
+
+    // masse principale (poing), allongée vers l'avant
+    var body = new THREE.Mesh(new THREE.SphereGeometry(1, seg, seg), leather);
+    body.scale.set(1.02, 1.0, 1.22); g.add(body);
+    // rouleau des phalanges = surface de frappe (plus plat)
+    var knuckle = new THREE.Mesh(new THREE.SphereGeometry(.93, seg, seg), leather);
+    knuckle.position.set(0, .26, .66); knuckle.scale.set(1.0, .6, .64); g.add(knuckle);
+    // bourrelet supérieur (dos)
+    var topRoll = new THREE.Mesh(new THREE.SphereGeometry(.7, seg, seg), leather);
+    topRoll.position.set(0, .56, -.12); topRoll.scale.set(.96, .58, .92); g.add(topRoll);
+    // couture de séparation des doigts (tore aplati à l'avant)
+    var seam = new THREE.Mesh(new THREE.TorusGeometry(.56, .045, 8, seg), seamMat);
+    seam.position.set(0, .10, .92); seam.rotation.x = Math.PI/2; seam.scale.set(1, .55, 1); g.add(seam);
+    // pouce (capsule)
+    var thumb = new THREE.Mesh(new THREE.CapsuleGeometry(.3, .44, 4, cap), leather);
+    thumb.position.set(-.92, -.26, .52); thumb.rotation.set(.42, 0, .95); g.add(thumb);
+    // poignet / manchette tronc-conique
+    var cuff = new THREE.Mesh(new THREE.CylinderGeometry(.64, .82, .98, seg), leatherDk);
+    cuff.position.set(0, -.36, -1.05); cuff.rotation.x = Math.PI/2; g.add(cuff);
+    // sangle (velcro) sombre
+    var strap = new THREE.Mesh(new THREE.BoxGeometry(1.25, .26, .2), leatherDk);
+    strap.position.set(0, -.5, -1.0); g.add(strap);
+    // liseré or à l'ouverture du poignet
+    var trim = new THREE.Mesh(new THREE.TorusGeometry(.8, .085, 10, seg), trimMat);
+    trim.position.set(0, -.32, -1.42); g.add(trim);
+    // emblème or sur le dos
+    var emblem = new THREE.Mesh(new THREE.CylinderGeometry(.17, .17, .06, 18), trimMat);
+    emblem.position.set(0, .78, -.05); emblem.rotation.set(Math.PI/2 - .45, 0, 0); g.add(emblem);
+
+    g.userData.body = body;
     return g;
   }
 
@@ -1322,13 +1340,16 @@ img,canvas,svg,video{ max-width:100% }
     clock = new THREE.Clock();
 
     // lumières
-    scene.add(new THREE.AmbientLight(0x3a2a22, 0.6));
-    keyLight = new THREE.DirectionalLight(0xfff0e0, 1.1); keyLight.position.set(4,6,6); scene.add(keyLight);
-    emberLight = new THREE.PointLight(0xff5a2c, 1.5, 30); emberLight.position.set(-5,1,4); scene.add(emberLight);
-    goldLight = new THREE.PointLight(0xffcf7a, 1.0, 30); goldLight.position.set(5,-2,3); scene.add(goldLight);
+    scene.add(new THREE.AmbientLight(0x3a2a22, 0.65));
+    keyLight = new THREE.DirectionalLight(0xfff0e0, 1.2); keyLight.position.set(4,6,6); scene.add(keyLight);
+    emberLight = new THREE.PointLight(0xff5a2c, 1.6, 30); emberLight.position.set(-5,1,4); scene.add(emberLight);
+    goldLight = new THREE.PointLight(0xffcf7a, 1.1, 30); goldLight.position.set(5,-2,3); scene.add(goldLight);
+    // contre-jour (rim) pour détacher les gants du fond sombre
+    var rimLight = new THREE.DirectionalLight(0xffb070, 1.0); rimLight.position.set(-4,3,-7); scene.add(rimLight);
 
-    // paire de gants (le combattant face à la caméra)
-    fighter = new THREE.Group(); scene.add(fighter);
+    // rig (piloté par le scroll) > fighter (chorégraphie de combat) > gants
+    fighter = new THREE.Group();
+    rig = new THREE.Group(); rig.add(fighter); scene.add(rig);
     gloveL = makeGlove(0xc4361c); gloveR = makeGlove(0xa62a14);
     gloveL.scale.setScalar(1.05); gloveR.scale.setScalar(1.05);
     // pose de garde de départ
@@ -1489,6 +1510,17 @@ img,canvas,svg,video{ max-width:100% }
       scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
     gsap.to('.hero-meta', {yPercent:30, opacity:.4, ease:'none',
       scrollTrigger:{trigger:'.hero', start:'top top', end:'bottom top', scrub:true}});
+
+    // ---- Scène 3D pilotée par le scroll : les gants pivotent, reculent,
+    //      rétrécissent et la scène se fond à mesure qu'on quitte le héros ----
+    if(rig){
+      var st3d = {trigger:'.hero', start:'top top', end:'bottom top', scrub:0.6};
+      gsap.to(rig.rotation, {y:-0.85, x:0.26, z:0.05, ease:'none', scrollTrigger:st3d});
+      gsap.to(rig.position, {z:-2.8, y:0.7, ease:'none', scrollTrigger:st3d});
+      gsap.to(rig.scale,    {x:0.66, y:0.66, z:0.66, ease:'none', scrollTrigger:st3d});
+      gsap.to('#scene',     {opacity:0.18, ease:'none', scrollTrigger:st3d});
+      if(particles) gsap.to(particles.material, {opacity:0.12, ease:'none', scrollTrigger:st3d});
+    }
   }
 })();
 </script>
