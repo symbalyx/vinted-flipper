@@ -317,8 +317,8 @@ body.menu-open .burger span:nth-child(3){ transform:translateY(-6px) rotate(-45d
 /* overlay mobile */
 .menu{
   position:fixed; inset:0; z-index:95; display:flex; flex-direction:column; justify-content:center;
-  padding:var(--gut); gap:6px; background:rgba(8,7,6,.92);
-  backdrop-filter:blur(22px); -webkit-backdrop-filter:blur(22px);
+  padding:var(--gut); gap:6px; background:rgba(7,6,5,.975);
+  backdrop-filter:blur(26px); -webkit-backdrop-filter:blur(26px);
   opacity:0; visibility:hidden; transition:opacity .5s var(--ease),visibility .5s;
 }
 body.menu-open .menu{ opacity:1; visibility:visible }
@@ -355,7 +355,7 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 .display .l1{ display:block; color:var(--bone) }
 .display .l2{ display:block; color:transparent; -webkit-text-stroke:1.3px rgba(243,237,226,.55); paint-order:stroke fill }
 .hero-sub{ display:flex; flex-wrap:wrap; gap:18px 30px; align-items:flex-end; margin-top:clamp(24px,4vw,40px) }
-.hero-sub .lede{ flex:1 1 320px }
+.hero-sub .lede{ flex:1 1 320px; text-shadow:0 1px 16px rgba(8,7,6,.55) }
 .hero-actions{ display:flex; flex-wrap:wrap; gap:12px; margin-top:clamp(26px,4vw,38px) }
 .hero-meta{ display:flex; flex-wrap:wrap; gap:10px 26px; margin-top:clamp(30px,5vw,52px); padding-top:22px; border-top:1px solid var(--line) }
 .hero-meta div{ display:flex; flex-direction:column; gap:2px }
@@ -367,7 +367,7 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 @keyframes sd{ 0%{transform:scaleY(.2);transform-origin:top;opacity:.3} 50%{transform:scaleY(1);opacity:1} 100%{transform:scaleY(.2);transform-origin:bottom;opacity:.3} }
 
 /* badge état 3D (perf/reduced) */
-.scene-note{ position:absolute; right:var(--gut); top:calc(14px + 70px); z-index:2; font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; color:var(--ash-dim); display:none }
+.scene-note{ display:none !important }
 
 /* ---------- marquee valeurs ---------- */
 .marquee{ border-block:1px solid var(--line); padding-block:18px; overflow:hidden; white-space:nowrap; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent) }
@@ -1408,14 +1408,16 @@ img,canvas,svg,video{ max-width:100% }
     camera.position.set(0, 0.4, 9);
     clock = new THREE.Clock();
 
-    // lumières
-    scene.add(new THREE.AmbientLight(0x3a2a22, 0.55));
-    scene.add(new THREE.HemisphereLight(0x4a3a30, 0x0a0706, 0.5));
-    keyLight = new THREE.DirectionalLight(0xfff0e0, 1.2); keyLight.position.set(4,6,6); scene.add(keyLight);
-    emberLight = new THREE.PointLight(0xff5a2c, 1.6, 30); emberLight.position.set(-5,1,4); scene.add(emberLight);
-    goldLight = new THREE.PointLight(0xffcf7a, 1.1, 30); goldLight.position.set(5,-2,3); scene.add(goldLight);
+    // lumières (renforcées pour bien faire ressortir les gants)
+    scene.add(new THREE.AmbientLight(0x4a382e, 0.8));
+    scene.add(new THREE.HemisphereLight(0x5a463a, 0x0d0908, 0.7));
+    keyLight = new THREE.DirectionalLight(0xfff2e6, 2.0); keyLight.position.set(3,5,8); scene.add(keyLight);
+    // lumière de face : éclaire les faces des gants tournées vers la caméra
+    var fillLight = new THREE.PointLight(0xffd9b0, 2.3, 42); fillLight.position.set(1.4,1.4,6.5); scene.add(fillLight);
+    emberLight = new THREE.PointLight(0xff5a2c, 2.0, 32); emberLight.position.set(-5,1,4); scene.add(emberLight);
+    goldLight = new THREE.PointLight(0xffcf7a, 1.6, 32); goldLight.position.set(5,-2,3); scene.add(goldLight);
     // contre-jour (rim) pour détacher les gants du fond sombre
-    var rimLight = new THREE.DirectionalLight(0xffb070, 1.0); rimLight.position.set(-4,3,-7); scene.add(rimLight);
+    var rimLight = new THREE.DirectionalLight(0xffb070, 1.3); rimLight.position.set(-4,3,-7); scene.add(rimLight);
 
     // rig (piloté par le scroll) > fighter (chorégraphie) > modèle de gants
     fighter = new THREE.Group();
@@ -1465,8 +1467,8 @@ img,canvas,svg,video{ max-width:100% }
   function applyModelLayout(){
     if(!gloveModel) return;
     var w = canvas.clientWidth || (canvas.parentElement&&canvas.parentElement.clientWidth) || 1280;
-    gloveModel.scale.setScalar(w<680?1.05 : (w<1024?1.35:1.6));
-    gloveModel.position.set(w<680?0:0.9, -0.25, 0);
+    gloveModel.scale.setScalar(w<680?1.35 : (w<1024?1.55:1.8));
+    gloveModel.position.set(w<680?0:0.7, w<680?-0.05:-0.2, 0);
   }
   function buildProceduralFighter(){
     gloveL = makeGlove(0xc4361c); gloveR = makeGlove(0xa62a14);
