@@ -33,6 +33,6 @@
     "puppeteer-core": "^25.1.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "three": "^0.160.0"
+    "three": "^0.147.0"
   }
 }

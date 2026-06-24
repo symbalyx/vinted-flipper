@@ -397,11 +397,13 @@ body.menu-open .menu .menu-foot{ opacity:1 }
   background:linear-gradient(158deg,rgba(243,237,226,.045),transparent 52%),radial-gradient(120% 90% at 100% 0%,rgba(226,84,43,.10),transparent 55%),var(--ink-3);
   transition:transform .6s var(--ease-out),border-color .5s var(--ease) }
 .card:hover{ transform:translateY(-4px); border-color:var(--line-strong) }
-.card:hover .card-ico{ color:rgba(201,162,75,.30); transform:translateY(-4px) rotate(-3deg) }
-.card-ico{ position:absolute; right:16px; top:14px; width:88px; height:88px; z-index:1; pointer-events:none;
-  color:rgba(201,162,75,.18); transition:color .5s var(--ease),transform .6s var(--ease-out) }
-.card.lg .card-ico,.card.md .card-ico{ width:128px; height:128px }
-.card-ico svg{ width:100%; height:100% }
+.card:hover .card-ico{ color:rgba(227,193,120,.52); transform:translateY(-4px) rotate(-3deg) }
+.card-ico{ position:absolute; right:16px; top:14px; width:94px; height:94px; z-index:1; pointer-events:none;
+  display:grid; place-items:center; color:rgba(227,193,120,.34); transition:color .5s var(--ease),transform .6s var(--ease-out) }
+.card-ico::before{ content:""; position:absolute; inset:4%; border-radius:50%;
+  background:radial-gradient(circle at 50% 42%, rgba(201,162,75,.16), transparent 68%) }
+.card.lg .card-ico,.card.md .card-ico{ width:134px; height:134px }
+.card-ico svg{ width:76%; height:76%; position:relative }
 .card .art{ position:absolute; inset:0; z-index:0; opacity:.9 }
 .card .art::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 30%,rgba(13,11,9,.55) 70%,rgba(13,11,9,.92)) }
 .card .body{ position:relative; z-index:2 }
@@ -522,12 +524,13 @@ footer{ border-top:1px solid var(--line); padding-block:48px 40px; margin-top:30
 /* ---------- avis Google (bande de confiance subtile) ---------- */
 .reviews-band{ display:flex; flex-wrap:wrap; align-items:center; gap:20px 34px; justify-content:space-between;
   border:1px solid var(--line); border-radius:var(--r-lg); padding:24px 28px; background:linear-gradient(180deg,rgba(243,237,226,.03),transparent),var(--ink-3); margin-bottom:16px }
-.reviews-band .score{ display:flex; align-items:center; gap:18px }
-.reviews-band .glogo{ width:48px; height:48px; border-radius:50%; background:#fff; display:grid; place-items:center; flex:none; box-shadow:0 6px 20px -8px rgba(0,0,0,.6) }
+.reviews-band .score{ display:flex; align-items:center; gap:16px; flex-wrap:nowrap }
+.reviews-band .glogo{ width:46px; height:46px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; box-shadow:0 6px 20px -8px rgba(0,0,0,.6) }
+.reviews-band .glogo svg{ display:block }
 .reviews-band .score b{ font-family:var(--display); font-size:2.9rem; font-weight:400; letter-spacing:.02em; line-height:.95; color:var(--bone) }
-.reviews-band .stars{ font-size:1.08rem; letter-spacing:3px; margin:2px 0 1px }
-.reviews-band .score span{ display:block; font-size:.8rem; color:var(--ash) }
-.reviews-band .score span b{ font-family:var(--sans); font-size:.8rem; color:var(--bone); font-weight:600 }
+.reviews-band .stars{ font-size:1.08rem; letter-spacing:3px; margin:2px 0 1px; white-space:nowrap }
+.reviews-band .score > div > span{ display:block; font-size:.8rem; color:var(--ash) }
+.reviews-band .score > div > span b{ font-family:var(--sans); font-size:.8rem; color:var(--bone); font-weight:600 }
 .reviews{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px }
 .rev{ border:1px solid var(--line); border-radius:var(--r-md); padding:24px; background:linear-gradient(180deg,rgba(243,237,226,.028),transparent);
   display:flex; flex-direction:column; transition:border-color .4s var(--ease),transform .5s var(--ease-out) }
@@ -892,7 +895,7 @@ img,canvas,svg,video{ max-width:100% }
       <div class="reviews-band reveal">
         <div class="score">
           <span class="glogo" aria-hidden="true">
-            <svg viewBox="0 0 48 48" width="26" height="26"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C41.797 35.205 44 30.137 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+            <svg viewBox="0 0 48 48" width="24" height="24"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           </span>
           <div>
             <b>5,0</b>
@@ -1120,8 +1123,10 @@ img,canvas,svg,video{ max-width:100% }
 
 <!-- Bibliothèques vendorisées (fonctionnent en file://, sans serveur) -->
 <script src="assets/lib/three.min.js"></script>
+<script src="assets/lib/GLTFLoader.js"></script>
 <script src="assets/lib/gsap.min.js"></script>
 <script src="assets/lib/ScrollTrigger.min.js"></script>
+<script src="assets/models/gloves-glb.js"></script>
 <script>
 /* ===========================================================================
    THE TEMPLE BORDEAUX — Interactions, 3D & médias procéduraux
@@ -1344,7 +1349,7 @@ img,canvas,svg,video{ max-width:100% }
 
   var canvas = DOC.getElementById('scene');
   var renderer, scene, camera, raf=null, running=false, clock;
-  var fighter, rig, gloveL, gloveR, particles, shock, keyLight, emberLight, goldLight;
+  var fighter, rig, gloveL, gloveR, gloveModel, particles, shock, keyLight, emberLight, goldLight;
   var pointer = {x:0,y:0,tx:0,ty:0};
   var DPR_CAP = tier==='high'?2 : tier==='mid'?1.6 : 1.25;
   var PCOUNT = tier==='high'?900 : tier==='mid'?450 : tier==='low'?180 : 120;
@@ -1412,15 +1417,10 @@ img,canvas,svg,video{ max-width:100% }
     // contre-jour (rim) pour détacher les gants du fond sombre
     var rimLight = new THREE.DirectionalLight(0xffb070, 1.0); rimLight.position.set(-4,3,-7); scene.add(rimLight);
 
-    // rig (piloté par le scroll) > fighter (chorégraphie de combat) > gants
+    // rig (piloté par le scroll) > fighter (chorégraphie) > modèle de gants
     fighter = new THREE.Group();
     rig = new THREE.Group(); rig.add(fighter); scene.add(rig);
-    gloveL = makeGlove(0xc4361c); gloveR = makeGlove(0xa62a14);
-    gloveL.scale.setScalar(1.05); gloveR.scale.setScalar(1.05);
-    // pose de garde de départ
-    gloveL.position.set(-1.7, -0.3, 1.2); gloveL.rotation.set(0.2,0.5,0.1);
-    gloveR.position.set(1.7, -0.7, 0.6); gloveR.rotation.set(0.1,-0.5,-0.1);
-    fighter.add(gloveL); fighter.add(gloveR);
+    loadGloves();
 
     // particules braise/poussière
     var geo = new THREE.BufferGeometry();
@@ -1437,9 +1437,43 @@ img,canvas,svg,video{ max-width:100% }
     // onde de choc (anneau) — invisible au repos
     shock = new THREE.Mesh(new THREE.RingGeometry(0.6,0.85,40),
       new THREE.MeshBasicMaterial({color:0xffb066, transparent:true, opacity:0, side:THREE.DoubleSide, blending:THREE.AdditiveBlending, depthWrite:false}));
-    shock.position.set(0,-0.1,1.6); scene.add(shock);
+    shock.position.set(0.9,-0.1,1.6); scene.add(shock);
 
     resize();
+  }
+
+  /* ---- chargement du modèle 3D de gants (GLB embarqué, sans fetch) ---- */
+  function loadGloves(){
+    var ok=false;
+    if(typeof THREE.GLTFLoader!=='undefined' && window.GLOVES_GLB_B64){
+      try{
+        var bin=atob(window.GLOVES_GLB_B64), n=bin.length, u=new Uint8Array(n);
+        for(var i=0;i<n;i++) u[i]=bin.charCodeAt(i);
+        new THREE.GLTFLoader().parse(u.buffer,'',function(gltf){
+          var m=gltf.scene;
+          var box=new THREE.Box3().setFromObject(m), c=new THREE.Vector3(); box.getCenter(c);
+          m.position.sub(c);                          // recentre à l'origine
+          var wrap=new THREE.Group(); wrap.add(m); wrap.rotation.y=-0.15;
+          m.traverse(function(o){ if(o.isMesh && o.material && 'roughness' in o.material){ o.material.roughness=Math.min(1,(o.material.roughness||.5)+.04); o.material.envMapIntensity=0.6; } });
+          fighter.add(wrap); gloveModel=wrap; applyModelLayout();
+        }, function(){ buildProceduralFighter(); });
+        ok=true;
+      }catch(e){ ok=false; }
+    }
+    if(!ok) buildProceduralFighter();
+  }
+  function applyModelLayout(){
+    if(!gloveModel) return;
+    var w = canvas.clientWidth || (canvas.parentElement&&canvas.parentElement.clientWidth) || 1280;
+    gloveModel.scale.setScalar(w<680?1.05 : (w<1024?1.35:1.6));
+    gloveModel.position.set(w<680?0:0.9, -0.25, 0);
+  }
+  function buildProceduralFighter(){
+    gloveL = makeGlove(0xc4361c); gloveR = makeGlove(0xa62a14);
+    gloveL.scale.setScalar(1.05); gloveR.scale.setScalar(1.05);
+    gloveL.position.set(-1.7,-0.3,1.2); gloveL.rotation.set(0.2,0.5,0.1);
+    gloveR.position.set(1.7,-0.7,0.6); gloveR.rotation.set(0.1,-0.5,-0.1);
+    fighter.add(gloveL); fighter.add(gloveR);
   }
 
   /* ---- chorégraphie GSAP : garde → jab → cross → parade → esquive ---- */
@@ -1451,37 +1485,32 @@ img,canvas,svg,video{ max-width:100% }
     gsap.fromTo(emberLight,{intensity:4.5},{intensity:1.5,duration:.5,ease:'power2.out'});
   }
   function buildTimeline(){
-    if(prefersReduced){
-      // pose statique de garde, respiration très lente uniquement (gérée en rAF)
-      return;
-    }
+    if(prefersReduced) return;                 // pose statique (respiration lente en rAF)
+    var f = fighter;
     tl = gsap.timeline({repeat:-1, defaults:{ease:'power3.inOut'}});
-    // mise en garde (léger settle)
-    tl.to(gloveL.position,{x:-1.6,y:-0.25,z:1.3,duration:.7},0)
-      .to(gloveR.position,{x:1.6,y:-0.65,z:0.7,duration:.7},0)
-    // JAB (gant gauche part vers l'avant)
-      .to(gloveL.position,{z:3.6,y:-0.1,x:-0.6,duration:.18,ease:'power4.out'},'+=0.5')
-      .to(gloveL.rotation,{x:0.05,duration:.18},'<')
+    // garde / léger balancement
+    tl.to(f.rotation,{y:0.05,duration:.6},0)
+      .to(f.rotation,{y:-0.05,duration:.7})
+    // JAB (avancée vive vers la caméra)
+      .to(f.position,{z:1.5,duration:.16,ease:'power4.out'},'+=0.15')
+      .to(f.rotation,{x:-0.07,duration:.16},'<')
       .add(impact,'>-0.02')
-      .to(gloveL.position,{x:-1.6,y:-0.25,z:1.3,duration:.34,ease:'power2.inOut'})
-    // CROSS (gant droit, frappe lourde)
-      .to(gloveR.position,{z:4.0,y:0.0,x:0.4,duration:.2,ease:'power4.out'},'+=0.25')
-      .to(gloveR.rotation,{z:-0.25,duration:.2},'<')
+      .to(f.position,{z:0,duration:.3,ease:'power2.inOut'})
+      .to(f.rotation,{x:0,duration:.3},'<')
+    // CROSS (frappe plus profonde + rotation d'épaule)
+      .to(f.position,{z:2.1,x:0.25,duration:.2,ease:'power4.out'},'+=0.22')
+      .to(f.rotation,{y:0.2,x:-0.05,duration:.2},'<')
       .add(impact,'>-0.02')
-      .to(fighter.rotation,{y:0.12,duration:.2,ease:'power2.out'},'<')
-      .to(gloveR.position,{x:1.6,y:-0.65,z:0.7,duration:.36,ease:'power2.inOut'})
-      .to(fighter.rotation,{y:0,duration:.4},'<')
-    // PARADE (gant gauche se relève)
-      .to(gloveL.position,{x:-1.1,y:0.4,z:1.6,duration:.22,ease:'power2.out'},'+=0.2')
-      .to(gloveL.position,{x:-1.6,y:-0.25,z:1.3,duration:.3,ease:'power2.inOut'},'+=0.05')
-    // ESQUIVE (slip — léger déplacement du buste/caméra cible)
-      .to(fighter.position,{x:-0.5,duration:.3,ease:'power2.inOut'},'+=0.15')
-      .to(fighter.rotation,{z:0.05,duration:.3,ease:'power2.inOut'},'<')
-      .to(fighter.position,{x:0,duration:.4,ease:'power2.inOut'},'+=0.1')
-      .to(fighter.rotation,{z:0,duration:.4,ease:'power2.inOut'},'<')
+      .to(f.position,{z:0,x:0,duration:.36,ease:'power2.inOut'})
+      .to(f.rotation,{y:0,x:0,duration:.4},'<')
+    // ESQUIVE (slip latéral)
+      .to(f.position,{x:-0.55,duration:.3},'+=0.18')
+      .to(f.rotation,{z:0.07,duration:.3},'<')
+      .to(f.position,{x:0,duration:.42},'+=0.1')
+      .to(f.rotation,{z:0,duration:.42},'<')
     // respiration
-      .to(fighter.position,{y:'+=0.12',duration:.8,ease:'sine.inOut'})
-      .to(fighter.position,{y:'-=0.12',duration:.8,ease:'sine.inOut'});
+      .to(f.position,{y:'+=0.13',duration:.85,ease:'sine.inOut'})
+      .to(f.position,{y:'-=0.13',duration:.85,ease:'sine.inOut'});
   }
 
   function resize(){
@@ -1493,6 +1522,8 @@ img,canvas,svg,video{ max-width:100% }
     // recule la caméra sur écrans étroits pour garder les gants cadrés
     camera.position.z = w < 680 ? 11.5 : (w < 1024 ? 10 : 9);
     camera.updateProjectionMatrix();
+    if(shock) shock.position.x = w<680 ? 0 : 0.9;
+    applyModelLayout();
   }
 
   var tBreath=0;
@@ -1612,16 +1643,16 @@ img,canvas,svg,video{ max-width:100% }
   function mat(c,r,m,e,ei){ return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m,emissive:e||0x000000,emissiveIntensity:ei||1}); }
 
   function buildBag(){
-    var leather=mat(0x1a1410,.72,.1,0x0d0907), metal=mat(0x8a8278,.4,.9), band=mat(0x2a1f17,.7,.12);
+    var leather=mat(0x1a1410,.72,.1,0x0d0907), metal=mat(0xc2bcae,.34,.95,0x2a2620,.5), band=mat(0x2a1f17,.7,.12);
     var sg=Math.max(8,(seg/2)|0);
     var p=new THREE.Group();                       // pivot = point d'ancrage au plafond (y=0)
     // plaque d'ancrage plafond
     var anchor=new THREE.Mesh(new THREE.BoxGeometry(.85,.13,.5),metal); anchor.position.y=.06; p.add(anchor);
-    // chaîne : maillons alternés
-    for(var i=0;i<4;i++){ var link=new THREE.Mesh(new THREE.TorusGeometry(.072,.025,8,16),metal);
-      link.position.y=-.14 - i*.15; link.rotation.x=Math.PI/2; link.rotation.z=(i%2)?Math.PI/2:0; p.add(link); }
+    // chaîne : maillons ovales interconnectés (face caméra, alternance pour l'interlock)
+    for(var i=0;i<5;i++){ var link=new THREE.Mesh(new THREE.TorusGeometry(.1,.032,10,20),metal);
+      link.position.y=-.12 - i*0.13; link.scale.set(.8,1.18,.8); link.rotation.y=(i%2)?Math.PI/2:0; p.add(link); }
     // D-ring de jonction
-    var dring=new THREE.Mesh(new THREE.TorusGeometry(.13,.036,8,20),metal); dring.position.y=-.76; dring.rotation.x=Math.PI/2; p.add(dring);
+    var dring=new THREE.Mesh(new THREE.TorusGeometry(.14,.04,10,22),metal); dring.position.y=-.82; p.add(dring);
     // 4 sangles convergentes (D-ring -> haut du sac)
     for(var s=0;s<4;s++){ var a=s/4*Math.PI*2;
       var st=new THREE.Mesh(new THREE.CylinderGeometry(.035,.055,.6,6),leather);
