@@ -1185,10 +1185,10 @@ img,canvas,svg,video{ max-width:100% }
   var dm = navigator.deviceMemory;                       // peut être indéfini (iOS)
   var mem = dm || 4;
   var saveData = !!(navigator.connection && navigator.connection.saveData);
-  var lowPower = isMobile || cores <= 4 || mem <= 4;
-  var veryLow = cores <= 2 || (dm && dm <= 2) || saveData; // très vieux appareils -> pas de WebGL
-  var canGLB = !prefersReduced && !saveData && cores >= 4 && (dm === undefined || dm >= 4); // modèle 3D réaliste seulement si capable
-  var tier = prefersReduced ? 'reduced' : (lowPower ? 'low' : (cores >= 8 && mem >= 8 ? 'high' : 'mid'));
+  var lowPower = isMobile || cores < 4 || (dm && dm <= 3);
+  var veryLow = saveData;                                  // ne saute le WebGL que sur économie de données
+  var canGLB = !prefersReduced && !saveData && cores >= 4 && (dm === undefined || dm >= 4); // modèle 3D lourd si capable
+  var tier = prefersReduced ? 'reduced' : (lowPower ? 'low' : (cores >= 8 && (dm === undefined || dm >= 8) ? 'high' : 'mid'));
 
   DOC.getElementById('yr').textContent = new Date().getFullYear();
 
@@ -1406,7 +1406,7 @@ img,canvas,svg,video{ max-width:100% }
 
   var canvas = DOC.getElementById('scene');
   var renderer, scene, camera, raf=null, running=false, clock;
-  var fighter, rig, gloveL, gloveR, gloveModel, particles, shock, keyLight, emberLight, goldLight;
+  var fighter, rig, gloveL, gloveR, gloveModel, glovesBuilt=false, particles, shock, keyLight, emberLight, goldLight;
   var pointer = {x:0,y:0,tx:0,ty:0};
   var DPR_CAP = tier==='high'?2 : tier==='mid'?1.6 : 1.2;
   var PCOUNT = tier==='high'?800 : tier==='mid'?420 : tier==='low'?130 : 90;
@@ -1507,19 +1507,25 @@ img,canvas,svg,video{ max-width:100% }
      procéduraux légers, aucun téléchargement supplémentaire. ---- */
   function loadGloves(){
     if(!canGLB || typeof THREE.GLTFLoader === 'undefined'){ buildProceduralFighter(); return; }
-    if(window.GLOVES_GLB_B64){ parseGLB(); return; }
-    var s = DOC.createElement('script');
-    s.src = 'assets/models/gloves-glb.js'; s.async = true;
-    s.onload = function(){ try{ parseGLB(); }catch(e){ buildProceduralFighter(); } };
-    s.onerror = buildProceduralFighter;
-    DOC.head.appendChild(s);
+    if(window.GLOVES_GLB_B64){ parseGLB(); }
+    else {
+      var s = DOC.createElement('script');
+      s.src = 'assets/models/gloves-glb.js'; s.async = true;
+      s.onload = function(){ parseGLB(); };
+      s.onerror = buildProceduralFighter;
+      DOC.head.appendChild(s);
+    }
+    // filet de sécurité : si le GLB n'a pas abouti, on affiche TOUJOURS des gants
+    setTimeout(function(){ if(!glovesBuilt) buildProceduralFighter(); }, 4500);
   }
   function parseGLB(){
+    if(glovesBuilt) return;
     if(!window.GLOVES_GLB_B64){ buildProceduralFighter(); return; }
     try{
       var bin=atob(window.GLOVES_GLB_B64), n=bin.length, u=new Uint8Array(n);
       for(var i=0;i<n;i++) u[i]=bin.charCodeAt(i);
       new THREE.GLTFLoader().parse(u.buffer,'',function(gltf){
+        if(glovesBuilt) return; glovesBuilt=true;
         var m=gltf.scene;
         var box=new THREE.Box3().setFromObject(m), c=new THREE.Vector3(); box.getCenter(c);
         m.position.sub(c);                          // recentre à l'origine
@@ -1536,6 +1542,7 @@ img,canvas,svg,video{ max-width:100% }
     gloveModel.position.set(w<680?0:0.7, w<680?-0.05:-0.2, 0);
   }
   function buildProceduralFighter(){
+    if(glovesBuilt) return; glovesBuilt=true;
     gloveL = makeGlove(0xc4361c); gloveR = makeGlove(0xa62a14);
     gloveL.scale.setScalar(1.05); gloveR.scale.setScalar(1.05);
     gloveL.position.set(-1.7,-0.3,1.2); gloveL.rotation.set(0.2,0.5,0.1);
@@ -1698,14 +1705,14 @@ img,canvas,svg,video{ max-width:100% }
   var canvas=DOC.getElementById('bagCanvas'); if(!canvas || typeof THREE==='undefined') return;
   var reduce=W.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var isMobile=W.matchMedia('(max-width: 820px)').matches;
-  var cores=navigator.hardwareConcurrency||4, mem=navigator.deviceMemory||4;
-  if(isMobile || cores<=4 || mem<=4) return;          // garde le canvas procédural
+  var cores=navigator.hardwareConcurrency||4, dm=navigator.deviceMemory; // dm indéfini sur Firefox/Safari
+  if(isMobile || cores<4 || (dm && dm<=3)) return;    // garde le canvas procédural sur appareils modestes
   function hasWebGL(){ try{var c=DOC.createElement('canvas');return !!(W.WebGLRenderingContext&&(c.getContext('webgl')||c.getContext('experimental-webgl')));}catch(e){return false;} }
   if(!hasWebGL()) return;
 
   var renderer,scene,camera,pivot,raf=null,running=false,clock;
   var ang=0,angV=0,angX=0,angVX=0,t=0;
-  var seg=(cores>=8&&mem>=8)?40:24;
+  var seg=(cores>=8 && (dm===undefined||dm>=8))?40:24;
 
   function mat(c,r,m,e,ei){ return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m,emissive:e||0x000000,emissiveIntensity:ei||1}); }
 
