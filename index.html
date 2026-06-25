@@ -1552,39 +1552,53 @@ img,canvas,svg,video{ max-width:100% }
 
   /* ---- chorégraphie GSAP : garde → jab → cross → parade → esquive ---- */
   var tl=null;
-  function impact(){
+  function impact(power){
     if(prefersReduced) return;
+    power = power || 1;
     gsap.fromTo(shock.material,{opacity:.9},{opacity:0,duration:.6,ease:'power2.out'});
-    gsap.fromTo(shock.scale,{x:.2,y:.2,z:.2},{x:3.2,y:3.2,z:3.2,duration:.6,ease:'power2.out'});
-    gsap.fromTo(emberLight,{intensity:4.5},{intensity:1.5,duration:.5,ease:'power2.out'});
+    gsap.fromTo(shock.scale,{x:.2,y:.2,z:.2},{x:3.2*power,y:3.2*power,z:3.2*power,duration:.6,ease:'power2.out'});
+    gsap.fromTo(emberLight,{intensity:4.5*power},{intensity:1.6,duration:.5,ease:'power2.out'});
+    // "pop" d'impact : la paire encaisse le recul
+    if(fighter) gsap.fromTo(fighter.scale,{x:1+0.05*power,y:1+0.05*power,z:1+0.05*power},{x:1,y:1,z:1,duration:.4,ease:'back.out(2)'});
   }
+  function jabImpact(){ impact(0.8); }
+  function crossImpact(){ impact(1.3); }
   function buildTimeline(){
     if(prefersReduced) return;                 // pose statique (respiration lente en rAF)
     var f = fighter;
     tl = gsap.timeline({repeat:-1, defaults:{ease:'power3.inOut'}});
-    // garde / léger balancement
-    tl.to(f.rotation,{y:0.05,duration:.6},0)
-      .to(f.rotation,{y:-0.05,duration:.7})
-    // JAB (avancée vive vers la caméra)
-      .to(f.position,{z:1.5,duration:.16,ease:'power4.out'},'+=0.15')
-      .to(f.rotation,{x:-0.07,duration:.16},'<')
-      .add(impact,'>-0.02')
-      .to(f.position,{z:0,duration:.3,ease:'power2.inOut'})
-      .to(f.rotation,{x:0,duration:.3},'<')
-    // CROSS (frappe plus profonde + rotation d'épaule)
-      .to(f.position,{z:2.1,x:0.25,duration:.2,ease:'power4.out'},'+=0.22')
-      .to(f.rotation,{y:0.2,x:-0.05,duration:.2},'<')
-      .add(impact,'>-0.02')
-      .to(f.position,{z:0,x:0,duration:.36,ease:'power2.inOut'})
+    // garde + petit bob d'entame
+    tl.to(f.position,{y:-0.06,duration:.45,ease:'sine.inOut'},0)
+      .to(f.rotation,{y:0.05,duration:.45},0)
+    // DOUBLE JAB (deux frappes rapides du même côté)
+      .to(f.position,{z:1.5,y:0.02,duration:.13,ease:'power4.out'},'+=0.12')
+      .add(jabImpact,'>-0.02')
+      .to(f.position,{z:0.5,duration:.16,ease:'power2.inOut'})
+      .to(f.position,{z:1.7,duration:.12,ease:'power4.out'})
+      .add(jabImpact,'>-0.02')
+      .to(f.position,{z:0,y:0,duration:.26,ease:'power2.inOut'})
+    // CROSS (frappe lourde + rotation d'épaule + pop)
+      .to(f.position,{z:2.2,x:0.28,duration:.18,ease:'power4.out'},'+=0.16')
+      .to(f.rotation,{y:0.24,x:-0.06,duration:.18},'<')
+      .add(crossImpact,'>-0.02')
+      .to(f.position,{z:0,x:0,duration:.34,ease:'power2.inOut'})
       .to(f.rotation,{y:0,x:0,duration:.4},'<')
-    // ESQUIVE (slip latéral)
-      .to(f.position,{x:-0.55,duration:.3},'+=0.18')
-      .to(f.rotation,{z:0.07,duration:.3},'<')
-      .to(f.position,{x:0,duration:.42},'+=0.1')
-      .to(f.rotation,{z:0,duration:.42},'<')
-    // respiration
-      .to(f.position,{y:'+=0.13',duration:.85,ease:'sine.inOut'})
-      .to(f.position,{y:'-=0.13',duration:.85,ease:'sine.inOut'});
+    // HOOK (crochet : arc latéral + rotation Z)
+      .to(f.position,{z:1.6,x:-0.5,duration:.17,ease:'power4.out'},'+=0.14')
+      .to(f.rotation,{z:0.18,y:-0.16,duration:.17},'<')
+      .add(crossImpact,'>-0.02')
+      .to(f.position,{z:0,x:0,duration:.34,ease:'power2.inOut'})
+      .to(f.rotation,{z:0,y:0,duration:.38},'<')
+    // ROLL / esquive (slip gauche puis droite)
+      .to(f.position,{x:-0.5,y:-0.12,duration:.3,ease:'sine.inOut'},'+=0.14')
+      .to(f.rotation,{z:0.08,duration:.3},'<')
+      .to(f.position,{x:0.5,y:-0.12,duration:.5,ease:'sine.inOut'})
+      .to(f.rotation,{z:-0.08,duration:.5},'<')
+      .to(f.position,{x:0,y:0,duration:.34,ease:'power2.inOut'})
+      .to(f.rotation,{z:0,duration:.34},'<')
+    // respiration de récupération
+      .to(f.position,{y:'+=0.12',duration:.7,ease:'sine.inOut'})
+      .to(f.position,{y:'-=0.12',duration:.7,ease:'sine.inOut'});
   }
 
   function resize(){
@@ -1600,17 +1614,24 @@ img,canvas,svg,video{ max-width:100% }
     applyModelLayout();
   }
 
-  var tBreath=0;
+  var tBreath=0, idleT=0;
   function render(){
     raf = requestAnimationFrame(render);
     var dt = Math.min(clock.getDelta(), 0.05);
     // parallaxe curseur (lissée) — désactivée en reduced motion
     if(!prefersReduced){
+      idleT += dt;
       pointer.x += (pointer.tx - pointer.x)*0.05;
       pointer.y += (pointer.ty - pointer.y)*0.05;
       camera.position.x += ((pointer.x*1.2) - camera.position.x)*0.04;
       camera.position.y += ((0.4 - pointer.y*0.8) - camera.position.y)*0.04;
       camera.lookAt(0,0,1.5);
+      // balancement continu des gants (compose avec le combo, jamais figé)
+      if(gloveModel){
+        gloveModel.rotation.z = Math.sin(idleT*0.85)*0.05;
+        gloveModel.rotation.x = Math.sin(idleT*1.15)*0.035;
+        gloveModel.rotation.y = -0.15 + Math.sin(idleT*0.6)*0.06 + pointer.x*0.12;
+      }
     } else {
       // pose statique : respiration très lente
       tBreath += dt*0.5;
