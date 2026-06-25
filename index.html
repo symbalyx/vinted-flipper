@@ -404,13 +404,13 @@ body.menu-open .menu .menu-foot{ opacity:1 }
   background:linear-gradient(158deg,rgba(243,237,226,.045),transparent 52%),radial-gradient(120% 90% at 100% 0%,rgba(226,84,43,.10),transparent 55%),var(--ink-3);
   transition:transform .6s var(--ease-out),border-color .5s var(--ease) }
 .card:hover{ transform:translateY(-4px); border-color:var(--line-strong) }
-.card:hover .card-ico{ color:rgba(227,193,120,.52); transform:translateY(-4px) rotate(-3deg) }
-.card-ico{ position:absolute; right:16px; top:14px; width:94px; height:94px; z-index:1; pointer-events:none;
-  display:grid; place-items:center; color:rgba(227,193,120,.34); transition:color .5s var(--ease),transform .6s var(--ease-out) }
-.card-ico::before{ content:""; position:absolute; inset:4%; border-radius:50%;
-  background:radial-gradient(circle at 50% 42%, rgba(201,162,75,.16), transparent 68%) }
-.card.lg .card-ico,.card.md .card-ico{ width:134px; height:134px }
-.card-ico svg{ width:76%; height:76%; position:relative }
+.card:hover .card-ico{ background:rgba(227,193,120,.5); transform:translateY(-4px) }
+/* emblème du club (silhouette Angkor du logo) en filigrane, via masque -> couleur or */
+.card-ico{ position:absolute; right:18px; top:16px; width:72px; height:72px; z-index:1; pointer-events:none;
+  background:rgba(227,193,120,.30); transition:background .5s var(--ease),transform .6s var(--ease-out);
+  -webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3QgeD0iOSIgeT0iNDkiIHdpZHRoPSI0NiIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIi8+PHJlY3QgeD0iMTQiIHk9IjQ0LjUiIHdpZHRoPSIzNiIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIi8+PHBhdGggZD0iTTMyIDcgQzM1IDE1IDM3IDIwIDM3IDI2IFY0NCBIMjcgVjI2IEMyNyAyMCAyOSAxNSAzMiA3IFoiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNMTggMjMgQzIwIDI4IDIxIDMxIDIxIDM1IFY0NCBIMTUgVjM1IEMxNSAzMSAxNiAyOCAxOCAyMyBaIiBmaWxsPSIjMDAwIi8+PHBhdGggZD0iTTQ2IDIzIEM0OCAyOCA0OSAzMSA0OSAzNSBWNDQgSDQzIFYzNSBDNDMgMzEgNDQgMjggNDYgMjMgWiIgZmlsbD0iIzAwMCIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMTUiIHI9IjEuNCIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==") center/contain no-repeat;
+          mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3QgeD0iOSIgeT0iNDkiIHdpZHRoPSI0NiIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIi8+PHJlY3QgeD0iMTQiIHk9IjQ0LjUiIHdpZHRoPSIzNiIgaGVpZ2h0PSI0IiBmaWxsPSIjMDAwIi8+PHBhdGggZD0iTTMyIDcgQzM1IDE1IDM3IDIwIDM3IDI2IFY0NCBIMjcgVjI2IEMyNyAyMCAyOSAxNSAzMiA3IFoiIGZpbGw9IiMwMDAiLz48cGF0aCBkPSJNMTggMjMgQzIwIDI4IDIxIDMxIDIxIDM1IFY0NCBIMTUgVjM1IEMxNSAzMSAxNiAyOCAxOCAyMyBaIiBmaWxsPSIjMDAwIi8+PHBhdGggZD0iTTQ2IDIzIEM0OCAyOCA0OSAzMSA0OSAzNSBWNDQgSDQzIFYzNSBDNDMgMzEgNDQgMjggNDYgMjMgWiIgZmlsbD0iIzAwMCIvPjxjaXJjbGUgY3g9IjMyIiBjeT0iMTUiIHI9IjEuNCIgZmlsbD0iIzAwMCIvPjwvc3ZnPg==") center/contain no-repeat }
+.card.lg .card-ico,.card.md .card-ico{ width:100px; height:100px }
 .card .art{ position:absolute; inset:0; z-index:0; opacity:.9 }
 .card .art::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 30%,rgba(13,11,9,.55) 70%,rgba(13,11,9,.92)) }
 .card .body{ position:relative; z-index:2 }
@@ -767,44 +767,44 @@ img,canvas,svg,video{ max-width:100% }
       </div>
       <div class="bento">
         <article class="card lg reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 26c0-8 4-13 12-13s12 5 12 13v8c0 9-6 15-14 15h-2c-7 0-13-4-13-12 0-5 3-7 7-7"/><path d="M20 31h-4a5 5 0 0 0 0 10h4"/><path d="M44 30h2a5 5 0 0 1 5 5"/><path d="M23 49v3c0 3 3 5 7 5h6c4 0 7-2 7-5v-4"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <span class="tag">Discipline reine</span>
           <div class="body"><span class="kbadge">Art des huit membres</span>
             <h3>Muay Thaï</h3>
             <p>Poings, coudes, genoux, tibias. Technique, clinch et conditionnement — l'essence du club.</p></div>
         </article>
         <article class="card md reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 6c2.5 6 2.5 9 0 13"/><path d="M32 19c-5 2.5-7 7-7 13 0 5-3.5 7-7 12h28c-3.5-5-7-7-7-12 0-6-2-10.5-7-13z"/><path d="M14 56h36"/><path d="M20 50h24"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <div class="body"><span class="kbadge">Boxe khmère</span>
             <h3>Kun Khmer</h3>
             <p>La tradition cambodgienne enseignée par les fondateurs du club.</p></div>
         </article>
         <article class="card sm reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 34h11l4-13 8 28 6-20 4 12 5-7h9"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <div class="body"><span class="kbadge">Cardio &amp; condition</span>
             <h3>Cardio Boxing</h3>
             <p>L'intensité de la boxe, sans contact dur. Idéal pour se renforcer.</p></div>
         </article>
         <article class="card sm reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M32 8l6.5 14.5L54 24 42 34.5 45 50 32 42 19 50l3-15.5L10 24l15.5-1.5z"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <div class="body"><span class="kbadge">4–8 ans</span>
             <h3>Ninja Kidz</h3>
             <p>Motricité, coordination et confiance, en s'amusant.</p></div>
         </article>
         <article class="card sm reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="32" cy="30" r="10"/><path d="M32 40v10M28 54h8M32 8v6M54 30h-6M16 30h-6M46 16l-4 4M22 20l-4-4M46 44l-4-4M22 40l-4 4"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <div class="body"><span class="kbadge">18 mois–8 ans</span>
             <h3>Gym Kidz</h3>
             <p>Éveil moteur encadré pour les tout-petits.</p></div>
         </article>
         <article class="card md reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="32" cy="32" r="23"/><circle cx="32" cy="32" r="14"/><circle cx="32" cy="32" r="4.5" fill="currentColor" stroke="none"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <div class="body"><span class="kbadge">Sur rendez-vous</span>
             <h3>Cours privés</h3>
             <p>Coaching individuel ou en petit comité, objectifs sur mesure.</p></div>
         </article>
         <article class="card lg reveal">
-          <span class="card-ico" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="24" cy="32" r="15"/><circle cx="40" cy="32" r="15"/></svg></span>
+          <span class="card-ico" aria-hidden="true"></span>
           <span class="tag">Encadré</span>
           <div class="body"><span class="kbadge">Pratique avancée</span>
             <h3>Technique &amp; sparring</h3>
@@ -1738,6 +1738,7 @@ img,canvas,svg,video{ max-width:100% }
     var bot=new THREE.Mesh(new THREE.SphereGeometry(.6,seg,sg,0,6.2832,Math.PI/2,Math.PI/2),leather); bot.position.y=-4.35; p.add(bot);
     // bande "maker" unique près du haut (asymétrique -> pas un rouleau)
     var mk=new THREE.Mesh(new THREE.CylinderGeometry(.665,.665,.4,seg),band); mk.position.y=-1.95; p.add(mk);
+    if(pivot && !pivot.children.length) pivot.add(p);  // fallback procédural ajouté au pivot
     return p;
   }
 
@@ -1751,8 +1752,37 @@ img,canvas,svg,video{ max-width:100% }
     var key=new THREE.DirectionalLight(0xfff0e0,1.2); key.position.set(3,4,6); scene.add(key);
     var ember=new THREE.PointLight(0xff5a2c,1.4,30); ember.position.set(-4,-1,4); scene.add(ember);
     var rim=new THREE.DirectionalLight(0xffb070,.9); rim.position.set(-3,2,-6); scene.add(rim);
-    pivot=buildBag(); scene.add(pivot);
+    pivot=new THREE.Group(); scene.add(pivot);     // le sac (GLB réel ou procédural) y sera ajouté
     resize();
+  }
+  /* ---- modèle 3D réel du sac (GLB converti depuis le FBX fourni) ---- */
+  var bagLoaded=false;
+  function loadBag(){
+    if(bagLoaded) return; bagLoaded=true;
+    if(typeof THREE.GLTFLoader === 'undefined'){ buildBag(); return; }
+    if(W.BAG_GLB_B64){ parseBag(); return; }
+    var s=DOC.createElement('script'); s.src='assets/models/bag-glb.js'; s.async=true;
+    s.onload=parseBag; s.onerror=buildBag; DOC.head.appendChild(s);
+    setTimeout(function(){ if(!pivot.children.length) buildBag(); }, 5000);
+  }
+  function parseBag(){
+    if(pivot.children.length) return;
+    if(!W.BAG_GLB_B64){ buildBag(); return; }
+    try{
+      var bin=atob(W.BAG_GLB_B64),n=bin.length,u=new Uint8Array(n); for(var i=0;i<n;i++)u[i]=bin.charCodeAt(i);
+      new THREE.GLTFLoader().parse(u.buffer,'',function(gltf){
+        if(pivot.children.length) return;
+        var m=gltf.scene, box=new THREE.Box3().setFromObject(m), s=new THREE.Vector3(), c=new THREE.Vector3();
+        box.getSize(s); box.getCenter(c); m.position.sub(c);            // recentre
+        var H=s.y||8.8, k=5.6/H;                                        // ajuste la hauteur
+        m.traverse(function(o){ if(o.isMesh && o.material){ o.material.envMapIntensity=0.7;
+          if(/torus/i.test(o.name)){ o.material.color&&o.material.color.set(0xc2bcae); o.material.metalness=.9; o.material.roughness=.34; o.material.emissive&&o.material.emissive.set(0x2a2620); }
+          else { o.material.color&&o.material.color.set(0x1c1510); o.material.roughness=.7; o.material.metalness=.12; o.material.emissive&&o.material.emissive.set(0x0d0907); } } });
+        var wrap=new THREE.Group(); wrap.add(m); wrap.scale.setScalar(k);
+        wrap.position.y = -(s.y*k)/2;                                   // accroche le haut au pivot
+        pivot.add(wrap);
+      }, function(){ buildBag(); });
+    }catch(e){ buildBag(); }
   }
   function resize(){
     var w=canvas.clientWidth||canvas.parentElement.clientWidth, h=canvas.clientHeight||canvas.parentElement.clientHeight;
@@ -1777,12 +1807,12 @@ img,canvas,svg,video{ max-width:100% }
   try{
     build(); canvas.classList.add('on');
     var cap=DOC.getElementById('bagCap'); if(cap) cap.textContent = reduce ? 'Sac de frappe 3D' : 'Sac de frappe 3D · bougez le curseur';
-    if(reduce){ renderer.render(scene,camera); }      // pose statique
+    if(reduce){ loadBag(); var rc=0; (function rr(){ if(renderer) renderer.render(scene,camera); if(rc++<40) setTimeout(rr,120); })(); } // pose statique
     else {
       var panel=DOC.getElementById('bagPanel');
       if('IntersectionObserver' in W){
-        new IntersectionObserver(function(es){ es.forEach(function(e){ e.isIntersecting?start():stop(); }); },{threshold:.1}).observe(panel);
-      } else start();
+        new IntersectionObserver(function(es){ es.forEach(function(e){ if(e.isIntersecting){ loadBag(); start(); } else stop(); }); },{threshold:.1}).observe(panel);
+      } else { loadBag(); start(); }
       DOC.addEventListener('visibilitychange',function(){ if(DOC.hidden)stop(); });
       // réaction curseur / toucher
       var lastX=null;
