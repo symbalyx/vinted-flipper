@@ -309,20 +309,26 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 
 /* ---------- HERO ---------- */
 .hero{ position:relative; min-height:100svh; display:flex; align-items:flex-end; overflow:clip; padding-bottom:clamp(40px,7vw,84px) }
-#scene{ position:absolute; inset:0; width:100%; height:100%; z-index:0; display:block }
-.hero-fallback{ position:absolute; inset:0; z-index:0; display:none;
+#scene{ position:absolute; inset:0; width:100%; height:100%; z-index:1; display:block }
+/* POSTER : image des gants affichée par défaut, masquée seulement quand la 3D
+   rend vraiment (WebGL). Garantit de voir les gants même sans WebGL. */
+.hero-fallback{ position:absolute; inset:0; z-index:0; opacity:1; transition:opacity .8s var(--ease);
   background:
-    radial-gradient(60% 50% at 70% 30%, rgba(226,84,43,.30), transparent 60%),
-    radial-gradient(50% 40% at 30% 80%, rgba(201,162,75,.18), transparent 60%),
+    radial-gradient(60% 50% at 72% 38%, rgba(226,84,43,.22), transparent 60%),
+    radial-gradient(50% 40% at 25% 80%, rgba(201,162,75,.12), transparent 60%),
     #0a0908;
 }
-.no-webgl .hero-fallback{ display:block } .no-webgl #scene{ display:none }
+.hero-fallback::after{ content:""; position:absolute; inset:0;
+  background:url("assets/img/gloves.png") no-repeat 78% 52%/min(58%,640px) auto; }
+body.webgl-live .hero-fallback{ opacity:0 }       /* la 3D a pris le relais */
+.no-webgl #scene{ display:none }
+@media (max-width:680px){ .hero-fallback::after{ background-position:50% 56%; background-size:88% auto } }
 /* scrims pour garantir la lisibilité par-dessus la 3D */
-.hero::after{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+.hero::after{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
   background:linear-gradient(180deg,rgba(8,7,6,.5) 0%,transparent 22%,transparent 48%,rgba(8,7,6,.62) 82%,rgba(8,7,6,.92) 100%) }
-.hero::before{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+.hero::before{ content:""; position:absolute; inset:0; z-index:2; pointer-events:none;
   background:linear-gradient(95deg,rgba(8,7,6,.78) 0%,rgba(8,7,6,.30) 42%,transparent 70%) }
-.hero .wrap{ position:relative; z-index:2; width:100% }
+.hero .wrap{ position:relative; z-index:3; width:100% }
 .hero-eyebrow{ margin-bottom:clamp(18px,3vw,26px) }
 .display .l1{ display:block; color:var(--bone) }
 .display .l2{ display:block; color:transparent; -webkit-text-stroke:1.3px rgba(243,237,226,.55); paint-order:stroke fill }
@@ -333,7 +339,7 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 .hero-meta div{ display:flex; flex-direction:column; gap:2px }
 .hero-meta b{ font-family:var(--display); font-size:1.7rem; font-weight:400; letter-spacing:.02em; color:var(--bone); line-height:1 }
 .hero-meta span{ font-size:.72rem; text-transform:uppercase; letter-spacing:.18em; color:var(--ash-dim) }
-.scroll-hint{ position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:2;
+.scroll-hint{ position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:3;
   font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:var(--ash-dim); display:flex; flex-direction:column; align-items:center; gap:8px }
 .scroll-hint .bar{ width:1px; height:34px; background:linear-gradient(var(--gold),transparent); animation:sd 2.4s var(--ease) infinite }
 @keyframes sd{ 0%{transform:scaleY(.2);transform-origin:top;opacity:.3} 50%{transform:scaleY(1);opacity:1} 100%{transform:scaleY(.2);transform-origin:bottom;opacity:.3} }
@@ -398,6 +404,9 @@ body.menu-open .menu .menu-foot{ opacity:1 }
 .step p{ margin:0; font-size:.92rem; color:var(--ash) }
 .panel-img{ aspect-ratio:4/5; border-radius:var(--r-lg); border:1px solid var(--line); overflow:hidden; position:relative; background:var(--ink-2) }
 .panel-img canvas{ width:100%; height:100%; display:block }
+.bag-poster{ position:absolute; inset:0; z-index:0;
+  background:radial-gradient(70% 60% at 50% 30%, rgba(226,84,43,.22), transparent 65%),
+    url("assets/img/bag.png") no-repeat center 46%/auto 86%, var(--ink-2) }
 .bag-canvas{ position:absolute; inset:0; width:100%; height:100%; z-index:1; opacity:0; transition:opacity .8s var(--ease) }
 .bag-canvas.on{ opacity:1 }
 .panel-cap{ position:absolute; left:16px; bottom:14px; z-index:2; font-size:.66rem; letter-spacing:.14em; text-transform:uppercase; color:var(--ash); background:rgba(8,7,6,.55); border:1px solid var(--line); padding:6px 11px; border-radius:999px }
@@ -798,7 +807,7 @@ img,canvas,svg,video{ max-width:100% }
         </div>
         <div class="reveal">
           <div class="panel-img" id="bagPanel">
-            <canvas data-art="training" aria-hidden="true"></canvas>
+            <div class="bag-poster" aria-hidden="true"></div>
             <canvas id="bagCanvas" class="bag-canvas" aria-hidden="true"></canvas>
             <span class="panel-cap" id="bagCap">Entraînement au sac</span>
           </div>
@@ -1556,7 +1565,7 @@ img,canvas,svg,video{ max-width:100% }
     applyModelLayout();
   }
 
-  var tBreath=0, idleT=0;
+  var tBreath=0, idleT=0, posterHidden=false;
   function render(){
     raf = requestAnimationFrame(render);
     var dt = Math.min(clock.getDelta(), 0.05);
@@ -1592,6 +1601,8 @@ img,canvas,svg,video{ max-width:100% }
       particles.rotation.y += dt*0.02*k;
     }
     renderer.render(scene,camera);
+    // on ne masque le poster que si de vrais gants sont dans la scène ET rendus
+    if(!posterHidden && glovesBuilt){ posterHidden=true; DOC.body.classList.add('webgl-live'); }
   }
 
   function start(){ if(running) return; running=true; clock.start(); if(tl) tl.play(); render(); }
