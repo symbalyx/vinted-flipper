@@ -646,6 +646,57 @@ footer{ border-top:1px solid var(--line); padding-block:48px calc(40px + env(saf
 }
 
 /* =========================================================================
+   MOBILE — DENSITÉ : moins de scroll, mêmes informations
+   On resserre les espacements et on raccourcit les visuels purement
+   décoratifs pour réduire nettement la hauteur de page sur téléphone,
+   sans retirer aucun contenu. (placé après les media-queries existantes)
+   ========================================================================= */
+@media (max-width:680px){
+  section{ padding-block:clamp(30px,7vw,50px) }
+  .sec-head{ margin-bottom:clamp(18px,5vw,28px) }
+  .sec-head .lede{ margin-top:10px !important }
+  footer{ padding-block:34px calc(26px + env(safe-area-inset-bottom,0px)); margin-top:12px }
+
+  /* identité / manifeste */
+  .manifesto p{ font-size:clamp(1.3rem,5.4vw,1.7rem); line-height:1.22 }
+  .manifesto .by{ margin-top:16px }
+  .values{ margin-top:24px !important }
+
+  /* disciplines : cartes plus basses */
+  .bento{ gap:10px }
+  .card.lg,.card.md{ min-height:140px }
+  .card.sm{ min-height:112px }
+
+  /* entraînement : visuel décoratif plus court, étapes resserrées */
+  .split{ gap:22px }
+  .panel-img{ aspect-ratio:2/1 }
+  .step{ padding:14px 0 }
+  .aud{ margin-top:22px !important; gap:10px }
+  .aud .a{ padding:18px }
+  .aud .a ul{ gap:7px }
+
+  /* coachs : carte horizontale compacte (photo + texte côte à côte) */
+  .coaches{ gap:10px }
+  .coach{ display:grid; grid-template-columns:116px 1fr; align-items:stretch }
+  .coach .ph{ aspect-ratio:auto; height:100% }
+  .coach .info{ padding:15px 16px 15px 18px }
+  .coach .info h3{ font-size:1.12rem }
+  .coach .role{ margin:5px 0 7px }
+  .coach .info p{ font-size:.85rem; line-height:1.45 }
+
+  /* infos pratiques */
+  .infocard{ padding:20px }
+  .sched th,.sched td{ padding:9px 6px }
+  .note{ margin-top:12px; padding:12px 14px }
+
+  /* contact : lignes resserrées + carte plus courte */
+  .contact-card{ padding:20px; gap:12px }
+  .cline .ci{ width:36px; height:36px }
+  .map-card{ min-height:210px }
+  .map-card .mc-body{ padding:18px }
+}
+
+/* =========================================================================
    TOUCH-FIRST (appareils tactiles) — Fitts' Law & retour au toucher
    Sur tactile il n'y a pas de :hover : on garantit des cibles ≥ 44px
    et un retour visuel au :active (pression) sur chaque élément cliquable.
