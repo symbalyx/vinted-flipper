@@ -705,13 +705,18 @@ footer{ border-top:1px solid var(--line); padding-block:48px calc(40px + env(saf
   /* cibles tactiles minimales (44px iOS / 48dp Android) */
   .nav-links a,
   .socials a,
-  .fcol a,
   .foot-bottom a,
   .cline a.ct-link{ min-height:44px; display:inline-flex; align-items:center }
   .socials a{ padding:11px 17px }
-  .fcol a{ padding-block:7px }                 /* hauteur de frappe suffisante entre liens serrés */
+  /* liens des colonnes de pied de page : restent empilés verticalement
+     (flex de niveau bloc, pas inline) tout en gardant une hauteur ≥ 44px */
+  .fcol a{ display:flex; align-items:center; min-height:44px; padding-block:5px; margin-bottom:2px }
   .cline a.ct-link{ padding:2px 0 }
   .menu a{ padding:12px 0; min-height:52px }    /* liens plein écran : marge entre cibles */
+  .brand{ min-height:44px }                     /* logo (nav + footer) : cible pleine */
+  .note a{ display:inline-block; padding:3px 2px }   /* lien tel. en ligne : zone de frappe élargie */
+  /* contrôles de zoom Leaflet : agrandis pour le doigt (défaut 30px) */
+  .map-live .leaflet-bar a{ width:40px; height:40px; line-height:40px; font-size:20px }
 
   /* retour au toucher (remplace l'état :hover absent sur tactile) */
   .btn:active{ transform:scale(.97) }
