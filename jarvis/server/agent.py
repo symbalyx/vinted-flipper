@@ -22,10 +22,17 @@ logger = logging.getLogger("JARVIS.agent")
 
 
 class ToolRegistry:
-    """Chaque outil = un schéma JSON (pour le LLM) + un handler Python."""
+    """Chaque outil = un schéma JSON (pour le LLM) + un handler Python.
 
-    def __init__(self):
+    Si un `permission_manager` est fourni, les outils SENSIBLES/CRITIQUES ne sont
+    PAS exécutés directement : ils créent une demande d'approbation applicative
+    (usage unique) que l'utilisateur confirme dans l'interface. Sans
+    `permission_manager`, le comportement historique est conservé (tests inclus).
+    """
+
+    def __init__(self, permission_manager=None):
         self._tools = {}
+        self.perms = permission_manager
 
     def register(self, name, description, parameters, handler):
         required = [k for k, v in parameters.items() if not v.get("optional")]
@@ -44,10 +51,21 @@ class ToolRegistry:
     def names(self):
         return list(self._tools)
 
-    def call(self, name, args: dict) -> str:
+    def call(self, name, args: dict, approval_token: str = None) -> str:
         tool = self._tools.get(name)
         if not tool:
             return f"Outil inconnu : {name}"
+        # Contrôle des permissions : une action sensible/critique sans jeton crée
+        # une demande d'approbation au lieu de s'exécuter (fail-closed).
+        if self.perms is not None:
+            allowed, info = self.perms.guard(name, args or {}, approval_token)
+            if not allowed:
+                if info.get("approval") == "requise":
+                    req = info["request"]
+                    return (f"⏳ Action « {name} » ({info['level']}) en attente "
+                            f"d'approbation (id={req['approval_id'][:8]}…). "
+                            "Confirme-la dans l'interface pour l'exécuter.")
+                return f"⛔ Action refusée : {info.get('message', 'non autorisée')}"
         try:
             result = tool["handler"](**(args or {}))
             return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
@@ -57,9 +75,10 @@ class ToolRegistry:
 
 
 def build_registry(powers, lights, apple_home, websearch, learning_engine,
-                   apply_scene, security, emergency_dispatcher, memory=None, pc=None):
+                   apply_scene, security, emergency_dispatcher, memory=None, pc=None,
+                   permission_manager=None):
     """Déclare les outils en les branchant sur le code EXISTANT (déjà durci)."""
-    reg = ToolRegistry()
+    reg = ToolRegistry(permission_manager=permission_manager)
     S = lambda **k: dict(type="string", **k)
     B = lambda **k: dict(type="boolean", **k)
     I = lambda **k: dict(type="integer", **k)

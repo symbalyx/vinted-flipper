@@ -137,7 +137,24 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-font-s
   <div id="topbar">
     <button class="iconbtn" id="menu-btn" onclick="toggleSide()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg></button>
     <div class="title" id="view-title">Chat</div>
+    <button class="iconbtn" id="cmdk-btn" title="Palette de commandes (Ctrl/⌘+K)" onclick="openPalette()" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"/></svg></button>
+    <button class="iconbtn" id="bell-btn" title="Approbations en attente" onclick="toggleApprovals()" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><span id="bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--red);color:#fff;font-size:.58rem;min-width:15px;height:15px;border-radius:999px;line-height:15px;text-align:center;padding:0 3px"></span></button>
     <div class="conn" id="conn" onclick="openConn()"><span class="dot"></span><span id="conn-label">hors ligne</span></div>
+  </div>
+
+  <!-- 🔔 Panneau des approbations (actions sensibles/critiques à confirmer) -->
+  <div id="appr-panel" style="display:none;position:absolute;top:52px;right:14px;z-index:40;width:min(360px,92vw);background:var(--bg-2);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:12px">
+    <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">Approbations en attente</div>
+    <div id="appr-list"></div>
+  </div>
+
+  <!-- ⌘K Palette de commandes -->
+  <div class="scrim" id="palette" style="display:none;align-items:flex-start;justify-content:center" onclick="if(event.target===this)closePalette()">
+    <div style="margin-top:12vh;width:min(560px,94vw);background:var(--bg-2);border:1px solid var(--border-strong);border-radius:14px;box-shadow:var(--shadow);overflow:hidden">
+      <input id="palette-input" placeholder="Rechercher une commande…" autocomplete="off"
+             style="width:100%;padding:15px 16px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--fg);font-size:1rem;font-family:var(--font);outline:none">
+      <div id="palette-list" style="max-height:46vh;overflow-y:auto;padding:6px"></div>
+    </div>
   </div>
 
   <!-- CHAT -->
@@ -335,14 +352,98 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 function dictate(){if(!SR){toast("Dictée non supportée (Chrome/Edge)");return}const r=new SR();r.lang="fr-FR";r.interimResults=false;const mb=document.getElementById("mic-btn");mb.classList.add("on");r.onend=()=>mb.classList.remove("on");r.onerror=r.onend;r.onresult=e=>{const i=document.getElementById("inp");i.value=(i.value+" "+e.results[0][0].transcript).trim();autogrow()};r.start()}
 
 // ════ Boot ════
+// ── 🔔 Approbations (cloche) : réponses serveur = données non fiables → textContent ──
+let apprOpen=false;
+async function loadApprovals(){
+  if(!online){return}
+  let list=[];try{const r=await api("/api/approvals");if(r.ok)list=(await r.json()).pending||[]}catch(e){return}
+  const badge=document.getElementById("bell-badge");
+  if(list.length){badge.style.display="block";badge.textContent=String(list.length)}else{badge.style.display="none"}
+  const box=document.getElementById("appr-list");box.textContent="";
+  if(!list.length){const e=document.createElement("div");e.style.cssText="color:var(--muted-2);font-size:.78rem;padding:6px";e.textContent="Aucune action en attente.";box.appendChild(e);return}
+  list.forEach(a=>{
+    const card=document.createElement("div");card.style.cssText="border:1px solid var(--border);border-radius:10px;padding:9px;margin-bottom:8px";
+    const t=document.createElement("div");t.style.cssText="font-size:.84rem;font-weight:600";t.textContent=a.action+" · "+a.level;
+    const p=document.createElement("div");p.style.cssText="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin:3px 0 8px;word-break:break-all";
+    p.textContent=JSON.stringify(a.params||{});                       // texte pur (anti-XSS)
+    const row=document.createElement("div");row.style.cssText="display:flex;gap:7px";
+    const ok=document.createElement("button");ok.className="btn green sm";ok.textContent="Confirmer";
+    ok.onclick=()=>decideApproval(a.approval_id,true);
+    const no=document.createElement("button");no.className="btn red sm";no.textContent="Refuser";
+    no.onclick=()=>decideApproval(a.approval_id,false);
+    row.appendChild(ok);row.appendChild(no);
+    card.appendChild(t);card.appendChild(p);card.appendChild(row);box.appendChild(card);
+  });
+}
+async function decideApproval(id,confirm){
+  const path=confirm?"/api/approvals/confirm":"/api/approvals/reject";
+  try{const r=await api(path,{method:"POST",body:JSON.stringify({approval_id:id})});const d=await r.json();
+    toast(confirm?(d.ok?"✅ Action exécutée":"⛔ "+(d.message||"refusé")):"Action refusée")}catch(e){toast("Erreur")}
+  loadApprovals();
+}
+function toggleApprovals(){apprOpen=!apprOpen;document.getElementById("appr-panel").style.display=apprOpen?"block":"none";if(apprOpen)loadApprovals()}
+
+// ── ⌘K Palette de commandes ──
+const COMMANDS=[
+  {label:"Aller au Chat",hint:"vue",run:()=>go("chat")},
+  {label:"Maison connectée",hint:"vue",run:()=>go("maison")},
+  {label:"Sécurité",hint:"vue",run:()=>go("securite")},
+  {label:"Mode Gardien",hint:"page",run:()=>location.href="/gardien"},
+  {label:"Système",hint:"vue",run:()=>go("systeme")},
+  {label:"Timeline",hint:"vue",run:()=>go("timeline")},
+  {label:"Armer / Désarmer l'alarme",hint:"action",run:()=>toggleArm()},
+  {label:"Nouvelle conversation",hint:"action",run:()=>newConv()},
+  {label:"Basculer le thème",hint:"action",run:()=>toggleTheme()},
+  {label:"Voir les approbations",hint:"action",run:()=>toggleApprovals()},
+  {label:"Recherche web (via le chat)",hint:"tape ta requête",run:()=>{go("chat");const i=document.getElementById("inp");if(i){i.value="cherche sur le web : ";i.focus()}}},
+];
+let palIdx=0,palFiltered=COMMANDS;
+function openPalette(){document.getElementById("palette").style.display="flex";const inp=document.getElementById("palette-input");inp.value="";palFiltered=COMMANDS;palIdx=0;renderPalette();inp.focus()}
+function closePalette(){document.getElementById("palette").style.display="none"}
+function renderPalette(){const box=document.getElementById("palette-list");box.textContent="";
+  palFiltered.forEach((c,i)=>{const row=document.createElement("div");
+    row.style.cssText="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:9px;cursor:pointer;"+(i===palIdx?"background:var(--surface-2)":"");
+    const l=document.createElement("span");l.textContent=c.label;l.style.fontSize=".9rem";
+    const h=document.createElement("span");h.textContent=c.hint;h.style.cssText="font-size:.68rem;color:var(--muted-2)";
+    row.appendChild(l);row.appendChild(h);row.onclick=()=>{closePalette();c.run()};box.appendChild(row)});
+}
+function paletteFilter(q){q=(q||"").toLowerCase().trim();
+  palFiltered=q?COMMANDS.filter(c=>c.label.toLowerCase().includes(q)):COMMANDS;palIdx=0;renderPalette()}
+
+// ── Bus temps réel (SSE) : rafraîchit la cloche + la timeline ──
+function startEventStream(){
+  try{const es=new EventSource("/api/stream");
+    const refresh=()=>{loadApprovals();if(document.getElementById("v-timeline").classList.contains("active"))loadTimeline&&loadTimeline()};
+    ["approbation_demande","approbation","approbation_confirmee","approbation_refusee","outil","intrusion","guardian","urgence_demande"].forEach(k=>es.addEventListener(k,refresh));
+    es.addEventListener("approbation_demande",()=>toast("🔔 Approbation requise"));
+    es.onerror=()=>{};   // reconnexion gérée nativement par EventSource
+    window.__es=es;
+  }catch(e){}
+}
+
 async function boot(){const ok=await ping();
   if(ok){await loadConvos();if(curConv){try{await openConv(curConv)}catch(e){}}else{}go("chat");
     document.querySelectorAll(".nav .item").forEach(i=>i.classList.toggle("active",i.dataset.v==="chat"));document.getElementById("v-chat").classList.add("active")}
 }
 (function(){const th=localStorage.getItem("jarvis_theme");if(th)document.documentElement.setAttribute("data-theme",th);
   document.getElementById("tts-btn").classList.toggle("on",ttsOn);
-  Object.assign(window,{go,toggleSide,closeSide,toggleTheme,openConn,closeConn,saveConn,onSend,keydown,autogrow,quick,newConv,openConv,delConv,light,lightC,scene,toggleArm,ident,analyze,callOwner,pc,toggleTTS,dictate,cc,loadConvos});
-  boot();setInterval(()=>{if(online&&document.getElementById("v-securite").classList.contains("active"))loadSec()},10000);
+  Object.assign(window,{go,toggleSide,closeSide,toggleTheme,openConn,closeConn,saveConn,onSend,keydown,autogrow,quick,newConv,openConv,delConv,light,lightC,scene,toggleArm,ident,analyze,callOwner,pc,toggleTTS,dictate,cc,loadConvos,openPalette,closePalette,toggleApprovals});
+  // Palette : filtre + navigation clavier
+  const pin=document.getElementById("palette-input");
+  pin.addEventListener("input",e=>paletteFilter(e.target.value));
+  pin.addEventListener("keydown",e=>{
+    if(e.key==="ArrowDown"){e.preventDefault();palIdx=Math.min(palIdx+1,palFiltered.length-1);renderPalette()}
+    else if(e.key==="ArrowUp"){e.preventDefault();palIdx=Math.max(palIdx-1,0);renderPalette()}
+    else if(e.key==="Enter"){e.preventDefault();const c=palFiltered[palIdx];if(c){closePalette();c.run()}}
+    else if(e.key==="Escape"){closePalette()}});
+  // Raccourci global Ctrl/⌘+K + fermeture du panneau au clic extérieur
+  document.addEventListener("keydown",e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openPalette()}});
+  document.addEventListener("click",e=>{const p=document.getElementById("appr-panel");
+    if(apprOpen&&!p.contains(e.target)&&e.target.id!=="bell-btn"&&!document.getElementById("bell-btn").contains(e.target)){apprOpen=false;p.style.display="none"}});
+  boot().then(()=>{startEventStream();loadApprovals()});
+  setInterval(()=>{if(online&&document.getElementById("v-securite").classList.contains("active"))loadSec()},10000);
+  setInterval(()=>{if(online)loadApprovals()},20000);   // filet de sécurité si SSE coupé
 })();
 </script>
 </body>

@@ -1386,10 +1386,15 @@ security = SecuritySystem(ai_engine)
 # Écoute des réponses Telegram (boutons Connu/Inconnu)
 notifier.start_callback_listener(lambda qid, known: security.resolve_identity(qid, known))
 
+# ── 🔐 Gestionnaire central de permissions (partagé agent + Gardien) ──
+from permissions import PermissionManager
+permission_manager = PermissionManager(ttl_seconds=120, audit_log=event_log.add)
+
 # ── 🧠 Cerveau agentique (function-calling multi-tours) ──
 AGENT_ENABLED = os.getenv("JARVIS_AGENT", "1") != "0"
 tool_registry = build_registry(powers, lights, apple_home, websearch, learning_engine,
-                               apply_scene, security, emergency_dispatcher, memory=vmem, pc=pc)
+                               apply_scene, security, emergency_dispatcher, memory=vmem, pc=pc,
+                               permission_manager=permission_manager)
 agent = Agent(ai_engine, tool_registry, learning_engine=learning_engine,
               event_log=event_log, memory=vmem)
 
@@ -1675,6 +1680,35 @@ def stream():
                 pass
     return Response(gen(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── 🔔 Approbations d'actions sensibles/critiques (cloche d'approbation) ──
+@app.route("/api/approvals")
+def approvals_list():
+    return jsonify({"pending": permission_manager.pending()})
+
+
+@app.route("/api/approvals/confirm", methods=["POST"])
+def approvals_confirm():
+    body = request.get_json(silent=True) or {}
+    token = body.get("approval_id", "")
+    entry = next((a for a in permission_manager.pending() if a["approval_id"] == token), None)
+    if not entry:
+        return jsonify({"ok": False, "message": "Demande introuvable ou expirée."}), 404
+    # Exécute l'action EXACTE approuvée (jeton usage unique consommé par le guard).
+    result = tool_registry.call(entry["action"], entry["params"], approval_token=token)
+    event_log.add("approbation", f"Action confirmée : {entry['action']}",
+                  meta={"params": entry["params"]})
+    return jsonify({"ok": True, "action": entry["action"], "result": result})
+
+
+@app.route("/api/approvals/reject", methods=["POST"])
+def approvals_reject():
+    body = request.get_json(silent=True) or {}
+    ok = permission_manager.reject(body.get("approval_id", ""))
+    if ok:
+        event_log.add("approbation", "Action refusée par l'utilisateur.")
+    return jsonify({"ok": ok})
 
 
 @app.route("/api/automations")
@@ -2569,7 +2603,7 @@ try:
         config=GUARDIAN_CONFIG, vision_provider=_g_vision, speech_provider=_g_speech,
         store=_g_store, notifier=notifier, emergency=emergency_dispatcher,
         event_log=event_log)
-    permission_manager = PermissionManager(ttl_seconds=120, audit_log=event_log.add)
+    # Réutilise le gestionnaire de permissions partagé (défini plus haut).
     emergency_approval = EmergencyApproval(emergency_dispatcher, permission_manager,
                                            audit_log=event_log.add)
     device_pairing = DevicePairing()

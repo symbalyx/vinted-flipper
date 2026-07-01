@@ -16,11 +16,11 @@ Aucune erreur de compilation.
 
 ## `pytest -q`
 ```
-........................................................................ [ 61%]
-.............................................                            [100%]
-117 passed in 1.15s
+........................................................................ [ 57%]
+.....................................................                    [100%]
+125 passed in 1.91s
 ```
-(48 historiques + 63 Gardien + 6 détecteur enfichable = **117**.)
+(48 historiques + 63 Gardien + 6 détecteur enfichable + 8 approbations/UI = **125**.)
 
 ## Détail par fichier (collecte)
 ```

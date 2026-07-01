@@ -130,6 +130,27 @@ class PermissionManager:
         ok, msg = self.confirm(approval_token, action, params)
         return ok, {"level": level, "approval": "ok" if ok else "refusee", "message": msg}
 
+    def reject(self, token: str) -> bool:
+        """Refus explicite d'une approbation (l'invalide définitivement)."""
+        with self._lock:
+            appr = self._approvals.get(token)
+            if not appr or appr.used:
+                return False
+            appr.used = True
+        self._audit("approbation_refusee", appr.action, {"params": appr.params})
+        return True
+
+    def pending(self) -> list:
+        """Approbations en attente (non utilisées, non expirées) pour l'UI."""
+        now = time.time()
+        with self._lock:
+            # Purge opportuniste des jetons expirés.
+            for tok in [t for t, a in self._approvals.items() if now > a.expires]:
+                del self._approvals[tok]
+            return [{"approval_id": a.token, "action": a.action, "params": a.params,
+                     "level": a.level, "expires_in": max(0, int(a.expires - now))}
+                    for a in self._approvals.values() if not a.used]
+
     def _audit(self, kind, summary, meta):
         logger.info(f"[PERM] {kind}: {summary}")
         if self.audit_log:

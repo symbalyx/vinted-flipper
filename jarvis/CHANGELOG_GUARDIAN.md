@@ -158,6 +158,19 @@ Priorité tenue : **sécurité → zéro faux déclenchement → intégration ba
   modèle réel ; le chemin runtime ONNX reste optionnel (non testé en CI).
 - Attribution : voir `CREDITS.md` et `NOTICE`.
 
+## 4ter. Interface interactive (lot #1 : palette + cloche + SSE)
+- **Gating des permissions dans l'agent** : `ToolRegistry` accepte désormais un
+  `permission_manager`. Un outil SENSIBLE/CRITIQUE appelé sans jeton **crée une
+  demande d'approbation** au lieu de s'exécuter (fail-closed) ; le comportement
+  historique est conservé quand aucun gestionnaire n'est fourni (tests intacts).
+- **Endpoints** : `GET /api/approvals`, `POST /api/approvals/confirm`,
+  `POST /api/approvals/reject`. La confirmation exécute l'action EXACTE approuvée
+  (jeton usage unique) via le registre d'outils.
+- **UI (`web/index.html`)** : **cloche d'approbation** (badge + panneau,
+  Confirmer/Refuser), **palette de commandes** (Ctrl/⌘+K, navigation clavier),
+  **flux temps réel SSE** (`/api/stream`) qui rafraîchit la cloche et la timeline.
+  Tout en vanilla JS, `textContent` (anti-XSS), sans dépendance ni CDN.
+
 ## 5. Résultats de tests (réels)
 Voir `TEST_RESULTS.md` (sortie exacte de `python -m compileall` et `pytest -q`).
 **111 tests passent** (48 historiques + 63 nouveaux). Aucun test historique cassé.
