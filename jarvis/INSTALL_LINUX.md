@@ -71,3 +71,35 @@ sudo systemctl daemon-reload && sudo systemctl enable --now jarvis
 python -m compileall server tests
 pytest -q
 ```
+
+
+## Agency, n8n et voix
+
+Pour la voix locale :
+
+```bash
+pip install -r requirements-voice.txt
+```
+
+Configure ensuite `VOICE_STT_MODEL`, `VOICE_STT_DEVICE` et
+`VOICE_STT_COMPUTE_TYPE`, puis appelle `POST /api/voice/warmup` après le
+démarrage. L'interface Agency est disponible sur `/agency`.
+
+Pour n8n, renseigne `N8N_URL` et `N8N_API_KEY`. Pour les e-mails, renseigne les
+variables `SMTP_*`. Les actions externes restent bloquées jusqu'à approbation
+dans JARVIS.
+
+## v5.6 — données persistantes
+
+Conserve et sauvegarde :
+
+```text
+data/agency.db
+data/prospecting.db
+```
+
+Utilise `systemd` avec `Restart=always` ou Docker Compose avec
+`restart: unless-stopped`. Les missions interrompues seront reprises grâce au
+superviseur et aux baux SQLite.
+
+Interfaces : `/agency` et `/prospection`.

@@ -1,0 +1,4 @@
+# Reconnaissance vocale locale rapide (optionnelle)
+# CPU : VOICE_STT_DEVICE=cpu, VOICE_STT_COMPUTE_TYPE=int8
+# GPU NVIDIA : suivre d'abord les prérequis CUDA/CTranslate2 du projet officiel.
+faster-whisper>=1.1.0,<2

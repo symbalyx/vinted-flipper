@@ -10,11 +10,14 @@ from pathlib import Path
 
 from flask import Blueprint, request, jsonify, Response
 
+from .legal_osint import validate_legal_osint_context
+
 logger = logging.getLogger("JARVIS.guardian.api")
 
 
 def create_guardian_blueprint(service, perms=None, emergency_approval=None,
-                              realtime_provider=None, pairing=None, web_dir=None):
+                              realtime_provider=None, pairing=None, geolocator=None,
+                              web_dir=None):
     bp = Blueprint("guardian", __name__)
     web_dir = Path(web_dir) if web_dir else None
 
@@ -66,6 +69,35 @@ def create_guardian_blueprint(service, perms=None, emergency_approval=None,
         # Déclenchement manuel = autorisé par la politique (manual_trigger).
         return jsonify(service.trigger_siren(source="manuel",
                                              approval_facts={"manual_trigger": True}))
+
+    @bp.route("/api/guardian/geolocate", methods=["POST"])
+    def geolocate_photo():
+        """Photo → coordonnées. EXIF d'abord, estimation visuelle sinon.
+
+        L'image n'est pas sauvegardée. Une estimation visuelle est toujours
+        marquée exact=false et peut renvoyer plusieurs candidats.
+        """
+        if not geolocator:
+            return jsonify({"ok": False, "error": "Géolocalisation indisponible"}), 503
+        body = request.get_json(silent=True) or {}
+        image = body.get("image", "")
+        if not isinstance(image, str) or not image:
+            return jsonify({"ok": False, "error": "image manquante"}), 400
+        context, error, status_code = validate_legal_osint_context(body)
+        if not context:
+            return jsonify({"ok": False, "error": error, "status": "policy_denied"}), status_code
+        hint = body.get("hint", "") if isinstance(body.get("hint", ""), str) else ""
+        result = geolocator.locate(image, hint=hint, context=context)
+        if result.get("ok"):
+            result["legal_scope"] = {
+                "purpose": context.purpose,
+                "target_type": context.target_type,
+                "person_identification": False,
+                "private_address_lookup": False,
+            }
+            return jsonify(result)
+        code = 429 if result.get("status") == "rate_limited" else 400
+        return jsonify(result), code
 
     @bp.route("/api/guardian/events")
     def events():

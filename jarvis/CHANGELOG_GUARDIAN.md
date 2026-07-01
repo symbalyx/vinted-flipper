@@ -1,226 +1,135 @@
-# CHANGELOG — Intégration du Mode Gardien (JARVIS v5.2)
+# CHANGELOG_GUARDIAN — JARVIS v5.4
 
-Ce document tient lieu d'**audit**, de **journal des changements**, de **liste
-des fichiers modifiés**, de **choix d'architecture** et de **limitations**.
-Priorité tenue : **sécurité → zéro faux déclenchement → intégration backend**.
+## v5.4 — Photo jointe au chat et OSINT autorisé
 
----
+- ajout d'un bouton de pièce jointe dans le chat principal ;
+- commande naturelle « trouve où cette photo a été prise » ;
+- traitement direct par le module spécialisé, sans envoyer l'image au LLM de chat ;
+- attestation explicite de propriété ou d'autorisation ;
+- finalités bornées : média personnel, bien contrôlé, lieu public, commerce ;
+- refus serveur des recherches de personne, domicile, identité, réseaux sociaux,
+  plaque, suivi en temps réel et demandes de « doxxing » ;
+- nouveau module `server/guardian/legal_osint.py` ;
+- réponse conversationnelle avec lien OpenStreetMap ;
+- aucune image persistée dans l'historique ou le journal ;
+- sept tests supplémentaires, pour un total de 166 tests.
 
-## 1. Audit (état initial)
+## Objectif de cette révision
 
-### Architecture actuelle
-- **Monolithe** `server/jarvis_v4.py` (~2 500 lignes) : app Flask, `AIEngine`,
-  `JarvisPowers`, `SecuritySystem` (OpenCV), routes, **2 UI HTML embarquées**
-  (`DASHBOARD_HTML`, `LOGIN_HTML`) en plus de `web/index.html`.
-- Modules propres : `agent.py` (function-calling), `emergency.py`,
-  `security_mod/detector.py` (HOG + LBPH + comportement), `vision.py` (Ollama),
-  `pc_control.py`, `integrations/*`, `memory.py`, `event_log.py`, `learning.py`.
-- Persistance = **JSON épars** (`memory/*.json`, `events.jsonl`).
+Reprendre l’intégration Gardien interrompue, corriger les failles de sécurité
+encore présentes et rendre utilisable la fonction **Photo → globe** sans
+présenter une estimation IA comme une localisation certaine.
 
-### Fonctions réellement opérationnelles (vérifiées, tests passants)
-- Auth (mot de passe + jeton, rate-limit, comparaison à temps constant).
-- Durcissements existants : `run_cmd` liste blanche, anti-traversée fichiers,
-  SSRF websearch, échappement TwiML. **48 tests historiques passent.**
-- Agent function-calling (multi-tours, fallback gracieux).
-- Détection : mouvement + HOG + LBPH + analyse comportementale.
+Priorités appliquées : **sécurité → absence de faux déclenchement → intégration
+au backend existant → fonctionnement local → interface mobile**.
 
-### Code dupliqué
-- **Trois interfaces** : `DASHBOARD_HTML` (dans le .py), `LOGIN_HTML`,
-  `web/index.html`. → on ne conserve qu'`web/index.html` ; `/` redirige `/app`.
+## Audit de reprise
 
-### Bugs logiques (corrigés)
-- **Reset du suivi de présence** : `behavior.update(persons, …)` recevait `[]`
-  sur les frames où la détection lourde n'était pas exécutée (`frame_count % 3`),
-  remettant `person_since` à zéro → rôdage jamais détecté. **Corrigé** (sentinelle
-  `None` = « pas de détection cette frame »).
+L’archive v5.2 contenait déjà une architecture Gardien modulaire, une machine
+d’état, un gestionnaire d’approbations, SQLite, l’appairage et des tests. Les
+principaux défauts restant dans la version reprise étaient :
 
-### Vulnérabilités (dans `gardien(2).html` d'origine)
-- **Script tiers opaque** chargé depuis `claude.ai` (exécution arbitraire).
-- **Clé d'API** saisie dans l'UI et stockée en `localStorage` ; appels directs
-  navigateur → fournisseur, clé exposée.
-- **XSS** : `addLine(...innerHTML...)` injecte la réponse du modèle en HTML.
-- **Un seul appel LLM** décidait présence + menace + sirène ; escalade/sirène
-  déclenchées par un `OUI:` du modèle ; bluff « police/chien/voisins prévenus ».
-- Pas de CSP, pas de timeout, pas de limite de taille/fréquence, sirènes
-  superposables, flash clignotant systématique.
-- `emergency.py` : annonce « les secours et le propriétaire sont prévenus »
-  **avant** tout envoi réel ; `[APPEL_POLICE:…]` posait `allow_call=True` sur un
-  simple tag du LLM.
+- rendu dynamique du tableau de bord par chaînes HTML interprétées, donc risque
+  XSS avec les réponses IA, titres, alertes ou métadonnées ;
+- jeton d’API conservé durablement dans le stockage du navigateur ;
+- ancien parser de balises LLM encore capable d’atteindre des chemins d’actions
+  sensibles ;
+- ancienne interface HTML embarquée dans `jarvis_v4.py`, dupliquée et difficile
+  à sécuriser ;
+- géolocalisation photo backend non reliée à l’interface ;
+- absence de distinction nette, côté utilisateur, entre GPS EXIF et estimation
+  visuelle ;
+- désarmement API sans confirmation explicite et taille HTTP globale non bornée.
 
-### Dépendances inutiles/contradictoires
-- `requirements_v4.txt` installait **`opencv-python` ET `opencv-contrib-python`**
-  (conflit de symboles). **Corrigé** : contrib seul + split core/optionnel/realtime.
+## Changements de sécurité
 
-### Annoncé mais incomplet
-- « Vision réelle » et « temps réel » : dépendent d'Ollama/clé, non branchés au
-  Gardien. Désormais structurés en fournisseurs (local par défaut).
+### Interface principale
 
----
+- Réécriture du script de `web/index.html` avec création explicite de nœuds DOM
+  et `textContent` pour toute donnée non fiable.
+- Suppression des ressources Google Fonts et autres dépendances visuelles
+  distantes.
+- Jeton `X-JARVIS-Token` conservé uniquement en mémoire vive ; les anciennes
+  clés de stockage sont purgées.
+- Ajout de délais d’expiration réseau avec `AbortController`.
+- Conservation de la palette de commandes, des conversations, de la maison,
+  de la sécurité, du système, de la timeline, des approbations et du SSE.
 
-## 2. Ce qui a été livré
+### Backend
 
-### Nouveau module `server/guardian/` (séparation des responsabilités)
-| Fichier | Rôle |
-|---|---|
-| `config.py` | Config typée via env (`GUARDIAN_*`), vue publique sans secret |
-| `schemas.py` | **Validation stricte** de la perception (Pydantic + fallback pur) |
-| `zones.py` | Zones configurables (porche/porte/chemin/ignore/privé/**masque public**) |
-| `tracking.py` | **Suivi persistant** (id, bbox, first/last seen, dwell, trajectoire, aire lissée, zone, confiance, confirmations) ; `None` ≠ `[]` |
-| `state_machine.py` | **FSM déterministe** IDLE→OBSERVING→ENGAGING→WARNING→ALERT→COOLDOWN |
-| `policy.py` | Politique d'action + **politique de parole sûre** (claims interdits) |
-| `store.py` | **SQLite** (events, decisions, devices, approvals, notifications, settings) WAL, rétention, export, wipe |
-| `service.py` | Orchestration perception→suivi→politique→action ; rate-limit, taille image |
-| `pairing.py` | Appairage téléphone/tablette (code temporaire, token révocable, scopes limités) |
-| `api.py` | Blueprint Flask `/gardien` + `/api/guardian/*` |
-| `providers/base.py` | Interfaces Vision/Speech/Realtime + parole **template** locale |
-| `providers/ollama.py` | Vision + parole **100 % locales** (temp 0 pour la vision) |
-| `providers/openai_realtime.py` | Vision OpenAI + **mint de jeton éphémère** (clé côté serveur) |
-| `providers/gemini_live.py` | Vision Gemini + Live (**squelette explicite, non finalisé**) |
+- Suppression de l’ancien `DASHBOARD_HTML` intégré au fichier Python ; `/`
+  redirige vers `/app`.
+- Limite globale de requête via `MAX_CONTENT_LENGTH` et réponse JSON `413`.
+- Désarmement refusé sans `confirm=true`.
+- CSP resserrée, sans domaine de police tiers, avec `object-src 'none'`.
+- `JARVIS_LEGACY_TAGS=0` neutralise toutes les anciennes balises.
+- Même en mode compatibilité, seules quelques opérations strictement
+  `READ_ONLY` sont acceptables ; les balises critiques restent inertes.
+- Le prompt système impose le function calling validé et les approbations côté
+  application pour les actions sensibles ou critiques.
+- Aucune valeur de clé cloud de démonstration n’est embarquée par défaut.
+- Mise à jour du fournisseur OpenAI Realtime vers `/v1/realtime/client_secrets`,
+  modèle configurable avec `gpt-realtime-2` par défaut, TTL borné et secret
+  éphémère validé avant retour au navigateur.
 
-### Nouveaux modules serveur
-- `server/permissions.py` — gestionnaire central READ_ONLY/REVERSIBLE/SENSITIVE/
-  CRITICAL + **approbations** (jeton aléatoire, action+params exacts, expiration,
-  usage unique, audit). Outil inconnu ⇒ **SENSITIVE** (fail-closed).
-- `server/emergency_approval.py` — appel = demande serveur → confirmation →
-  jeton usage unique → cooldown → journal. Cible par défaut = **propriétaire**.
-- `server/wsgi.py` — entrée production (Gunicorn/Waitress), arrêt gracieux.
+## Photo → globe
 
-### Fichiers modifiés
-- `server/jarvis_v4.py` :
-  - `/` → **redirige `/app`** (fin du `DASHBOARD_HTML` géant servi).
-  - **En-têtes de sécurité** globaux (`Content-Security-Policy`,
-    `Permissions-Policy` caméra/micro, `X-Frame-Options`, `nosniff`…).
-  - **Tags sensibles désactivés par défaut** (`[CMD]`,`[TUER]`,`[APPEL_POLICE]`,
-    `[PC_POWER]`,`[ECRIRE_FICHIER]`,…) → `JARVIS_LEGACY_TAGS=1` pour réactiver.
-  - Câblage du blueprint Gardien + services (store, providers, permissions,
-    urgence, appairage).
-  - Correctif du reset de suivi dans `_capture_loop` (sentinelle `None`).
-- `server/security_mod/detector.py` :
-  - `safe_person_id()` (anti-traversée) ; **FaceBank** : `person_id` sûr ≠ nom
-    affiché ≠ dossier ; enrôlement multi-images ; **état « incertain »** ;
-    `delete_identity`, `list_identities` ; `_person_dir` confiné.
-  - `BehaviorAnalyzer.update()` gère `persons=None` (frame sans détection).
-- `web/index.html` : onglet **Gardien** (lien `/gardien`).
-- `web/gardien.html` : **réécriture complète et sécurisée** (voir §3).
-- `requirements_v4.txt` : opencv unique + split ; ajout `pydantic`.
+### Backend
 
-### Documentation & déploiement
-`SECURITY.md`, `.env.example`, `INSTALL_LINUX.md`, `INSTALL_WINDOWS.md`,
-`PAIRING_GUIDE.md`, `pyproject.toml`, `requirements-optional.txt`,
-`requirements-realtime.txt`, `scripts/run_linux.sh`, `scripts/run_windows.ps1`,
-`scripts/healthcheck.sh`.
+Nouveau module `server/guardian/geolocation.py` :
 
----
+1. validation base64/data URL ;
+2. formats autorisés : JPEG, PNG, WebP ;
+3. limites d’octets et de pixels ;
+4. lecture GPS EXIF avant tout appel vision ;
+5. validation stricte du JSON vision ;
+6. cinq candidats maximum ;
+7. confiance minimale configurable ;
+8. précision visuelle minimale forcée à 100 mètres ;
+9. rate-limit dédié ;
+10. aucune persistance de l’image.
 
-## 3. `web/gardien.html` — corrections de sécurité
-- ❌ Script `claude.ai` supprimé ; ❌ champ clé API supprimé ; **aucune clé** dans
-  HTML/JS/localStorage/sessionStorage.
-- Le navigateur ne parle qu'à **l'API JARVIS authentifiée** (cookie de session).
-- **Anti-XSS** : journal construit via `textContent` + nœuds DOM ; toute réponse
-  (phrase, état, métadonnée) traitée comme **non fiable**.
-- `Content-Security-Policy` (meta + en-tête serveur), `Permissions-Policy`.
-- `AbortController` (timeout), **limite de taille d'image**, **rate-limit client**,
-  état **hors ligne** + **reconnexion** avec backoff borné.
-- **Arrêt réel** caméra/micro/audio + **bouton de coupure immédiate**.
-- Sirène : **un seul `AudioContext`**, nœuds fermés, anti-superposition,
-  **durée max + cooldown**, bouton d'arrêt toujours visible, **flash off par
-  défaut**, respect de `prefers-reduced-motion`. La sirène ne part **jamais**
-  d'une phrase du LLM.
+Un GPS EXIF est affiché comme une coordonnée contenue dans le fichier, pas comme
+une preuve infalsifiable. Sans EXIF, le résultat porte toujours
+`exact=false` et `source=vision_estimate`. Si les indices sont insuffisants ou
+le JSON invalide, le résultat est `unknown`.
 
----
+Route ajoutée : `POST /api/guardian/geolocate`.
 
-## 4. Choix d'architecture (brefs)
-1. **Perception ≠ décision ≠ parole.** La vision ne renvoie qu'un JSON décrit ;
-   la FSM+politique décident (déterministe) ; le LLM ne produit que la phrase,
-   ensuite **nettoyée**. → pas de faux déclenchement piloté par le modèle.
-2. **Fail-closed partout.** JSON invalide ⇒ `UNKNOWN` ⇒ aucune action. Outil
-   inconnu ⇒ SENSITIVE. Sirène ⇒ autorisation explicite (manuel/approbation/
-   critère critique). ALERT ⇒ fait critique déterministe, jamais « 5 images ».
-3. **Local-first.** `GUARDIAN_CLOUD_VISION=0` par défaut : aucune image ne sort.
-   Cloud = opt-in, clés strictement serveur, jeton éphémère pour le temps réel.
-4. **Intégration, pas remplacement.** On réutilise `event_log`, `notifier`
-   (Telegram), `emergency`, l'auth et le design existants. Refactor **progressif**
-   (blueprint + services) au lieu d'une réécriture risquée du monolithe.
-5. **Pure-python testable.** Le cœur Gardien (schemas/FSM/policy/permissions)
-   n'a aucune dépendance lourde → testé rapidement et de façon déterministe.
+### Interface
 
----
+Le module **Photo → globe** est accessible dans `web/os.html` et directement par
+`/os#photo`. Il affiche :
 
-## 4bis. Réutilisation open-source (design + détecteur)
-- **Design de l'interface** : le langage visuel (palette cyan/zinc, rayons,
-  ombres, typographies HUD) est adapté d'**OpenJarvis** (Stanford, Apache-2.0)
-  et réinterprété en **CSS natif** dans `web/index.html` et `web/gardien.html`
-  — aucun code React/Tauri, aucune police/CDN externe (CSP intacte).
-- **Détecteur enfichable** (`server/security_mod/detectors.py`) : HOG par défaut
-  (install minimale) + backend **ONNX/YOLOv8** optionnel (`GUARDIAN_DETECTOR=onnx`,
-  `GUARDIAN_ONNX_MODEL`), à dégradation gracieuse — schéma inspiré du projet
-  **thevickypedia/Jarvis** (MIT). Le décodage YOLO est testé indépendamment d'un
-  modèle réel ; le chemin runtime ONNX reste optionnel (non testé en CI).
-- Attribution : voir `CREDITS.md` et `NOTICE`.
+- l’aperçu local de l’image ;
+- la source EXIF ou estimation visuelle ;
+- la confiance ;
+- la précision estimée ;
+- les indices et incertitudes ;
+- les candidats cliquables sur le globe hors ligne.
 
-## 4ter. Interface interactive (lot #1 : palette + cloche + SSE)
-- **Gating des permissions dans l'agent** : `ToolRegistry` accepte désormais un
-  `permission_manager`. Un outil SENSIBLE/CRITIQUE appelé sans jeton **crée une
-  demande d'approbation** au lieu de s'exécuter (fail-closed) ; le comportement
-  historique est conservé quand aucun gestionnaire n'est fourni (tests intacts).
-- **Endpoints** : `GET /api/approvals`, `POST /api/approvals/confirm`,
-  `POST /api/approvals/reject`. La confirmation exécute l'action EXACTE approuvée
-  (jeton usage unique) via le registre d'outils.
-- **UI (`web/index.html`)** : **cloche d'approbation** (badge + panneau,
-  Confirmer/Refuser), **palette de commandes** (Ctrl/⌘+K, navigation clavier),
-  **flux temps réel SSE** (`/api/stream`) qui rafraîchit la cloche et la timeline.
-  Tout en vanilla JS, `textContent` (anti-XSS), sans dépendance ni CDN.
+## Tests ajoutés
 
-## 4quater. JARVIS OS — cœur animé + interfaces multiples + Docker
-- **`web/os.html`** (route `/os`) : shell « Iron Man » avec un **cœur JARVIS
-  animé original** (anneaux SVG rotatifs + réacteur + onde canvas) qui **s'anime
-  quand JARVIS parle** (état lié à la synthèse vocale + évènements SSE).
-- **Fenêtres de modules** déplaçables ouvrables à la demande (pas une seule
-  interface) : Chat, Recherche Web, **Globe 3D** (canvas filaire original),
-  Gardien, Système, Timeline, Approbations. Toutes branchées sur l'API réelle,
-  `textContent` anti-XSS, CSP stricte, **aucun CDN**.
-- **Micro** (dictée) et **bus SSE** : le cœur réagit aux évènements Gardien.
-- **Docker** (auto-hébergement) : `Dockerfile` + `docker-compose.yml` +
-  `.dockerignore`, Gunicorn, healthcheck, volumes de persistance (aucune donnée
-  perso dans l'image). En conteneur headless : `opencv-python-headless`.
-- ⚠️ Le projet `jarvis-OS` (AGPL-3.0) a servi d'**inspiration seulement** :
-  aucune ligne copiée (voir `CREDITS.md`).
+- `tests/test_frontend_security.py`
+- `tests/test_legacy_tags_disabled.py`
+- `tests/test_photo_geolocation.py`
+- `tests/test_openai_realtime_provider.py`
 
-## 4quinquies. Carte géo auto-hébergée + OSINT d'infrastructure
-- **Carte / Globe (module OS)** : globe **orthographique** avec les **pays réels**
-  (GeoJSON Natural Earth, domaine public, simplifié et **vendu localement** dans
-  `web/assets/world.geojson`). **Aucune tuile ni CDN externe** (offline, CSP
-  intacte). Rotation auto + glisser, points géolocalisés OSINT.
-- **OSINT d'INFRASTRUCTURE** (`server/osint.py`, endpoint `/api/osint/lookup`) :
-  IP / domaine / hachage uniquement. Classification (privé/public/réservé),
-  reverse DNS, résolution, WHOIS (port 43, sans clé), géoloc IP **optionnelle**
-  (`OSINT_GEO_URL`, désactivée par défaut). Rate-limit + journalisation.
-  ⚠️ **Jamais de ciblage de personnes** (pas de visage/nom/réseaux sociaux) —
-  refus par conception. Une IP privée ne déclenche aucun appel externe.
-- Route statique `/assets/<fichier>` (auto-hébergement du fond de carte).
+Ils couvrent notamment : XSS, absence de persistance du jeton, absence de
+ressources tierces, CSP, limite de requête, confirmation de désarmement,
+neutralisation des balises critiques, validation d’image, JSON vision invalide,
+prudence de précision, coordonnées EXIF et références GPS encodées en octets.
 
-## 5. Résultats de tests (réels)
-Voir `TEST_RESULTS.md` (sortie exacte de `python -m compileall` et `pytest -q`).
-**111 tests passent** (48 historiques + 63 nouveaux). Aucun test historique cassé.
+Le résultat exact de la livraison est dans `TEST_RESULTS.md`.
 
----
+## Limites restantes
 
-## 6. Limitations restantes (honnêtes)
-- **Refactor du monolithe (Étape 13)** : fait *partiellement* (blueprint, services,
-  redirection, headers, tags gatés). L'app-factory complète et la découpe totale
-  de `jarvis_v4.py` restent à faire — non entreprises pour ne pas casser l'existant.
-- **OpenAI Realtime (Étape 8)** : le mint de jeton éphémère est implémenté mais
-  **non testé avec une vraie clé** ; le WebRTC côté navigateur (VAD, barge-in,
-  sélection micro/HP) n'est **pas** encore câblé dans `gardien.html` (audio OFF
-  par défaut). Marqué comme tel.
-- **Gemini Live** : **squelette** ; `mint_ephemeral_session` lève une erreur
-  claire au lieu d'exposer une clé.
-- **Suivi persistant serveur** : `tracking.py`/`zones.py` sont complets et testés
-  comme composants ; leur branchement dans la boucle caméra OpenCV
-  (`SecuritySystem`) reste à finaliser (le service Gardien navigateur, lui, agrège
-  la présence temporellement). Détecteur ONNX : interface prévue, non fournie.
-- **Appairage** : endpoints + gestion de tokens révocables livrés ; l'acceptation
-  d'un **device-token non authentifié par session** dans `before_request` n'est
-  pas activée (le `/gardien` utilise la session). Voir `PAIRING_GUIDE.md`.
-- **SQLite (Étape 14)** : appliqué au **Gardien** ; la migration des JSON
-  historiques (conversations/events globaux) n'est pas faite.
+- Une photo ordinaire sans GPS ni repère unique ne peut pas être localisée
+  précisément de manière fiable. JARVIS fournit alors une estimation ou refuse.
+- Les métadonnées EXIF peuvent être supprimées ou falsifiées.
+- La CSP utilise encore des scripts/styles inline historiques ; leur extraction
+  dans des fichiers statiques séparés reste une amélioration recommandée.
+- `server/jarvis_v4.py` demeure partiellement monolithique malgré la suppression
+  de l’ancienne UI et l’utilisation des modules Gardien.
+- OpenAI Realtime n’a pas été vérifié avec une vraie clé dans cette livraison ;
+  Gemini Live reste explicitement incomplet.

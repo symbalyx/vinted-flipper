@@ -1,4 +1,4 @@
-# JARVIS v5.2 — image de production (auto-hébergement Docker)
+# JARVIS v5.6 — image de production (auto-hébergement Docker)
 FROM python:3.11-slim
 
 # Dépendances système minimales pour OpenCV (headless) + healthcheck.

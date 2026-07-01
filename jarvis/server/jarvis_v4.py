@@ -53,6 +53,17 @@ SAFE_FILES_ROOT.mkdir(parents=True, exist_ok=True)
 _CMD_LOCK = threading.Lock()
 _HIST_LOCK = threading.Lock()
 
+# Modules optionnels initialisés plus bas. Les routes peuvent les consulter sans
+# provoquer de NameError si le mode Gardien ne charge pas.
+photo_geolocator = None
+_legal_osint_validator = None
+mission_orchestrator = None
+durability_maintenance = None
+mission_store = None
+prospecting_store = None
+prospecting_service = None
+voice_service = None
+
 # ─────────────────────────────────────────────
 # CONFIG — Choisir ton backend IA
 # ─────────────────────────────────────────────
@@ -61,7 +72,7 @@ AI_BACKEND = os.getenv("JARVIS_BACKEND", "deepseek")  # "ollama" ou "deepseek"
 CONFIG = {
     # ── DeepSeek (API cloud, ~gratuit) ──
     "deepseek": {
-        "api_key": os.getenv("DEEPSEEK_API_KEY", "METS_TA_CLE_ICI"),
+        "api_key": os.getenv("DEEPSEEK_API_KEY", ""),
         "model": "deepseek-chat",
         "base_url": "https://api.deepseek.com/v1/chat/completions",
     },
@@ -78,7 +89,9 @@ CONFIG = {
     "auth": {
         "enabled": os.getenv("JARVIS_AUTH", "1") != "0",
         "password": os.getenv("JARVIS_PASSWORD", ""),    # vide = généré au démarrage
-        "cors_origins": [o for o in os.getenv("JARVIS_CORS", "").split(",") if o],
+        "cors_origins": [o.strip() for o in os.getenv(
+            "JARVIS_CORS_ORIGINS", os.getenv("JARVIS_CORS", "")
+        ).split(",") if o.strip()],
     },
     "https": {
         "cert": os.getenv("JARVIS_SSL_CERT", ""),
@@ -174,72 +187,22 @@ logger = logging.getLogger("JARVIS")
 # ─────────────────────────────────────────────
 # PERSONNALITÉ — Le vrai caractère de JARVIS
 # ─────────────────────────────────────────────
-SYSTEM_PROMPT = """Tu es JARVIS, l'assistant IA personnel et domotique de ton utilisateur.
-Tu as la personnalité suivante :
-- Sarcastique mais attachant — tu te moques gentiment de l'utilisateur
-- Drôle — blagues, références pop culture, remarques absurdes
-- Compétent — tu résous VRAIMENT les problèmes
-- Direct — pas de "bien sûr !" ni "absolument !" en début de phrase
-- Tu parles français avec un peu d'argot parfois
+SYSTEM_PROMPT = """Tu es JARVIS, l'assistant IA personnel, local et domotique de l'utilisateur.
 
-Tu as accès aux SUPER POUVOIRS suivants via des fonctions spéciales :
+Personnalité :
+- direct, compétent, francophone ;
+- un humour léger et sarcastique est permis, jamais pendant une urgence ;
+- ne prétends jamais qu'une action, une notification, un appel ou une alerte a réussi avant d'avoir reçu le résultat réel de l'outil.
 
-SYSTÈME & FICHIERS :
-- [PC_INFO] infos système · [PROCESSUS] top processus · [ESPACE_DISQUE] disques
-- [HEURE] · [RESEAU_INFO] · [CMD:commande] (liste blanche) · [HISTORIQUE_CMDS]
-- [LISTER_FICHIERS:chemin] · [LIRE_FICHIER:chemin] · [ECRIRE_FICHIER:chemin|contenu]
-- [CHERCHER_FICHIER:nom] · [OUVRIR_APP:nom] · [OUVRIR_URL:url]
+Sécurité :
+- utilise uniquement les outils de function calling fournis par l'application ;
+- n'écris jamais de balise historique comme [CMD:...], [TUER:...], [APPEL_POLICE:...], [DESARMER] ou [SCENE:...] ;
+- une action sensible ou critique peut créer une demande d'approbation : explique alors clairement qu'elle attend la confirmation de l'utilisateur ;
+- n'essaie pas de contourner un refus, une expiration ou une validation de schéma ;
+- n'invente ni arme, ni chien, ni police prévenue, ni secours en route, ni reconnaissance faciale certaine ;
+- en cas d'incertitude, décris l'incertitude et choisis l'action la moins risquée.
 
-UTILITAIRES :
-- [METEO:ville] · [CALC:expr] · [MOT_PASSE] · [BLAGUE] · [BLAGUE_GEEK] · [FORTUNE]
-- [VOLUME:0-100] (volume du PC) · [NOTIF:titre|message] · [RAPPEL:minutes|message]
-
-🍎 MAISON CONNECTÉE — APPLE :
-- [HOMEPOD_DIRE:texte] : faire parler JARVIS à voix haute sur une enceinte HomePod
-- [HOMEPOD_DIRE:texte|enceinte] : sur une enceinte précise
-- [HOMEPOD_VOLUME:0-100] : régler le volume d'une enceinte HomePod
-- [HOMEPOD_JOUER:url] : diffuser un flux audio/vidéo en AirPlay
-- [APPLETV:commande] : télécommande Apple TV (play, pause, menu, home, up, down, left, right, select, next, previous)
-- [APPLETV_APP:nom] : lancer une app sur l'Apple TV (netflix, youtube, disney, prime, spotify...)
-
-💡 MAISON CONNECTÉE — LUMIÈRES :
-- [LUMIERE:nom|on] ou [LUMIERE:nom|off] : allumer/éteindre (nom = salon, chambre, cuisine, bureau, entrée, ou "toutes")
-- [LUMIERE_COULEUR:nom|couleur] : couleur (rouge, vert, bleu, jaune, orange, rose, violet, cyan, blanc, chaud, froid)
-- [LUMIERE_LUMINOSITE:nom|0-100] : régler la luminosité
-- [LUMIERES_OFF] : tout éteindre
-
-🎬 SCÈNES & SÉCURITÉ :
-- [SCENE:nom] : activer une scène (cinéma, soirée, réveil, bonne nuit, absence, retour)
-- [ARMER] : armer l'alarme anti-intrusion · [DESARMER] : désarmer
-- [CAMERA_ANALYSE] : analyser ce que voit la caméra maintenant
-
-🌍 RECHERCHE WEB & NOTIFICATIONS :
-- [RECHERCHE_WEB:requête] : chercher sur le web (actualités, faits, infos récentes). Utilise-le DÈS QUE la question porte sur quelque chose d'actuel, factuel ou que tu ne connais pas. Après le résultat, RÉSUME la réponse avec ta personnalité au lieu de recracher la liste brute.
-- [LIRE_WEB:url] : lire/résumer le contenu d'une page web
-- [NOTIF_TEL:message] : envoyer une notification sur le téléphone (Telegram)
-
-🆘 URGENCE (à manier avec sérieux) :
-- [APPEL_POLICE:raison] : déclenche le protocole d'urgence complet (prévient l'utilisateur et le contact d'urgence, peut appeler). Utilise-le UNIQUEMENT si l'utilisateur le demande explicitement OU en cas de danger manifeste (intrusion confirmée, agression). En cas de doute, DEMANDE confirmation avant.
-- [APPEL_HOTE:message] : appeler l'hôte/propriétaire de la maison (ex: en cas d'urgence ou si on te le demande).
-
-🖥️ CONTRÔLE PC AVANCÉ :
-- [SCREENSHOT] : capturer l'écran · [VERROUILLER] : verrouiller la session
-- [MEDIA:action] : play, pause, next, prev, stop, mute, vol_up, vol_down
-- [TUER:nom_ou_pid] : tuer un processus · [LUMINOSITE_ECRAN:0-100]
-- [PRESSE_PAPIER] : lire le presse-papier · [PRESSE_PAPIER_SET:texte] : y écrire
-- [PC_POWER:action] : lock, sleep (ok direct) ; shutdown, restart, logoff (DEMANDE confirmation à l'utilisateur d'abord, c'est destructif)
-
-😴 CONTRÔLE :
-- [VEILLE] : te mettre en veille quand l'utilisateur dit « coupe-toi », « stop », « au dodo », « tais-toi »...
-
-🧠 MÉMOIRE LONG TERME :
-- [RETIENS:fait] : mémoriser durablement une info sur l'utilisateur (préférence, habitude, nom d'un proche...). Utilise-le quand l'utilisateur partage qqch d'important à retenir.
-
-Utilise ces pouvoirs quand c'est pertinent. Réponds toujours en français.
-Exemples : "allume le salon en bleu" → [LUMIERE_COULEUR:salon|bleu] ;
-"mets le mode cinéma" → [SCENE:cinéma] ; "dis bonjour sur le HomePod" → [HOMEPOD_DIRE:Bonjour] ;
-"mets Netflix sur la télé" → [APPLETV_APP:netflix].
-Quand tu n'exécutes PAS de commande spéciale, réponds directement avec ta personnalité.
+Confidentialité : ne révèle pas les secrets, jetons, mots de passe, chemins privés ou données personnelles inutiles. Réponds toujours en français.
 """
 
 BLAGUES = [
@@ -355,6 +318,24 @@ class AIEngine:
                     "C'est pas si compliqué, même toi tu peux le faire. 🦙")
         except Exception as e:
             return f"Erreur Ollama : {e} 💀"
+
+    def complete(self, system_prompt: str, user_prompt: str, temperature: float = 0.2,
+                 max_tokens: int = 2048) -> str:
+        """Complétion isolée, sans toucher l'historique conversationnel."""
+        messages = [{"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}]
+        if self.backend == "deepseek":
+            r = requests.post(self.base_url,
+                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                json={"model": self.model, "messages": messages,
+                      "temperature": temperature, "max_tokens": max_tokens}, timeout=60)
+            r.raise_for_status()
+            return str(r.json()["choices"][0]["message"]["content"])
+        r = requests.post(self.base_url,
+            json={"model": self.model, "messages": messages, "stream": False,
+                  "options": {"temperature": temperature, "num_predict": max_tokens}}, timeout=180)
+        r.raise_for_status()
+        return str(r.json()["message"]["content"])
 
     def clear_history(self):
         self.history = []
@@ -749,244 +730,80 @@ class JarvisPowers:
 # ─────────────────────────────────────────────
 powers = JarvisPowers()
 
-# Le fallback par TAGS est conservé pour les actions inoffensives, mais les
-# actions SENSIBLES/CRITIQUES y sont DÉSACTIVÉES par défaut (fail-closed) :
-# elles doivent passer par le function-calling validé + approbation applicative.
-# Réactivable explicitement avec JARVIS_LEGACY_TAGS=1 (déconseillé).
+# Le parser historique par balises est désactivé par défaut. Les modèles doivent
+# utiliser uniquement le function-calling validé par schéma. Même si un opérateur
+# réactive les balises inoffensives, les actions critiques restent neutralisées.
 LEGACY_TAGS_ENABLED = os.getenv("JARVIS_LEGACY_TAGS", "0") == "1"
-
-# Tags considérés SENSIBLES/CRITIQUES : jamais exécutés via le fallback par défaut.
-_SENSITIVE_TAG_RE = re.compile(
+_ANY_LEGACY_TAG_RE = re.compile(
+    r"\[[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ0-9_]*(?::[^\]\r\n]{0,4000})?\]"
+)
+_CRITICAL_LEGACY_TAG_RE = re.compile(
     r"\[(?:CMD|TUER|APPEL_POLICE|PC_POWER|ECRIRE_FICHIER|LIRE_FICHIER|"
-    r"LISTER_FICHIERS|PRESSE_PAPIER(?:_SET)?|PRESSE_PAPIER|SCREENSHOT|VERROUILLER|"
-    r"OUVRIR_APP|OUVRIR_URL|MEDIA|LUMINOSITE_ECRAN|NOTIF_TEL|APPEL_HOTE)"
-    r"(?::[^\]]*)?\]")
+    r"LISTER_FICHIERS|PRESSE_PAPIER(?:_SET)?|SCREENSHOT|VERROUILLER|"
+    r"OUVRIR_APP|OUVRIR_URL|MEDIA|LUMINOSITE_ECRAN|NOTIF_TEL|APPEL_HOTE|"
+    r"ARMER|DESARMER|SCENE)(?::[^\]\r\n]{0,4000})?\]"
+)
+_LEGACY_BLOCKED = (
+    "⛔ _(ancienne balise neutralisée — utilise le function-calling et, si "
+    "nécessaire, l'approbation dans l'interface)_"
+)
 
 
 def _strip_sensitive_tags(text: str) -> str:
-    """Neutralise les tags sensibles : aucune action, message d'approbation."""
-    if not _SENSITIVE_TAG_RE.search(text):
-        return text
-    return _SENSITIVE_TAG_RE.sub(
-        "⛔ _(action sensible désactivée dans le fallback — confirmation requise "
-        "via l'interface)_", text)
+    """Neutralise toujours les balises sensibles/critiques (fail-closed)."""
+    return _CRITICAL_LEGACY_TAG_RE.sub(_LEGACY_BLOCKED, str(text or ""))
 
 
 def execute_jarvis_commands(ai_response: str, security_sys=None) -> str:
-    result = ai_response
+    """Compatibilité limitée aux anciennes balises strictement READ_ONLY.
 
-    # Sécurité : par défaut, on retire les actions sensibles avant tout parsing.
+    Par défaut, toute balise est du texte inerte. Si l'opérateur active
+    JARVIS_LEGACY_TAGS=1, seule une petite liste d'utilitaires sans effet de bord
+    reste disponible. Toute autre balise est neutralisée à la fin.
+    """
+    result = str(ai_response or "")
     if not LEGACY_TAGS_ENABLED:
-        result = _strip_sensitive_tags(result)
+        return _ANY_LEGACY_TAG_RE.sub(_LEGACY_BLOCKED, result)
+
+    # Même en mode compatibilité, toute balise critique est retirée avant parsing.
+    result = _strip_sensitive_tags(result)
 
     if "[PC_INFO]" in result:
         info = powers.pc_info()
         info_str = "\n".join(f"  • **{k}**: {v}" for k, v in info.items())
         result = result.replace("[PC_INFO]", f"\n📊 **Infos système:**\n{info_str}\n")
-
     if "[HEURE]" in result:
         now = datetime.now()
         result = result.replace("[HEURE]", f"🕐 **{now.strftime('%A %d %B %Y — %H:%M:%S')}**")
-
     if "[BLAGUE]" in result:
         result = result.replace("[BLAGUE]", f"\n😄 **BLAGUE:** {powers.get_blague()}\n")
     if "[BLAGUE_GEEK]" in result:
         result = result.replace("[BLAGUE_GEEK]", f"\n🤓 **BLAGUE GEEK:** {powers.get_blague()}\n")
     if "[FORTUNE]" in result:
         result = result.replace("[FORTUNE]", f"\n💭 *{powers.get_fortune()}*\n")
-
     if "[RESEAU_INFO]" in result:
         info = powers.get_network_info()
         info_str = "\n".join(f"  • **{k}**: {v}" for k, v in info.items())
         result = result.replace("[RESEAU_INFO]", f"\n🌐 **Réseau:**\n{info_str}\n")
-
     if "[ESPACE_DISQUE]" in result:
         info = powers.disk_space()
         lines = [f"  • **{m}**: " + " | ".join(f"{k}: {v}" for k, v in d.items())
                  for m, d in info.items()]
         result = result.replace("[ESPACE_DISQUE]", "\n💾 **Espace disque:**\n" + "\n".join(lines) + "\n")
-
     if "[PROCESSUS]" in result:
         procs = powers.get_processes()
-        lines = [f"  • [{p.get('pid','')}] {p.get('nom','')} — CPU: {p.get('cpu','')} RAM: {p.get('ram','')}"
+        lines = [f"  • [{p.get('pid', '')}] {p.get('nom', '')} — CPU: {p.get('cpu', '')} RAM: {p.get('ram', '')}"
                  for p in procs]
         result = result.replace("[PROCESSUS]", "\n⚙️ **Processus (top CPU):**\n" + "\n".join(lines) + "\n")
-
-    if "[MOT_PASSE]" in result:
-        result = result.replace("[MOT_PASSE]", powers.gen_password())
-
-    if "[HISTORIQUE_CMDS]" in result:
-        if CMD_HISTORY:
-            lines = [f"  • {c['time'][:19]} → `{c['cmd']}`" for c in CMD_HISTORY[-10:]]
-            result = result.replace("[HISTORIQUE_CMDS]", "\n📜 **Historique:**\n" + "\n".join(lines) + "\n")
-        else:
-            result = result.replace("[HISTORIQUE_CMDS]", "Aucune commande exécutée.")
-
-    for match in re.findall(r'\[OUVRIR_URL:([^\]]+)\]', result):
-        result = result.replace(f"[OUVRIR_URL:{match}]", f"🌐 {powers.open_url(match)}")
-    for match in re.findall(r'\[OUVRIR_APP:([^\]]+)\]', result):
-        result = result.replace(f"[OUVRIR_APP:{match}]", f"🚀 {powers.open_app(match)}")
-    for match in re.findall(r'\[LISTER_FICHIERS:([^\]]+)\]', result):
-        files = powers.list_files(match)
-        result = result.replace(f"[LISTER_FICHIERS:{match}]",
-            f"\n📂 **Fichiers dans `{match}`:**\n" + "\n".join(files[:30]) + "\n")
-    for match in re.findall(r'\[LIRE_FICHIER:([^\]]+)\]', result):
-        content = powers.read_file(match)
-        result = result.replace(f"[LIRE_FICHIER:{match}]",
-            f"\n📄 **Contenu de `{match}`:**\n```\n{content[:1500]}\n```\n")
-    for match in re.findall(r'\[ECRIRE_FICHIER:([^|]+)\|([^\]]+)\]', result):
-        path, content = match
-        result = result.replace(f"[ECRIRE_FICHIER:{path}|{content}]", f"✏️ {powers.write_file(path, content)}")
-    for match in re.findall(r'\[CMD:([^\]]+)\]', result):
-        result = result.replace(f"[CMD:{match}]", f"\n💻 **`{match}`**\n```\n{powers.run_cmd(match)}\n```\n")
-    for match in re.findall(r'\[METEO:([^\]]+)\]', result):
+    for match in re.findall(r"\[METEO:([^\]]+)\]", result):
         weather = powers.get_weather(match)
-        w_str = "\n".join(f"  • **{k}**: {v}" for k, v in weather.items())
-        result = result.replace(f"[METEO:{match}]", f"\n🌤️ **Météo {match}:**\n{w_str}\n")
-    for match in re.findall(r'\[VOLUME:(\d+)\]', result):
-        result = result.replace(f"[VOLUME:{match}]", f"🔊 {powers.set_volume(int(match))}")
-    for match in re.findall(r'\[NOTIF:([^|]+)\|([^\]]+)\]', result):
-        title, msg = match
-        result = result.replace(f"[NOTIF:{title}|{msg}]", f"🔔 {powers.send_notification(title, msg)}")
-    for match in re.findall(r'\[RAPPEL:(\d+)\|([^\]]+)\]', result):
-        mins, msg = match
-        result = result.replace(f"[RAPPEL:{mins}|{msg}]", f"⏰ {powers.set_reminder(int(mins), msg)}")
-    for match in re.findall(r'\[CALC:([^\]]+)\]', result):
+        summary = "\n".join(f"  • **{k}**: {v}" for k, v in weather.items())
+        result = result.replace(f"[METEO:{match}]", f"\n🌤️ **Météo {match}:**\n{summary}\n")
+    for match in re.findall(r"\[CALC:([^\]]+)\]", result):
         result = result.replace(f"[CALC:{match}]", f"🧮 {powers.calculate(match)}")
-    for match in re.findall(r'\[CHERCHER_FICHIER:([^\]]+)\]', result):
-        files = powers.search_file(match)
-        result = result.replace(f"[CHERCHER_FICHIER:{match}]",
-            f"\n🔍 **Résultats pour '{match}':**\n" + "\n".join(f"  • {f}" for f in files) + "\n")
 
-    # ── 🍎 APPLE — HomePod ──
-    for match in re.findall(r'\[HOMEPOD_DIRE:([^\]]+)\]', result):
-        text, _, dev = match.partition("|")
-        res = apple_home.say(text.strip(), dev.strip())
-        result = result.replace(f"[HOMEPOD_DIRE:{match}]", f"🔊 {res}")
-    for match in re.findall(r'\[HOMEPOD_VOLUME:(\d+)(?:\|([^\]]+))?\]', result):
-        level, dev = match
-        res = apple_home.set_volume(int(level), dev.strip())
-        full = f"[HOMEPOD_VOLUME:{level}" + (f"|{dev}]" if dev else "]")
-        result = result.replace(full, f"🔊 {res}")
-    for match in re.findall(r'\[HOMEPOD_JOUER:([^\]]+)\]', result):
-        url, _, dev = match.partition("|")
-        res = apple_home.play_url(url.strip(), dev.strip())
-        result = result.replace(f"[HOMEPOD_JOUER:{match}]", f"▶️ {res}")
-
-    # ── 🍎 APPLE — Apple TV ──
-    for match in re.findall(r'\[APPLETV_APP:([^\]]+)\]', result):
-        res = apple_home.appletv_launch(match.strip(), CONFIG["apple"]["default_tv"])
-        result = result.replace(f"[APPLETV_APP:{match}]", f"📺 {res}")
-    for match in re.findall(r'\[APPLETV:([^\]]+)\]', result):
-        res = apple_home.appletv_command(match.strip(), CONFIG["apple"]["default_tv"])
-        result = result.replace(f"[APPLETV:{match}]", f"📺 {res}")
-
-    # ── 💡 LUMIÈRES ──
-    for match in re.findall(r'\[LUMIERE:([^|]+)\|(on|off|ON|OFF)\]', result):
-        name, state = match
-        learning_engine.record_room(name.strip())
-        res = lights.set_state(name.strip(), on=(state.lower() == "on"))
-        result = result.replace(f"[LUMIERE:{name}|{state}]", f"💡 {res}")
-    for match in re.findall(r'\[LUMIERE_COULEUR:([^|]+)\|([^\]]+)\]', result):
-        name, color = match
-        res = lights.set_state(name.strip(), color=color.strip())
-        result = result.replace(f"[LUMIERE_COULEUR:{name}|{color}]", f"🎨 {res}")
-    for match in re.findall(r'\[LUMIERE_LUMINOSITE:([^|]+)\|(\d+)\]', result):
-        name, bri = match
-        res = lights.set_state(name.strip(), bri=int(bri))
-        result = result.replace(f"[LUMIERE_LUMINOSITE:{name}|{bri}]", f"🔆 {res}")
-    if "[LUMIERES_OFF]" in result:
-        result = result.replace("[LUMIERES_OFF]", f"💡 {lights.all_off()}")
-
-    # ── 🎬 SCÈNES & SÉCURITÉ ──
-    for match in re.findall(r'\[SCENE:([^\]]+)\]', result):
-        result = result.replace(f"[SCENE:{match}]", f"\n{apply_scene(match)}\n")
-    if "[ARMER]" in result and security_sys:
-        result = result.replace("[ARMER]", f"🛡️ {security_sys.set_armed(True)}")
-    if "[DESARMER]" in result and security_sys:
-        result = result.replace("[DESARMER]", f"🔓 {security_sys.set_armed(False)}")
-
-    # ── 🌍 RECHERCHE WEB ──
-    for match in re.findall(r'\[RECHERCHE_WEB:([^\]]+)\]', result):
-        data = websearch.search(match.strip())
-        block = [f"\n🔎 **Recherche : {match}**"]
-        if data.get("answer"):
-            block.append(f"  ↳ {data['answer']}")
-        for r_ in data.get("results", [])[:5]:
-            block.append(f"  • **{r_['title']}**\n    {r_['snippet']}\n    {r_['url']}")
-        if data.get("error"):
-            block.append(f"  ⚠️ {data['error']}")
-        result = result.replace(f"[RECHERCHE_WEB:{match}]", "\n".join(block) + "\n")
-
-    for match in re.findall(r'\[LIRE_WEB:([^\]]+)\]', result):
-        txt = websearch.read_page(match.strip())
-        result = result.replace(f"[LIRE_WEB:{match}]",
-            f"\n📰 **Contenu de {match} :**\n{txt[:2500]}\n")
-
-    # ── 📲 NOTIFICATION DISTANTE (Telegram) ──
-    for match in re.findall(r'\[NOTIF_TEL:([^\]]+)\]', result):
-        result = result.replace(f"[NOTIF_TEL:{match}]", f"📲 {notifier.send(match.strip())}")
-
-    # ── 🆘 APPEL D'URGENCE ──
-    for match in re.findall(r'\[APPEL_POLICE:([^\]]+)\]', result):
-        snap = ""
-        if security_sys and security_sys.current_frame is not None:
-            snap = security_sys.last_snapshot
-        disp = emergency_dispatcher.dispatch(match.strip(), snapshot=snap,
-                                             source="demande JARVIS", allow_call=True)
-        actions = "\n".join(f"  • {a}" for a in disp["actions"])
-        result = result.replace(f"[APPEL_POLICE:{match}]",
-            f"\n🆘 **PROTOCOLE D'URGENCE — {match}**\n{actions}\n")
-
-    # ── 📞 APPEL À L'HÔTE ──
-    for match in re.findall(r'\[APPEL_HOTE:([^\]]+)\]', result):
-        res = emergency_dispatcher.call_owner(match.strip())
-        result = result.replace(f"[APPEL_HOTE:{match}]", f"📞 {res}")
-    if "[APPEL_HOTE]" in result:
-        result = result.replace("[APPEL_HOTE]", f"📞 {emergency_dispatcher.call_owner()}")
-
-    # ── 😴 MISE EN VEILLE ──
-    if "[VEILLE]" in result:
-        SYSTEM["standby"] = True
-        result = result.replace("[VEILLE]", "😴 Je me mets en veille. Dis « Ok Jarvis » ou « réveille-toi » pour me rappeler.")
-
-    # ── 🖥️ CONTRÔLE PC ──
-    if "[SCREENSHOT]" in result:
-        shot = pc.screenshot()
-        result = result.replace("[SCREENSHOT]", f"📸 {shot['msg']}")
-    if "[VERROUILLER]" in result:
-        result = result.replace("[VERROUILLER]", f"🔒 {pc.lock()}")
-    if "[PRESSE_PAPIER]" in result:
-        result = result.replace("[PRESSE_PAPIER]", f"📋 {pc.clipboard_get()[:500]}")
-    for match in re.findall(r'\[MEDIA:([^\]]+)\]', result):
-        result = result.replace(f"[MEDIA:{match}]", f"🎵 {pc.media(match.strip())}")
-    for match in re.findall(r'\[TUER:([^\]]+)\]', result):
-        result = result.replace(f"[TUER:{match}]", f"🗡️ {pc.kill_process(match.strip())}")
-    for match in re.findall(r'\[LUMINOSITE_ECRAN:(\d+)\]', result):
-        result = result.replace(f"[LUMINOSITE_ECRAN:{match}]", f"🔆 {pc.brightness(int(match))}")
-    for match in re.findall(r'\[PRESSE_PAPIER_SET:([^\]]+)\]', result):
-        result = result.replace(f"[PRESSE_PAPIER_SET:{match}]", f"📋 {pc.clipboard_set(match)}")
-    # Alimentation : destructif → confirmation requise (jamais auto depuis le chat)
-    for match in re.findall(r'\[PC_POWER:([^\]]+)\]', result):
-        act = match.strip().lower()
-        res = pc.power(act, confirm=(act in ("lock", "sleep")))
-        result = result.replace(f"[PC_POWER:{match}]", f"⏻ {res}")
-
-    # ── 🧠 MÉMOIRE LONG TERME ──
-    for match in re.findall(r'\[RETIENS:([^\]]+)\]', result):
-        vmem.add(match.strip(), kind="fact")
-        result = result.replace(f"[RETIENS:{match}]", f"🧠 {learning_engine.add_fact(match.strip())}")
-
-    if "[CAMERA_ANALYSE]" in result and security_sys and security_sys.running:
-        jpeg = security_sys.get_jpeg_frame()
-        b64 = base64.b64encode(jpeg).decode()
-        result = result.replace("[CAMERA_ANALYSE]",
-            "\n📷 *[Analyse caméra lancée — résultat dans les logs/panel sécurité]*\n")
-        threading.Thread(
-            target=lambda: logger.info("Analyse caméra: " + security_sys.brain_analyze(b64)),
-            daemon=True).start()
-
-    return result
+    # Une balise inconnue ou avec effet de bord n'est jamais exécutée.
+    return _ANY_LEGACY_TAG_RE.sub(_LEGACY_BLOCKED, result)
 
 
 # ─────────────────────────────────────────────
@@ -1300,6 +1117,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",       # bloque les POST cross-site (anti-CSRF)
     SESSION_COOKIE_SECURE=_HTTPS_ON,     # cookie HTTPS-only si TLS actif
     PERMANENT_SESSION_LIFETIME=3600,
+    MAX_CONTENT_LENGTH=max(1_000_000, int(os.getenv("JARVIS_MAX_REQUEST_BYTES", "4000000"))),
 )
 # CORS restreint (plus de wildcard) : seules les origines explicitement autorisées
 CORS(app, supports_credentials=True, origins=CONFIG["auth"]["cors_origins"] or [])
@@ -1397,13 +1215,30 @@ notifier.start_callback_listener(lambda qid, known: security.resolve_identity(qi
 
 # ── 🔐 Gestionnaire central de permissions (partagé agent + Gardien) ──
 from permissions import PermissionManager
-permission_manager = PermissionManager(ttl_seconds=120, audit_log=event_log.add)
+_approval_ttl = max(60, min(int(os.getenv("JARVIS_APPROVAL_TTL", "600")), 3600))
+permission_manager = PermissionManager(ttl_seconds=_approval_ttl, audit_log=event_log.add)
+
+# ── Connecteurs Agency (clés uniquement côté serveur) ──
+from integrations.n8n import N8NClient
+from integrations.emailer import EmailService
+n8n_client = N8NClient()
+email_service = EmailService()
+
+# ── 🎯 CRM de prospection durable et anti-spam ──
+from prospecting.store import ProspectingStore
+from prospecting.service import ProspectingService
+from prospecting.api import create_prospecting_blueprint
+prospecting_store = ProspectingStore(os.getenv("JARVIS_PROSPECTING_DB", "data/prospecting.db"))
+prospecting_service = ProspectingService(prospecting_store)
+_prospecting_web_dir = str(Path(__file__).resolve().parent.parent / "web")
 
 # ── 🧠 Cerveau agentique (function-calling multi-tours) ──
 AGENT_ENABLED = os.getenv("JARVIS_AGENT", "1") != "0"
 tool_registry = build_registry(powers, lights, apple_home, websearch, learning_engine,
                                apply_scene, security, emergency_dispatcher, memory=vmem, pc=pc,
-                               permission_manager=permission_manager)
+                               permission_manager=permission_manager,
+                               n8n_client=n8n_client, email_service=email_service,
+                               prospecting_service=prospecting_service)
 agent = Agent(ai_engine, tool_registry, learning_engine=learning_engine,
               event_log=event_log, memory=vmem)
 
@@ -1433,20 +1268,226 @@ proactive = ProactiveEngine(agent, lambda t: announce(t, volume=60), notifier, e
 logger.info(f"🧠 Backend IA: {AI_BACKEND.upper()} — modèle: {CONFIG[AI_BACKEND]['model']} "
             f"| agent={'on' if AGENT_ENABLED else 'off'}")
 
+# ── 🏗️ JARVIS Agency : missions longues, persistantes et multi-agents ──
+try:
+    from execution_context import execution_scope
+    from agency.store import MissionStore
+    from agency.orchestrator import MissionOrchestrator
+    from agency.api import create_agency_blueprint
+
+    mission_store = MissionStore(os.getenv("JARVIS_AGENCY_DB", "data/agency.db"))
+    tool_registry.action_receipts = mission_store
+
+    from durability import DurabilityMaintenance
+    durability_maintenance = DurabilityMaintenance(
+        [mission_store.path, prospecting_store.path],
+        backup_dir=os.getenv("JARVIS_BACKUP_DIR", "data/backups"),
+        interval_hours=float(os.getenv("JARVIS_BACKUP_INTERVAL_HOURS", "24")),
+        keep_per_database=int(os.getenv("JARVIS_BACKUP_KEEP", "14")))
+    if os.getenv("JARVIS_DURABLE_BACKUPS", "1") != "0":
+        durability_maintenance.start()
+    mission_agent = Agent(ai_engine, tool_registry, learning_engine=None,
+                          event_log=event_log, memory=vmem,
+                          max_turns=max(6, min(int(os.getenv("JARVIS_SUBAGENT_TURNS", "24")), 60)),
+                          raise_on_turn_limit=True)
+
+    def _plan_mission(prompt):
+        return ai_engine.complete(
+            "Tu es le coordinateur de JARVIS Agency. Produit uniquement le JSON demandé, sans markdown.",
+            prompt, temperature=0.1, max_tokens=3000)
+
+    def _execute_mission_step(payload):
+        mission = mission_store.get(payload["mission_id"]) or {}
+        system = get_system_prompt() + f"""
+
+[MODE SOUS-AGENT JARVIS AGENCY]
+Rôle : {payload['role']} — {payload['role_description']}.
+Tu travailles sur une étape bornée d'une mission. Utilise les outils disponibles quand ils sont utiles.
+N'annonce jamais qu'une action externe a réussi sans résultat d'outil. N'essaie jamais de contourner
+une approbation. Les e-mails, applications, fichiers, créations/activations n8n et actions sensibles
+peuvent s'arrêter en attente de validation humaine. Donne des preuves et un résultat exploitable par
+les étapes suivantes. Ne modifie pas la mémoire personnelle de l'utilisateur sans demande explicite.
+"""
+        user = (
+            f"MISSION GLOBALE : {mission.get('goal', '')}\n\n"
+            f"DÉFINITION DE FINI : {payload.get('completion_criteria') or '(déduire du but et produire des preuves)'}\n\n"
+            f"ÉTAPE : {payload['title']}\n{payload['instructions']}\n\n"
+            f"ESSAI : {payload.get('attempt', 1)}/{payload.get('max_attempts', 1)}\n"
+            f"CLÉ D'IDEMPOTENCE : {payload.get('idempotency_key', '')}\n"
+            f"CHECKPOINT PRÉCÉDENT : {json.dumps(payload.get('checkpoint') or {}, ensure_ascii=False)[:3000]}\n\n"
+            f"MÉMOIRE DURABLE PERTINENTE :\n{payload.get('durable_memory') or '(aucune)'}\n\n"
+            f"RÉSULTATS DES DÉPENDANCES :\n{payload['dependency_context'] or '(aucun)'}"
+        )
+        def _checkpoint(progress):
+            mission_store.save_checkpoint(payload["step_id"], {
+                "state": "running", "attempt": payload.get("attempt", 1),
+                "updated_at": time.time(), "last_progress": progress,
+            })
+        with execution_scope(payload["mission_id"], payload["step_id"]):
+            result = mission_agent.run(
+                user, system, hist=[], on_save=lambda: None,
+                on_progress=_checkpoint)
+            if not result:
+                raise RuntimeError("Sous-agent indisponible : backend sans function calling")
+            return result
+
+
+    def _mission_pending(mid):
+        return [a for a in permission_manager.pending() if a.get("context_id") == mid]
+
+    def _completion_validator(payload):
+        mission = payload.get("mission") or {}
+        steps = payload.get("steps") or []
+        missing = []
+        if not any(s.get("role") == "verifier" and s.get("result") for s in steps):
+            missing.append("Une validation indépendante avec preuves")
+        if not any(s.get("role") == "reporter" and s.get("result") for s in steps):
+            missing.append("Un rapport final exploitable")
+        suspicious = []
+        for step in steps:
+            text = (step.get("result") or "").lower()
+            if any(marker in text for marker in (
+                    "sous-agent indisponible", "erreur outil", "je m'arrête là",
+                    "sans résultat final vérifiable")):
+                suspicious.append(step.get("title", "étape"))
+        if suspicious:
+            missing.append("Résoudre les étapes sans preuve : " + ", ".join(suspicious[:8]))
+        criteria = str(mission.get("completion_criteria") or "").strip()
+        if missing:
+            return {"complete": False, "reason": "Contrôles déterministes incomplets", "missing": missing}
+        if not criteria:
+            return {"complete": True, "reason": "Toutes les étapes, la vérification et le rapport sont présents"}
+        compact = [{"role": st.get("role"), "title": st.get("title"),
+                    "result": (st.get("result") or "")[:2500]} for st in steps[-16:]]
+        prompt = f"""But: {mission.get('goal', '')}
+Critères de fini: {criteria}
+Résultats: {json.dumps(compact, ensure_ascii=False)}
+Réponds UNIQUEMENT en JSON strict :
+{{"complete":true|false,"reason":"...","missing":["..."]}}
+N'accepte complete=true que si chaque critère est prouvé par les résultats. Une promesse n'est pas une preuve."""
+        try:
+            raw = ai_engine.complete(
+                "Tu es le contrôleur qualité final de JARVIS Agency.",
+                prompt, temperature=0, max_tokens=1200)
+            start, end = raw.find("{"), raw.rfind("}")
+            if start < 0 or end <= start:
+                raise ValueError("JSON absent")
+            data = json.loads(raw[start:end + 1])
+            return {"complete": data.get("complete") is True,
+                    "reason": str(data.get("reason") or "")[:1000],
+                    "missing": [str(x)[:1000] for x in (data.get("missing") or [])][:20]}
+        except Exception as exc:
+            return {"complete": False,
+                    "reason": f"Validation finale illisible ou indisponible: {exc}",
+                    "missing": ["Relancer la validation finale avec un backend disponible"]}
+
+    mission_orchestrator = MissionOrchestrator(
+        mission_store, _execute_mission_step, planner_callable=_plan_mission,
+        approval_probe=_mission_pending, event_log=event_log.add,
+        default_max_agents=int(os.getenv("JARVIS_MAX_SUBAGENTS", "3")),
+        completion_validator=_completion_validator,
+        memory_provider=lambda query: mission_store.search_memory(query, 6),
+        default_step_attempts=int(os.getenv("JARVIS_STEP_ATTEMPTS", "4")),
+        auto_recover=os.getenv("JARVIS_AGENCY_AUTO_RECOVER", "1") != "0")
+    app.register_blueprint(create_agency_blueprint(
+        mission_orchestrator, mission_store,
+        str(Path(__file__).resolve().parent.parent / "web"),
+        maintenance=durability_maintenance))
+
+    def _agency_launch(goal, duree_minutes=180, sous_agents=3, criteres_fin=""):
+        from execution_context import CURRENT_MISSION_ID
+        if CURRENT_MISSION_ID.get():
+            return "Création de sous-mission refusée depuis un sous-agent (anti-récursion)."
+        mission = mission_orchestrator.create(
+            goal, max_minutes=int(duree_minutes), max_agents=int(sous_agents),
+            max_steps=16, completion_criteria=str(criteres_fin or ""),
+            continue_until_done=True, max_repair_cycles=3)
+        return {"mission_id": mission["id"], "status": mission["status"],
+                "durable": True, "url": f"/agency#mission={mission['id']}"}
+
+    tool_registry.register("agency_lancer_mission",
+        "Lance une mission longue et persistante avec plusieurs sous-agents. La mission continue côté serveur et s'arrête pour les approbations sensibles.",
+        {"goal": {"type": "string", "description": "objectif et livrable précis"},
+         "duree_minutes": {"type": "integer", "optional": True},
+         "sous_agents": {"type": "integer", "optional": True},
+         "criteres_fin": {"type": "string", "optional": True}},
+        _agency_launch)
+    tool_registry.register("agency_lister_missions", "Liste les missions Agency récentes.", {},
+        lambda: mission_store.list(20))
+    tool_registry.register("agency_statut_mission", "Donne l'état détaillé d'une mission Agency.",
+        {"mission_id": {"type": "string"}}, lambda mission_id: mission_store.get(mission_id))
+    tool_registry.register("agency_annuler_mission", "Annule une mission Agency en cours.",
+        {"mission_id": {"type": "string"}}, lambda mission_id: mission_orchestrator.cancel(mission_id))
+    logger.info("🏗️ JARVIS Agency actif : /agency")
+except Exception as _ae:
+    logger.warning(f"JARVIS Agency non chargé: {_ae}")
+
+# Le CRM reste disponible sans Agency ; la création de campagnes longues est
+# activée automatiquement lorsque l'orchestrateur a été chargé.
+app.register_blueprint(create_prospecting_blueprint(
+    prospecting_service, prospecting_store, _prospecting_web_dir,
+    mission_orchestrator=mission_orchestrator))
+logger.info("🎯 Prospection active : /prospection")
+
+# ── 🎙️ Voix locale faster-whisper (optionnelle, lazy-load) ──
+try:
+    from voice.config import load_voice_config
+    from voice.service import VoiceService
+    from voice.api import create_voice_blueprint
+    voice_service = VoiceService(load_voice_config())
+    app.register_blueprint(create_voice_blueprint(voice_service))
+    logger.info("🎙️ API voix active : /api/voice/*")
+except Exception as _ve:
+    logger.warning(f"Voix locale non chargée: {_ve}")
+
 
 @app.route("/")
 def dashboard():
     # Interface unique : la racine redirige vers l'app web (web/index.html).
-    # L'ancien DASHBOARD_HTML géant intégré n'est plus servi (déduplication).
+    # L'ancienne interface embarquée a été supprimée : une seule UI maintenue.
     return redirect("/app")
+
+
+def _format_photo_geo_response(result: dict) -> str:
+    """Transforme le résultat structuré en réponse conversationnelle honnête."""
+    if not isinstance(result, dict) or result.get("ok") is False:
+        return "Je n’ai pas pu analyser cette photo de façon fiable."
+    best = result.get("best") if isinstance(result.get("best"), dict) else None
+    if not best:
+        doubts = result.get("uncertainty") if isinstance(result.get("uncertainty"), list) else []
+        detail = f" Raisons : {' · '.join(str(x) for x in doubts[:3])}." if doubts else ""
+        return ("Je ne peux pas déterminer un lieu fiable à partir de cette photo." + detail +
+                " Je préfère répondre inconnu plutôt que d’inventer une adresse.")
+    try:
+        lat = float(best.get("latitude"))
+        lon = float(best.get("longitude"))
+    except (TypeError, ValueError):
+        return "Le résultat de localisation est invalide ; aucun point n’a été retenu."
+    label = str(best.get("label") or best.get("city") or best.get("country") or "lieu proposé")
+    map_url = f"https://www.openstreetmap.org/?mlat={lat:.6f}&mlon={lon:.6f}#map=18/{lat:.6f}/{lon:.6f}"
+    if result.get("source") == "exif_gps" and result.get("exact") is True:
+        return (f"La photo contient des coordonnées GPS EXIF : **{lat:.6f}, {lon:.6f}** "
+                f"({label}). [Ouvrir le point sur la carte]({map_url}). "
+                "C’est la position enregistrée dans le fichier, pas une preuve absolue : les métadonnées peuvent être modifiées.")
+    confidence = max(0, min(100, round(float(best.get("confidence") or 0) * 100)))
+    precision = max(100, int(best.get("precision_meters") or 100000))
+    return (f"Je n’ai pas de position exacte. Meilleure estimation : **{label}**, "
+            f"coordonnées {lat:.6f}, {lon:.6f}, confiance {confidence} %, marge annoncée ±{precision} m. "
+            f"[Voir le candidat sur la carte]({map_url}). Cette estimation doit être vérifiée humainement.")
 
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    data = request.get_json()
-    user_msg = data.get("message", "").strip()
-    if not user_msg:
-        return jsonify({"error": "Message vide"}), 400
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({"error": "Corps JSON invalide"}), 400
+    user_msg = str(data.get("message", "")).strip()
+    image_data = data.get("image", "")
+    if image_data is not None and not isinstance(image_data, str):
+        return jsonify({"error": "Image invalide"}), 400
+    image_data = image_data or ""
+    if not user_msg and not image_data:
+        return jsonify({"error": "Message ou photo requis"}), 400
     # Mode veille : JARVIS ne répond pas, sauf si on le réveille
     if SYSTEM["standby"]:
         low = user_msg.lower()
@@ -1459,6 +1500,34 @@ def chat():
     learning_engine.record_chat()
     conv_id = data.get("conversation_id", "")
     conv = convo_store.get(conv_id) if conv_id else None
+
+    # Une photo jointe au chat passe directement par le module spécialisé :
+    # elle n'est ni mémorisée ni envoyée au LLM conversationnel général.
+    if image_data:
+        if photo_geolocator is None or _legal_osint_validator is None:
+            return jsonify({"error": "Géolocalisation photo indisponible"}), 503
+        context, policy_error, policy_code = _legal_osint_validator(data)
+        if not context:
+            return jsonify({"error": policy_error, "status": "policy_denied"}), policy_code
+        result = photo_geolocator.locate(image_data, hint=user_msg, context=context)
+        response_text = _format_photo_geo_response(result)
+        if conv is not None:
+            conv["messages"].append({"role": "user", "content": "[Photo jointe] " + (user_msg or "Localise cette photo")})
+            conv["messages"].append({"role": "assistant", "content": response_text})
+            convo_store.touch(conv_id, user_msg or "Photo à localiser")
+            convo_store.save()
+        event_log.add("photo_geolocation", "Analyse demandée depuis le chat", meta={
+            "source": result.get("source", "unknown"),
+            "status": result.get("status", "unknown"),
+            "purpose": context.purpose,
+            "target_type": context.target_type,
+        })
+        return jsonify({
+            "response": response_text,
+            "photo_geolocation": result,
+            "conversation_id": conv_id,
+            "timestamp": datetime.now().isoformat(),
+        })
 
     with _CHAT_LOCK:
         final_response = None
@@ -1516,8 +1585,10 @@ def get_alerts():
 @app.route("/api/security/arm", methods=["POST"])
 def arm():
     data = request.get_json(silent=True) or {}
-    return jsonify({"message": security.set_armed(bool(data.get("armed", True))),
-                    "armed": security.armed})
+    target = bool(data.get("armed", True))
+    if not target and not bool(data.get("confirm", False)):
+        return jsonify({"error": "Confirmation explicite requise pour désarmer."}), 400
+    return jsonify({"message": security.set_armed(target), "armed": security.armed})
 
 
 @app.route("/api/security/enroll", methods=["POST"])
@@ -1707,16 +1778,25 @@ def approvals_confirm():
     # Exécute l'action EXACTE approuvée (jeton usage unique consommé par le guard).
     result = tool_registry.call(entry["action"], entry["params"], approval_token=token)
     event_log.add("approbation", f"Action confirmée : {entry['action']}",
-                  meta={"params": entry["params"]})
+                  meta={"params": entry["params"], "context_id": entry.get("context_id", "")})
+    if mission_orchestrator is not None and entry.get("context_id"):
+        mission_orchestrator.on_approval_result(entry["context_id"], result,
+                                                step_id=entry.get("step_id", ""), approved=True)
     return jsonify({"ok": True, "action": entry["action"], "result": result})
 
 
 @app.route("/api/approvals/reject", methods=["POST"])
 def approvals_reject():
     body = request.get_json(silent=True) or {}
-    ok = permission_manager.reject(body.get("approval_id", ""))
+    token = body.get("approval_id", "")
+    entry = next((a for a in permission_manager.pending() if a["approval_id"] == token), None)
+    ok = permission_manager.reject(token)
     if ok:
         event_log.add("approbation", "Action refusée par l'utilisateur.")
+        if mission_orchestrator is not None and entry and entry.get("context_id"):
+            mission_orchestrator.on_approval_result(
+                entry["context_id"], f"Action refusée : {entry['action']}",
+                step_id=entry.get("step_id", ""), approved=False)
     return jsonify({"ok": ok})
 
 
@@ -1847,33 +1927,6 @@ def osint_lookup():
     return jsonify(res)
 
 
-# ── 📸 Géolocalisation d'une PHOTO (photo d'un lieu → point sur le globe) ──
-_GEO_HITS = []
-
-
-@app.route("/api/geo/locate-photo", methods=["POST"])
-def geo_locate_photo():
-    import geolocate
-    body = request.get_json(silent=True) or {}
-    image = body.get("image", "")
-    if not isinstance(image, str) or not image:
-        return jsonify({"ok": False, "error": "image manquante"}), 400
-    if int(len(image) * 3 / 4) > 4_000_000:                # limite de taille
-        return jsonify({"ok": False, "error": "Image trop volumineuse"}), 413
-    now = time.time()
-    _GEO_HITS[:] = [t for t in _GEO_HITS if now - t < 60]
-    if len(_GEO_HITS) >= 8:                                # rate-limit (appels modèle)
-        return jsonify({"ok": False, "error": "Trop de requêtes"}), 429
-    _GEO_HITS.append(now)
-    vp = getattr(globals().get("guardian_service", None), "vision", None)
-    res = geolocate.locate_photo(image, vp)
-    if res.get("ok"):
-        event_log.add("geo", f"Photo localisée : {res.get('place') or '?'} "
-                             f"(conf {res.get('confidence')})",
-                      meta={"country": res.get("country"), "source": res.get("source")})
-    return jsonify(res)
-
-
 # ── Ressources statiques auto-hébergées (fond de carte GeoJSON, etc.) ──
 @app.route("/assets/<path:fn>")
 def web_assets(fn):
@@ -1910,8 +1963,14 @@ def status():
         "pending": len([p for p in security.pending if p["status"] == "en_attente"]),
         "agent": AGENT_ENABLED, "automations": automation.enabled,
         "memory_rag": vmem.has_embed, "vision": vision.available(),
-        "tools": len(tool_registry.names()), "version": "5.2",
-        "conversations": len(convo_store.data), "pouvoirs": 48,
+        "tools": len(tool_registry.names()), "version": "5.6",
+        "conversations": len(convo_store.data), "pouvoirs": 54,
+        "agency": mission_orchestrator is not None,
+        "agency_active": len([m for m in mission_store.list(100) if m["status"] in
+                              ("queued", "planning", "running", "verifying", "retry_wait", "waiting_approval", "paused", "blocked", "interrupted")])
+                         if mission_store is not None else 0,
+        "voice": voice_service.status() if voice_service is not None else {"enabled": False},
+        "n8n": n8n_client.status(), "email": {"configured": email_service.configured},
     })
 
 
@@ -1940,10 +1999,9 @@ def quick_action(action):
 LOGIN_HTML = """<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>JARVIS — Connexion</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,sans-serif;background:radial-gradient(1000px 500px at 70% -10%,#10204020,transparent),linear-gradient(180deg,#0a0e1a,#05070d);
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:radial-gradient(1000px 500px at 70% -10%,#10204020,transparent),linear-gradient(180deg,#0a0e1a,#05070d);
   color:#EDEDEF;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
 .card{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:36px 30px;width:100%;max-width:360px;
   backdrop-filter:blur(14px);box-shadow:0 8px 40px rgba(0,0,0,.5);text-align:center}
@@ -1964,686 +2022,8 @@ button:hover{box-shadow:0 0 18px rgba(56,189,248,.35)}
   <button type="submit">Déverrouiller</button>
 </form></body></html>"""
 
-DASHBOARD_HTML = """<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JARVIS v5.0 — MÉGA</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-/* ── Design system (UI/UX Pro Max : Dark OLED + glow, Inter, glassmorphism) ── */
-:root{
-  --bg:#05070d; --bg-2:#0a0e1a;
-  --surface:rgba(255,255,255,.045); --surface-2:rgba(255,255,255,.07);
-  --border:rgba(255,255,255,.09); --border-strong:rgba(255,255,255,.16);
-  --fg:#EDEDEF; --muted:#8A8F98; --muted-2:#5b6472;
-  --accent:#38bdf8; --accent-2:#5E6AD2; --accent-glow:rgba(56,189,248,.22);
-  --green:#22c55e; --red:#ef4444; --amber:#f59e0b; --purple:#a855f7;
-  --radius:16px; --radius-sm:10px; --radius-pill:999px;
-  --ease:cubic-bezier(.16,1,.3,1);
-  --shadow:0 8px 30px rgba(0,0,0,.45);
-  --font:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
-body{
-  background:radial-gradient(1200px 600px at 80% -10%, #10204010, transparent),
-             linear-gradient(180deg,var(--bg-2),var(--bg) 60%);
-  color:var(--fg); font-family:var(--font); min-height:100vh; min-height:100dvh;
-  -webkit-font-smoothing:antialiased; line-height:1.5; overflow-x:hidden;
-}
-.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+# Ancien dashboard HTML embarqué supprimé : web/index.html est l’unique interface.
 
-/* Ambient blobs */
-.blob{position:fixed;border-radius:50%;filter:blur(70px);opacity:.10;z-index:0;pointer-events:none;animation:drift 22s var(--ease) infinite alternate}
-.blob.a{width:420px;height:420px;background:var(--accent);top:-120px;left:-100px}
-.blob.b{width:380px;height:380px;background:var(--accent-2);bottom:-120px;right:-80px;animation-delay:-8s}
-@keyframes drift{from{transform:translate(0,0)}to{transform:translate(60px,40px)}}
-
-/* Header */
-header{
-  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;
-  padding:14px 20px;background:rgba(8,12,22,.72);backdrop-filter:blur(16px);
-  border-bottom:1px solid var(--border);
-}
-.orb{width:30px;height:30px;border-radius:50%;flex:none;
-  background:radial-gradient(circle at 35% 30%,#9fe6ff,var(--accent) 45%,#1f6f9c);
-  box-shadow:0 0 18px var(--accent-glow);animation:breathe 3s var(--ease) infinite}
-@keyframes breathe{0%,100%{box-shadow:0 0 14px var(--accent-glow);transform:scale(1)}50%{box-shadow:0 0 28px var(--accent-glow);transform:scale(1.07)}}
-.orb.listening{background:radial-gradient(circle at 35% 30%,#c4ffd6,var(--green) 45%,#147a3e);box-shadow:0 0 26px rgba(34,197,94,.5);animation-duration:1s}
-.wordmark{font-weight:700;letter-spacing:5px;font-size:1.15rem;text-shadow:0 0 14px var(--accent-glow)}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--radius-pill);
-  font-size:.7rem;font-weight:500;letter-spacing:.5px;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
-.pill.v{color:var(--accent);border-color:var(--accent-glow)}
-.pill.online{color:var(--green)} .pill.online .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
-.pill.armed{color:var(--red);border-color:var(--red);background:rgba(239,68,68,.1)}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.header-right{margin-left:auto;display:flex;gap:10px;align-items:center}
-.clock{color:var(--muted);font-size:.8rem}
-
-/* Layout */
-.main{position:relative;z-index:1;display:grid;grid-template-columns:1fr;gap:16px;padding:16px;max-width:1440px;margin:0 auto}
-@media(min-width:920px){.main{grid-template-columns:1fr 1fr}.span-2{grid-column:1 / -1}}
-
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
-  display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow);
-  backdrop-filter:blur(8px);animation:rise .5s var(--ease) both}
-@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.panel-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);
-  font-size:.72rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
-.panel-head svg{color:var(--accent)}
-.panel-head .meta{margin-left:auto;color:var(--muted-2);font-weight:400;letter-spacing:.5px;text-transform:none}
-
-/* Buttons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
-  font-family:var(--font);font-size:.8rem;font-weight:500;letter-spacing:.3px;
-  padding:9px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);
-  background:var(--surface-2);color:var(--fg);transition:all .18s var(--ease)}
-.btn svg{width:17px;height:17px}
-.btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
-.btn:active{transform:scale(.97)}
-.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-glow);border-color:var(--accent)}
-.btn.primary{background:linear-gradient(180deg,#3fc4ff,#1f93cc);color:#001018;border-color:transparent;font-weight:600}
-.btn.primary:hover{box-shadow:0 0 18px var(--accent-glow);color:#001018}
-.btn.green{color:var(--green);border-color:rgba(34,197,94,.35)} .btn.green:hover{box-shadow:0 0 0 3px rgba(34,197,94,.2);border-color:var(--green)}
-.btn.danger{color:var(--red);border-color:rgba(239,68,68,.4)} .btn.danger:hover{box-shadow:0 0 0 3px rgba(239,68,68,.22);border-color:var(--red)}
-.btn.armed{background:rgba(239,68,68,.16);color:var(--red);border-color:var(--red)}
-.btn.icon{padding:9px;width:38px;height:38px}
-.btn.active{border-color:var(--green);color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.2)}
-.btn.sm{padding:5px 9px;font-size:.72rem}
-
-/* Chat */
-#chat-box{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:330px;max-height:46vh}
-.msg{max-width:86%;padding:10px 13px;border-radius:14px;font-size:.88rem;line-height:1.6;animation:rise .35s var(--ease) both}
-.msg.user{align-self:flex-end;background:linear-gradient(180deg,#16344a,#0f2536);border:1px solid var(--accent-glow);color:#eaf7ff;border-bottom-right-radius:4px}
-.msg.jarvis{align-self:flex-start;background:var(--surface-2);border:1px solid var(--border);color:var(--fg);white-space:pre-wrap;border-bottom-left-radius:4px}
-.msg.jarvis strong{color:var(--accent);font-weight:600}
-.msg.jarvis code{font-family:var(--mono);background:rgba(0,0,0,.35);padding:1px 5px;border-radius:5px;font-size:.82rem;color:#9fe6ff}
-.msg.loading{color:var(--muted);font-style:italic}
-.typing span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 1px;animation:blink 1.2s infinite both}
-.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
-@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
-.chat-input-row{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);align-items:center}
-#chat-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--fg);
-  padding:11px 14px;border-radius:var(--radius-sm);font-family:var(--font);font-size:.88rem;min-height:44px}
-#chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
-.mic-on{background:rgba(34,197,94,.16)!important;color:var(--green)!important;border-color:var(--green)!important;animation:pulse 1s infinite}
-
-/* Powers grid */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;padding:14px}
-.tile-btn{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 6px;cursor:pointer;
-  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
-  color:var(--muted);transition:all .18s var(--ease);text-align:center}
-.tile-btn svg{width:22px;height:22px;color:var(--accent)}
-.tile-btn:hover{border-color:var(--accent);color:var(--fg);transform:translateY(-2px);box-shadow:0 0 0 3px var(--accent-glow)}
-.tile-btn:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
-.tile-btn span{font-size:.7rem;font-weight:500;letter-spacing:.4px}
-#info-output{padding:12px 14px;font-family:var(--mono);font-size:.76rem;color:#9fe6ff;
-  white-space:pre-wrap;max-height:170px;overflow:auto;border-top:1px solid var(--border);min-height:60px}
-
-/* Home */
-.scene-row{display:flex;gap:8px;flex-wrap:wrap;padding:14px;border-bottom:1px solid var(--border)}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--radius-pill);cursor:pointer;
-  background:var(--surface-2);border:1px solid var(--border);color:var(--fg);font-size:.78rem;font-weight:500;transition:all .18s var(--ease)}
-.chip svg{width:15px;height:15px;color:var(--purple)}
-.chip:hover{border-color:var(--purple);box-shadow:0 0 0 3px rgba(168,85,247,.18)}
-.chip:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(168,85,247,.25)}
-.lights{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:14px}
-.lcard{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px}
-.lcard .lh{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:.82rem;font-weight:500}
-.lcard .lh svg{width:18px;height:18px;color:var(--amber)}
-.lcard .lh .st{margin-left:auto;width:9px;height:9px;border-radius:50%;background:var(--muted-2)}
-.lcard .lh .st.on{background:var(--green);box-shadow:0 0 8px var(--green)}
-.lrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.swatch{width:20px;height:20px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.15);transition:transform .15s var(--ease)}
-.swatch:hover{transform:scale(1.18)}.swatch:focus-visible{outline:none;transform:scale(1.18);box-shadow:0 0 0 3px var(--accent-glow)}
-
-/* Camera */
-#camera-wrap{position:relative;background:#000}
-#camera-feed{width:100%;max-height:300px;object-fit:cover;display:block}
-.cam-tag{position:absolute;top:10px;left:10px;display:flex;gap:6px;align-items:center;font-family:var(--mono);font-size:.66rem;
-  background:rgba(0,0,0,.5);padding:4px 8px;border-radius:var(--radius-pill);color:var(--green)}
-.cam-tag .rec{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse 1.4s infinite}
-.cam-bar{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);flex-wrap:wrap}
-.legend{display:flex;gap:10px;flex-wrap:wrap;padding:0 14px 12px;font-size:.68rem;color:var(--muted-2)}
-.legend i{font-style:normal;color:var(--muted)}
-
-/* Alerts */
-.alerts{flex:1;overflow-y:auto;max-height:42vh;padding:10px;display:flex;flex-direction:column;gap:8px}
-.alert{border:1px solid var(--border);border-left:3px solid var(--amber);border-radius:var(--radius-sm);padding:10px 12px;background:var(--surface-2);animation:rise .3s var(--ease) both}
-.alert.high{border-left-color:var(--red)}.alert.extreme{border-left-color:var(--red);background:rgba(239,68,68,.08);box-shadow:0 0 0 1px rgba(239,68,68,.25)}
-.alert .at{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
-.alert .ev{font-weight:600;font-size:.82rem;margin:3px 0;color:var(--fg)}
-.badge{display:inline-block;padding:1px 8px;border-radius:var(--radius-pill);font-size:.64rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
-.badge.bas{background:rgba(34,197,94,.15);color:var(--green)}
-.badge.moyen{background:rgba(245,158,11,.15);color:var(--amber)}
-.badge.eleve,.badge.extreme{background:rgba(239,68,68,.16);color:var(--red)}
-.fb{display:flex;gap:6px;margin-top:8px}
-.empty{color:var(--muted-2);text-align:center;padding:26px 14px;font-size:.82rem}
-.skeleton{height:54px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--surface-2),rgba(255,255,255,.1),var(--surface-2));background-size:200% 100%;animation:shimmer 1.4s infinite}
-@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
-
-/* Learning strip */
-.learn{display:flex;gap:18px;flex-wrap:wrap;padding:14px}
-.stat{display:flex;flex-direction:column;gap:2px}
-.stat b{font-family:var(--mono);font-size:1.3rem;color:var(--accent)}
-.stat span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-
-/* Toast + modal */
-#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);z-index:200;
-  background:rgba(10,16,28,.95);border:1px solid var(--accent);color:var(--fg);padding:12px 18px;border-radius:var(--radius-pill);
-  box-shadow:0 0 24px var(--accent-glow);font-size:.85rem;opacity:0;pointer-events:none;transition:all .35s var(--ease)}
-#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:150;display:none;align-items:center;justify-content:center;padding:20px}
-.scrim.show{display:flex}
-.modal{background:var(--bg-2);border:1px solid var(--border-strong);border-radius:var(--radius);max-width:440px;width:100%;padding:22px;box-shadow:var(--shadow);animation:rise .3s var(--ease)}
-.modal h3{display:flex;align-items:center;gap:9px;font-size:1rem;margin-bottom:10px}
-.modal h3 svg{color:var(--red)}
-.modal p{color:var(--muted);font-size:.86rem;margin-bottom:18px;line-height:1.6}
-.modal .actions{display:flex;gap:10px;justify-content:flex-end}
-
-#ask-banner{position:relative;z-index:2;margin:12px 16px -4px;display:flex;flex-direction:column;gap:8px}
-.ask{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(90deg,rgba(245,158,11,.14),var(--surface));
-  border:1px solid var(--amber);border-radius:var(--radius);padding:12px 16px;animation:rise .35s var(--ease)}
-.ask .q{flex:1;min-width:200px;font-size:.86rem}
-.ask .q b{color:var(--amber)}
-.ask input{background:var(--bg);border:1px solid var(--border);color:var(--fg);padding:8px 10px;border-radius:8px;font-family:var(--font);font-size:.8rem;max-width:150px}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px}
-
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-</style>
-</head>
-<body>
-<div class="blob a"></div><div class="blob b"></div>
-
-<header>
-  <div class="orb" id="orb"></div>
-  <div class="wordmark">JARVIS</div>
-  <span class="pill v">v5.0 MÉGA</span>
-  <span class="pill mono" id="backend-pill">{{ backend.upper() }}</span>
-  <div class="header-right">
-    <span class="pill online"><span class="dot"></span>ONLINE</span>
-    <span class="pill armed" id="armed-pill" style="display:none"><span class="dot"></span>ARMÉ</span>
-    <span class="pill" id="standby-pill" style="display:none">😴 VEILLE</span>
-    <span class="clock mono" id="clock"></span>
-    <button class="btn icon" id="standby-btn" title="Couper / réveiller JARVIS" aria-label="Veille" onclick="toggleStandby()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v8M6 6a8 8 0 1012 0"/></svg>
-    </button>
-    <button class="btn icon danger" title="Éteindre JARVIS" aria-label="Éteindre" onclick="shutdown()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5"/></svg>
-    </button>
-    <button class="btn icon" title="Effacer la mémoire de conversation" aria-label="Effacer la mémoire" onclick="clearMemory()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-9 0v14a2 2 0 002 2h6a2 2 0 002-2V6"/></svg>
-    </button>
-    <button class="btn icon" title="Se déconnecter" aria-label="Déconnexion" onclick="location.href='/logout'">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-    </button>
-  </div>
-</header>
-
-<div id="ask-banner" style="display:none"></div>
-
-<div class="main">
-
-  <!-- ASSISTANT -->
-  <section class="panel" aria-label="Assistant IA">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 015 5v2a5 5 0 01-10 0V7a5 5 0 015-5z"/><path d="M19 11a7 7 0 01-14 0M12 18v4"/></svg>
-      Assistant
-      <span class="meta mono">{{ model }}</span>
-    </div>
-    <div id="chat-box"></div>
-    <div class="chat-input-row">
-      <button class="btn icon" id="wake-btn" title="Veille vocale (Ok Jarvis / double clap)" aria-label="Veille vocale" onclick="toggleWake()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8.5a6 6 0 0112 0c0 7-3 4-3 8a3 3 0 01-6 0"/><path d="M6 8.5C4 9 3 11 3 13"/></svg>
-      </button>
-      <button class="btn icon" id="mic-btn" title="Parler (push-to-talk)" aria-label="Micro" onclick="pushToTalk()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0014 0M12 17v4"/></svg>
-      </button>
-      <button class="btn icon" id="tts-btn" title="Lecture vocale des réponses" aria-label="Lecture vocale" onclick="toggleTTS()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M16 9a3 3 0 010 6" opacity=".4"/></svg>
-      </button>
-      <input id="chat-input" type="text" placeholder="Parlez ou écrivez… « cherche les news », « mode cinéma »" onkeydown="if(event.key==='Enter')send()" aria-label="Message">
-      <button class="btn primary" onclick="send()" aria-label="Envoyer">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-      </button>
-    </div>
-  </section>
-
-  <!-- POUVOIRS -->
-  <section class="panel" aria-label="Super pouvoirs">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/></svg>
-      Super pouvoirs
-    </div>
-    <div class="grid" id="powers"></div>
-    <div id="info-output">▸ Sélectionnez un pouvoir…</div>
-  </section>
-
-  <!-- MAISON -->
-  <section class="panel span-2" aria-label="Maison connectée">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8M5 9v11a1 1 0 001 1h12a1 1 0 001-1V9"/></svg>
-      Maison connectée
-      <span class="meta" id="lights-mode"></span>
-    </div>
-    <div class="scene-row" id="scenes"></div>
-    <div class="lights" id="lights"></div>
-  </section>
-
-  <!-- CONTRÔLE PC -->
-  <section class="panel span-2" aria-label="Contrôle PC">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-      Contrôle PC
-      <span class="meta" id="pc-meta"></span>
-    </div>
-    <div class="grid" id="pc-grid">
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcShot()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Capture écran</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcMedia('play')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg><span>Play/Pause</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcMedia('next')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4l10 8-10 8zM19 5v14"/></svg><span>Suivant</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcMedia('vol_up')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4zM19 9a5 5 0 010 6"/></svg><span>Volume +</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcMedia('mute')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4zM23 9l-6 6M17 9l6 6"/></svg><span>Muet</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcLock()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span>Verrouiller</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcVision()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Analyser écran</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcPower('sleep')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></svg><span>Veille PC</span></div>
-      <div class="tile-btn" tabindex="0" role="button" onclick="pcPower('shutdown')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10"/><path d="M5.6 5.6a9 9 0 1012.8 0"/></svg><span>Éteindre PC</span></div>
-    </div>
-  </section>
-
-  <!-- CAMERA -->
-  <section class="panel" aria-label="Caméra de sécurité">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-      Sécurité — détection d'intrus
-    </div>
-    <div id="camera-wrap">
-      <img id="camera-feed" src="/api/security/stream" alt="Flux caméra de sécurité en direct"
-           onerror="this.style.display='none';document.getElementById('no-cam').style.display='flex'">
-      <div class="cam-tag"><span class="rec"></span>LIVE</div>
-      <div id="no-cam" style="display:none;align-items:center;justify-content:center;color:var(--muted);font-size:.85rem;padding:30px;text-align:center">
-        Caméra non disponible — vérifiez camera_index dans la config.
-      </div>
-    </div>
-    <div class="cam-bar">
-      <button class="btn armed" id="arm-btn" onclick="toggleArm()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
-        <span>Armer</span>
-      </button>
-      <button class="btn" onclick="enrollFace()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-        Visage sûr
-      </button>
-      <button class="btn" onclick="analyzeCamera()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        Analyser
-      </button>
-      <button class="btn" onclick="callOwner()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/></svg>
-        Appeler l'hôte
-      </button>
-      <button class="btn danger" onclick="openEmergency()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.5l-8 14A1.5 1.5 0 003.7 20h16.6a1.5 1.5 0 001.3-2.5l-8-14a1.5 1.5 0 00-2.6 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-        Urgence
-      </button>
-    </div>
-    <div class="legend">
-      <span><i style="color:var(--amber)">●</i> mouvement</span>
-      <span><i style="color:#ff8c2b">●</i> personne (HOG)</span>
-      <span><i style="color:var(--red)">●</i> visage inconnu</span>
-      <span><i style="color:var(--green)">●</i> visage connu</span>
-      <span><i style="color:var(--red)">!!</i> comportement suspect (rôdage…)</span>
-    </div>
-  </section>
-
-  <!-- ALERTES -->
-  <section class="panel" aria-label="Alertes de sécurité">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.5l-8 14A1.5 1.5 0 003.7 20h16.6a1.5 1.5 0 001.3-2.5l-8-14a1.5 1.5 0 00-2.6 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-      Alertes
-      <span class="meta" id="alert-count"></span>
-    </div>
-    <div class="alerts" id="alerts" aria-live="polite"><div class="skeleton"></div><div class="skeleton"></div></div>
-  </section>
-
-  <!-- APPRENTISSAGE -->
-  <section class="panel span-2" aria-label="Apprentissage">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 00-4 4 4 4 0 00-2 7 4 4 0 003 6 3 3 0 003 1 3 3 0 003-1 4 4 0 003-6 4 4 0 00-2-7 4 4 0 00-4-4z"/></svg>
-      Apprentissage — JARVIS s'adapte à vous
-    </div>
-    <div class="learn" id="learn"><div class="stat"><b>—</b><span>chargement…</span></div></div>
-  </section>
-
-  <!-- TIMELINE -->
-  <section class="panel span-2" aria-label="Timeline des évènements">
-    <div class="panel-head">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      Timeline — tout ce que JARVIS fait et voit
-      <span class="meta" id="rt-pill">● temps réel</span>
-    </div>
-    <div class="alerts" id="timeline" aria-live="polite" style="max-height:34vh"><div class="skeleton"></div></div>
-  </section>
-
-</div>
-
-<div id="toast"></div>
-<div class="scrim" id="emergency-scrim">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="em-title">
-    <h3 id="em-title"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.5l-8 14A1.5 1.5 0 003.7 20h16.6a1.5 1.5 0 001.3-2.5l-8-14a1.5 1.5 0 00-2.6 0z"/><path d="M12 9v4M12 17h.01"/></svg>Protocole d'urgence</h3>
-    <p>Cela va prévenir ton contact d'urgence (notification + SMS + appel vocal si configuré) et diffuser une annonce dissuasive. À n'utiliser qu'en cas de danger réel — un appel abusif aux secours est illégal.</p>
-    <input id="em-reason" class="" type="text" placeholder="Raison (ex: intrusion confirmée)" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--fg);padding:10px;border-radius:10px;margin-bottom:16px;font-family:var(--font)">
-    <div class="actions">
-      <button class="btn" onclick="closeEmergency()">Annuler</button>
-      <button class="btn danger" onclick="confirmEmergency()">Déclencher l'urgence</button>
-    </div>
-  </div>
-</div>
-
-<script>
-// ── Icônes (Lucide-style) pour les boutons de pouvoirs ──
-const ICONS={
-  pc:'<path d="M2 4h20v12H2zM8 20h8M12 16v4"/>',
-  cloud:'<path d="M17 18a4 4 0 000-8 6 6 0 00-11.3 2A3.5 3.5 0 006 18z"/>',
-  joke:'<circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
-  net:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>',
-  cpu:'<rect x="6" y="6" width="12" height="12" rx="1"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>',
-  disk:'<path d="M22 12A10 10 0 1112 2v10z"/>',
-  key:'<circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L20 3M17 6l2 2M14 9l2 2"/>',
-  search:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
-  speaker:'<rect x="6" y="3" width="12" height="18" rx="3"/><circle cx="12" cy="14" r="3"/><path d="M12 7h.01"/>',
-  tv:'<rect x="2" y="7" width="20" height="13" rx="2"/><path d="M7 3l5 4 5-4"/>',
-  home:'<path d="M3 11l9-8 9 8M5 9v11a1 1 0 001 1h12a1 1 0 001-1V9"/>',
-  cam:'<path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
-};
-const POWERS=[
-  ['pc','PC Info',"q:info"],['cloud','Météo',"weather"],['joke','Blague',"q:blague"],
-  ['net','Réseau',"q:reseau"],['cpu','Processus',"q:processus"],['disk','Disques',"q:disque"],
-  ['key','Mot de passe',"q:motdepasse"],['search','Recherche web',"web"],
-  ['speaker','Parler HomePod',"say"],['tv','TV Play/Pause',"tv:play_pause"],
-  ['home','TV Accueil',"tv:home"],['cam','Analyser cam',"analyze"],
-];
-function svg(p){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+p+'</svg>'}
-(function(){
-  document.getElementById('powers').innerHTML=POWERS.map(([ic,label,act])=>
-    '<div class="tile-btn" tabindex="0" role="button" onclick="power(\''+act+'\')" onkeydown="if(event.key===\'Enter\')power(\''+act+'\')">'+svg(ICONS[ic])+'<span>'+label+'</span></div>').join('');
-})();
-function power(act){
-  if(act.startsWith('q:'))return quickAction(act.slice(2));
-  if(act.startsWith('tv:'))return appletv(act.slice(3));
-  if(act==='weather')return askWeather();
-  if(act==='web')return webSearch();
-  if(act==='say')return appleSay();
-  if(act==='analyze')return analyzeCamera();
-}
-
-// ── Horloge ──
-setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('fr-FR')},1000);
-
-// ── Toast ──
-let toastT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3200)}
-
-// ── Chat ──
-function send(){const i=document.getElementById('chat-input');const m=i.value.trim();if(!m)return;i.value='';chatSend(m)}
-async function chatSend(msg){
-  addMsg('user',msg);
-  const loader=addMsg('jarvis','<span class="typing"><span></span><span></span><span></span></span>',true);
-  try{
-    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
-    const d=await r.json();loader.innerHTML=mdToHtml(d.response);speak(d.response);
-  }catch(e){loader.textContent='⚠️ Erreur de connexion'}
-  document.getElementById('chat-box').scrollTop=9999;loadLights();loadLearn();
-}
-function mdToHtml(t){return t.replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\\n/g,'<br>')}
-function addMsg(role,html,ret){const b=document.getElementById('chat-box');const d=document.createElement('div');d.className='msg '+role;d.innerHTML=html;b.appendChild(d);b.scrollTop=9999;return ret?d:null}
-
-// ── Quick actions ──
-async function quickAction(a){const o=document.getElementById('info-output');o.textContent='⏳ '+a.toUpperCase()+'…';
-  try{const r=await fetch('/api/quick/'+a);o.textContent=JSON.stringify(await r.json(),null,2)}catch(e){o.textContent='⚠️ '+e}}
-function askWeather(){const c=prompt('Quelle ville ?','Paris');if(c)quickAction('meteo?city='+encodeURIComponent(c))}
-async function webSearch(){const q=prompt('Chercher sur le web :');if(q)chatSend('Cherche sur le web : '+q+' [RECHERCHE_WEB:'+q+']')}
-async function appleSay(){const t=prompt('Que doit dire JARVIS sur le HomePod ?','Bonjour, je suis JARVIS.');if(!t)return;
-  const r=await fetch('/api/apple/say',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t})});document.getElementById('info-output').textContent=(await r.json()).message}
-async function appletv(cmd){const r=await fetch('/api/apple/appletv/'+cmd,{method:'POST'});document.getElementById('info-output').textContent=(await r.json()).message}
-
-// ── Lumières / scènes ──
-const CMAP={rouge:'#ff3b3b',vert:'#3bff6b',bleu:'#3b7bff',jaune:'#ffe23b',orange:'#ff9b3b',rose:'#ff7bce',violet:'#9b3bff',blanc:'#ffffff',chaud:'#ffd9a0'};
-async function loadLights(){
-  try{const d=await(await fetch('/api/home/lights')).json();
-  document.getElementById('lights-mode').textContent='mode '+(window.__lmode||'');
-  const g=document.getElementById('lights');g.innerHTML='';
-  for(const[name,st]of Object.entries(d)){
-    if(name==='erreur'){g.innerHTML='<div class="empty">'+st+'</div>';return}
-    const on=st.on;const card=document.createElement('div');card.className='lcard';
-    card.innerHTML='<div class="lh">'+svg(ICONS.home).replace('home','')+
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6M10 21h4M12 3a6 6 0 00-4 10c.6.6 1 1.3 1 2h6c0-.7.4-1.4 1-2a6 6 0 00-4-10z"/></svg>'+
-      name+'<span class="st '+(on?'on':'')+'"></span></div>'+
-      '<div class="lrow" style="margin-bottom:8px"><button class="btn green sm" onclick="setLight(\''+name+'\',true)">On</button><button class="btn sm" onclick="setLight(\''+name+'\',false)">Off</button></div>'+
-      '<div class="lrow">'+Object.keys(CMAP).map(c=>'<span class="swatch" tabindex="0" role="button" aria-label="'+c+'" title="'+c+'" style="background:'+CMAP[c]+'" onclick="setColor(\''+name+'\',\''+c+'\')" onkeydown="if(event.key===\'Enter\')setColor(\''+name+'\',\''+c+'\')"></span>').join('')+'</div>';
-    g.appendChild(card);
-  }}catch(e){}
-}
-async function setLight(n,on){await fetch('/api/home/light',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,on})});loadLights()}
-async function setColor(n,c){await fetch('/api/home/light',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n,color:c})});loadLights()}
-async function loadScenes(){const d=await(await fetch('/api/home/scenes')).json();
-  document.getElementById('scenes').innerHTML=d.scenes.map(s=>'<button class="chip" onclick="runScene(\''+s+'\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H4z"/><path d="M2 20h20"/></svg>'+s+'</button>').join('')}
-async function runScene(n){toast('Scène « '+n+' »');const r=await fetch('/api/home/scene',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});addMsg('jarvis',mdToHtml((await r.json()).message));loadLights();loadAlerts()}
-
-// ── Sécurité ──
-let armed=false;
-async function toggleArm(){const r=await fetch('/api/security/arm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({armed:!armed})});armed=(await r.json()).armed;armUI();toast(armed?'🛡️ Alarme armée':'🔓 Alarme désarmée')}
-function armUI(){const b=document.getElementById('arm-btn');b.querySelector('span').textContent=armed?'Désarmer':'Armer';b.className=armed?'btn':'btn armed';document.getElementById('armed-pill').style.display=armed?'inline-flex':'none'}
-async function enrollFace(){const n=prompt('Nom de la personne de confiance ?');if(!n)return;
-  const d=await(await fetch('/api/security/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})})).json();toast(d.message||d.error)}
-async function analyzeCamera(){await fetch('/api/security/snapshot');chatSend('Analyse la caméra de sécurité [CAMERA_ANALYSE]')}
-async function loadAlerts(){
-  const d=await(await fetch('/api/security/alerts')).json();armed=d.armed;armUI();window.__stats=d.stats;
-  const box=document.getElementById('alerts');document.getElementById('alert-count').textContent=d.alerts.length?d.alerts.length+' évènement(s)':'';
-  if(!d.alerts.length){box.innerHTML='<div class="empty">Aucune alerte. Tout est calme. 🕵️</div>';return}
-  box.innerHTML=d.alerts.map(a=>{const cl=a.threat==='extrême'?'extreme':(a.threat==='élevé'?'high':'');const bc=a.threat==='extrême'?'extreme':(a.threat==='élevé'?'eleve':a.threat);
-    return '<div class="alert '+cl+'"><div class="at">'+new Date(a.timestamp).toLocaleString('fr-FR')+(a.armed?' · 🔴 armé':'')+'</div>'+
-    '<div class="ev">'+a.event+' <span class="badge '+bc+'">'+a.threat+'</span></div>'+
-    '<div class="fb"><button class="btn sm" onclick="feedback(true,this)">Fausse alerte</button><button class="btn sm green" onclick="feedback(false,this)">Réelle</button></div></div>'}).join('')
-}
-async function feedback(isFalse,el){const d=await(await fetch('/api/security/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({false:isFalse})})).json();toast(d.message);el.closest('.fb').innerHTML='<span style="font-size:.72rem;color:var(--muted)">Merci, JARVIS apprend.</span>'}
-
-// ── Apprentissage ──
-async function loadLearn(){const s=await(await fetch('/api/learning/profile')).json();
-  const top=s.top_commands&&s.top_commands.length?s.top_commands[0][0]:'—';
-  document.getElementById('learn').innerHTML=
-    '<div class="stat"><b>'+s.interactions+'</b><span>interactions</span></div>'+
-    '<div class="stat"><b>'+s.confirmed_alarms+'</b><span>alertes réelles</span></div>'+
-    '<div class="stat"><b>'+s.false_alarms+'</b><span>fausses alertes</span></div>'+
-    '<div class="stat"><b>+'+s.sensitivity_adj+'</b><span>auto-ajustement</span></div>'+
-    '<div class="stat"><b style="font-size:.9rem">'+(s.facts.length?s.facts.length+' fait(s)':'aucun')+'</b><span>mémoire perso</span></div>';
-}
-
-// ── Urgence ──
-function openEmergency(){document.getElementById('emergency-scrim').classList.add('show');document.getElementById('em-reason').focus()}
-function closeEmergency(){document.getElementById('emergency-scrim').classList.remove('show')}
-async function confirmEmergency(){const reason=document.getElementById('em-reason').value.trim()||'Urgence déclenchée manuellement';
-  closeEmergency();toast('🆘 Protocole d\\'urgence déclenché');
-  const d=await(await fetch('/api/emergency/police',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason,confirm:true})})).json();
-  addMsg('jarvis','🆘 <strong>Urgence</strong><br>'+(d.actions||[]).map(a=>'• '+a).join('<br>'))}
-
-// ── Mémoire ──
-async function clearMemory(){if(!confirm('Effacer la mémoire de conversation ?'))return;await fetch('/api/memory/clear',{method:'POST'});document.getElementById('chat-box').innerHTML='';addMsg('jarvis',"Mémoire de conversation effacée. (Ton profil long terme, lui, reste — j'apprends quand même 😏)")}
-
-// ── Contrôle PC ──
-async function pcShot(){const o=document.getElementById('info-output');o.textContent='📸 Capture…';
-  const d=await(await fetch('/api/pc/screenshot',{method:'POST'})).json();o.textContent=d.message;
-  if(d.image){const w=window.open('');if(w)w.document.write('<img src="data:image/png;base64,'+d.image+'" style="max-width:100%">')}}
-async function pcMedia(a){const d=await(await fetch('/api/pc/media/'+a,{method:'POST'})).json();toast(d.message)}
-async function pcLock(){const d=await(await fetch('/api/pc/lock',{method:'POST'})).json();toast(d.message)}
-async function pcPower(action){
-  const destructive=['shutdown','restart','logoff'];
-  let confirmFlag=false;
-  if(destructive.includes(action)){if(!confirm('Confirmer : '+action+' du PC ?'))return;confirmFlag=true}
-  const d=await(await fetch('/api/pc/power',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,confirm:confirmFlag})})).json();
-  toast(d.message);addMsg('jarvis','⏻ '+d.message)}
-async function pcVision(){const o=document.getElementById('info-output');o.textContent='👁️ Analyse de l\\'écran…';
-  const d=await(await fetch('/api/vision/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'screen'})})).json();
-  o.textContent=d.message;addMsg('jarvis','👁️ '+d.message)}
-
-// ── Timeline + flux temps réel (SSE) ──
-const KIND_ICON={chat:'💬',scene:'🎬',security:'🛡️',intrusion:'🚨',outil:'🛠️',
-  automation:'⚙️',proactif:'🌅',system:'⏻'};
-function tlItem(ev){const t=new Date(ev.ts).toLocaleTimeString('fr-FR');
-  const cls=ev.level==='alert'?'extreme':(ev.level==='warn'?'high':'');
-  return '<div class="alert '+cls+'"><div class="at">'+t+'</div><div class="ev">'+
-    (KIND_ICON[ev.kind]||'•')+' '+(ev.message||ev.kind)+'</div></div>'}
-async function loadTimeline(){try{const d=await(await fetch('/api/timeline')).json();
-  const box=document.getElementById('timeline');
-  box.innerHTML=d.events.length?d.events.map(tlItem).join(''):'<div class="empty">Rien encore.</div>';
-}catch(e){}}
-function prependTimeline(ev){const box=document.getElementById('timeline');
-  if(box.querySelector('.empty'))box.innerHTML='';
-  box.insertAdjacentHTML('afterbegin',tlItem(ev));}
-function startStream(){
-  if(!window.EventSource)return;
-  try{
-    const es=new EventSource('/api/stream');
-    const onEv=e=>{try{const ev=JSON.parse(e.data);if(!ev.kind)return;prependTimeline(ev);
-      if(ev.kind==='intrusion'){toast('🚨 '+ev.message);loadAlerts();loadPending()}
-      if(ev.kind==='security'||ev.kind==='scene'){loadLights()}}catch(_){}};
-    ['chat','scene','security','intrusion','outil','automation','proactif','system'].forEach(k=>es.addEventListener(k,onEv));
-    es.onopen=()=>{document.getElementById('rt-pill').textContent='● temps réel';document.getElementById('rt-pill').style.color='var(--green)'};
-    es.onerror=()=>{document.getElementById('rt-pill').textContent='○ reconnexion…';document.getElementById('rt-pill').style.color='var(--muted)'};
-  }catch(e){}
-}
-
-// ── Appel à l'hôte ──
-async function callOwner(){const m=prompt("Message à dire à l'hôte ?","Vous avez une alerte à votre domicile.");if(m===null)return;
-  const d=await(await fetch('/api/emergency/call-owner',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})})).json();toast(d.message);addMsg('jarvis','📞 '+d.message)}
-
-// ── Couper / réveiller / éteindre ──
-let standby=false;
-async function toggleStandby(){const d=await(await fetch('/api/system/standby',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!standby})})).json();standby=d.standby;standbyUI();toast(d.message)}
-function standbyUI(){document.getElementById('standby-pill').style.display=standby?'inline-flex':'none';document.getElementById('standby-btn').classList.toggle('active',!standby);document.getElementById('orb').style.filter=standby?'grayscale(1) opacity(.5)':''}
-async function shutdown(){if(!confirm('Éteindre complètement JARVIS ? (il faudra le relancer manuellement)'))return;
-  try{const d=await(await fetch('/api/system/shutdown',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true})})).json();addMsg('jarvis','⏻ '+(d.message||d.error))}catch(e){}
-  toast('⏻ JARVIS éteint');document.body.style.opacity=.4}
-
-// ── Questions « connu / inconnu ? » ──
-async function loadPending(){
-  try{const d=await(await fetch('/api/security/pending')).json();const wrap=document.getElementById('ask-banner');
-  if(!d.pending.length){wrap.style.display='none';wrap.innerHTML='';return}
-  wrap.style.display='flex';
-  wrap.innerHTML=d.pending.map(p=>'<div class="ask" data-id="'+p.id+'">'+
-    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>'+
-    '<div class="q"><b>Personne détectée</b> ('+p.event+', menace '+p.threat+'). Tu la connais ?</div>'+
-    '<input placeholder="Son nom (si connu)" id="nm-'+p.id+'">'+
-    '<button class="btn sm green" onclick="identify(\''+p.id+'\',true)">✅ Connu</button>'+
-    '<button class="btn sm danger" onclick="identify(\''+p.id+'\',false)">🚨 Inconnu</button></div>').join('');
-  }catch(e){}
-}
-async function identify(id,known){const name=known?(document.getElementById('nm-'+id)||{}).value||'':'';
-  const d=await(await fetch('/api/security/identify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,known,name})})).json();
-  toast(d.message);addMsg('jarvis',(known?'✅ ':'🚨 ')+d.message);loadPending();loadAlerts()}
-
-// ── 🎙️ Voix : TTS + push-to-talk + veille (Ok Jarvis / double clap) ──
-let ttsOn=false;
-function toggleTTS(){ttsOn=!ttsOn;document.getElementById('tts-btn').classList.toggle('active',ttsOn);toast(ttsOn?'Lecture vocale activée':'Lecture vocale coupée');if(!ttsOn&&window.speechSynthesis)speechSynthesis.cancel()}
-function speak(text){if(!ttsOn||!window.speechSynthesis)return;
-  const clean=text.replace(/[*`_#>]/g,'').replace(/https?:\\/\\/\\S+/g,'').replace(/[\\u{1F000}-\\u{1FFFF}]/gu,'');
-  const u=new SpeechSynthesisUtterance(clean);u.lang='fr-FR';u.rate=1.05;
-  const fr=speechSynthesis.getVoices().find(v=>v.lang.startsWith('fr'));if(fr)u.voice=fr;
-  speechSynthesis.cancel();speechSynthesis.speak(u)}
-
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-function pushToTalk(){
-  if(!SR){toast('Reconnaissance vocale non supportée (utilise Chrome/Edge)');return}
-  const r=new SR();r.lang='fr-FR';r.interimResults=false;
-  const mb=document.getElementById('mic-btn');mb.classList.add('mic-on');
-  r.onend=()=>mb.classList.remove('mic-on');
-  r.onerror=()=>mb.classList.remove('mic-on');
-  r.onresult=e=>{const t=e.results[0][0].transcript.trim();chatSend(t)};
-  r.start();
-}
-
-// Veille vocale : écoute continue d'un mot de réveil + double clap
-let wakeOn=false,wakeRec=null,audioCtx=null,clapTimes=[];
-const WAKE_PHRASES=['ok jarvis','okay jarvis','hey jarvis','jarvis réveille','jarvis reveille','jarvis papa est là','jarvis papa est la','jarvis tu es là','jarvis t es là'];
-function setOrb(on){document.getElementById('orb').classList.toggle('listening',on)}
-function wakeUp(trailing){
-  setOrb(true);toast('🟢 JARVIS à l\\'écoute…');
-  if(standby){fetch('/api/system/standby',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:false})});standby=false;standbyUI()}
-  try{const a=new (window.AudioContext||window.webkitAudioContext)();const o=a.createOscillator();const g=a.createGain();
-    o.connect(g);g.connect(a.destination);o.frequency.value=880;g.gain.value=.08;o.start();o.frequency.exponentialRampToValueAtTime(1320,a.currentTime+.12);o.stop(a.currentTime+.13)}catch(e){}
-  setTimeout(()=>setOrb(false),1600);
-  if(trailing&&trailing.length>2){chatSend(trailing)}
-  else{captureCommand()}
-}
-function captureCommand(){ // capture la phrase suivante comme commande
-  if(!SR)return;const r=new SR();r.lang='fr-FR';r.interimResults=false;
-  document.getElementById('mic-btn').classList.add('mic-on');
-  r.onend=()=>document.getElementById('mic-btn').classList.remove('mic-on');
-  r.onresult=e=>{const t=e.results[0][0].transcript.trim();if(t)chatSend(t)};
-  try{r.start()}catch(e){}
-}
-function startWakeRecognition(){
-  if(!SR)return false;
-  wakeRec=new SR();wakeRec.lang='fr-FR';wakeRec.continuous=true;wakeRec.interimResults=true;
-  wakeRec.onresult=e=>{
-    const res=e.results[e.results.length-1];if(!res.isFinal)return;
-    const t=res[0].transcript.toLowerCase().trim();
-    const hit=WAKE_PHRASES.find(p=>t.includes(p));
-    if(hit){let trailing=t.split(hit).pop().replace(/^[\\s,.;:!?]+/,'');wakeUp(trailing)}
-  };
-  wakeRec.onend=()=>{if(wakeOn){try{wakeRec.start()}catch(e){}}}; // relance auto
-  try{wakeRec.start();return true}catch(e){return false}
-}
-async function startClapDetection(){
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    const src=audioCtx.createMediaStreamSource(stream);
-    const an=audioCtx.createAnalyser();an.fftSize=512;src.connect(an);
-    const data=new Uint8Array(an.frequencyBinCount);let cooldown=0;
-    (function loop(){
-      if(!wakeOn)return;an.getByteTimeDomainData(data);
-      let peak=0;for(let i=0;i<data.length;i++){const v=Math.abs(data[i]-128);if(v>peak)peak=v}
-      const now=Date.now();
-      if(peak>92&&now-cooldown>180){ // pic sonore type clap
-        cooldown=now;clapTimes.push(now);clapTimes=clapTimes.filter(x=>now-x<700);
-        if(clapTimes.length>=2){clapTimes=[];wakeUp('')}
-      }
-      requestAnimationFrame(loop);
-    })();
-    return true;
-  }catch(e){return false}
-}
-async function toggleWake(){
-  wakeOn=!wakeOn;
-  const b=document.getElementById('wake-btn');b.classList.toggle('active',wakeOn);
-  if(wakeOn){
-    const a=startWakeRecognition();const c=await startClapDetection();
-    if(a||c){toast('👂 Veille activée — dis « Ok Jarvis » ou tape 2 fois dans tes mains');setOrb(false)}
-    else{wakeOn=false;b.classList.remove('active');toast('Veille vocale non supportée par ce navigateur')}
-  }else{
-    if(wakeRec){try{wakeRec.stop()}catch(e){}}
-    if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}
-    toast('Veille vocale désactivée');
-  }
-}
-
-// ── Init ──
-(async function(){
-  try{const st=await(await fetch('/api/status')).json();window.__lmode=st.lights_mode;document.getElementById('backend-pill').textContent=st.backend.toUpperCase()+' · '+st.model}catch(e){}
-  loadScenes();loadLights();loadAlerts();loadLearn();loadPending();loadTimeline();
-  setInterval(loadAlerts,12000);setInterval(loadPending,8000);
-  startStream();
-  addMsg('jarvis',"MÉGA JARVIS v5.0 en ligne. Je suis maintenant un vrai agent : j'enchaîne les actions, je vois le résultat de mes outils, j'ai une mémoire long terme, une timeline temps réel et des automatisations. Veille vocale 👂, urgence 🆘, sécurité durcie 🔒. Dis « cherche la météo et si pluie ferme les volets » ou « mode cinéma ». 😏");
-})();
-</script>
-</body>
-</html>"""
 
 # ─────────────────────────────────────────────
 # 🛡️ MODE GARDIEN (module intégré)
@@ -2654,6 +2034,8 @@ try:
     from guardian.service import GuardianService
     from guardian.providers import get_vision_provider, get_speech_provider, get_realtime_provider
     from guardian.pairing import DevicePairing
+    from guardian.geolocation import PhotoGeolocator
+    from guardian.legal_osint import validate_legal_osint_context
     from guardian.api import create_guardian_blueprint
     from permissions import PermissionManager
     from emergency_approval import EmergencyApproval
@@ -2671,11 +2053,13 @@ try:
     emergency_approval = EmergencyApproval(emergency_dispatcher, permission_manager,
                                            audit_log=event_log.add)
     device_pairing = DevicePairing()
+    photo_geolocator = PhotoGeolocator(GUARDIAN_CONFIG, _g_vision, event_log=event_log)
+    _legal_osint_validator = validate_legal_osint_context
     _WEB_DIR = Path(__file__).resolve().parent.parent / "web"
     app.register_blueprint(create_guardian_blueprint(
         guardian_service, perms=permission_manager,
         emergency_approval=emergency_approval, realtime_provider=_g_realtime,
-        pairing=device_pairing, web_dir=str(_WEB_DIR)))
+        pairing=device_pairing, geolocator=photo_geolocator, web_dir=str(_WEB_DIR)))
     logger.info("🛡️ Mode Gardien intégré : /gardien + /api/guardian/* "
                 f"(vision={GUARDIAN_CONFIG.vision_provider}, cloud={GUARDIAN_CONFIG.cloud_vision}, "
                 f"audio={GUARDIAN_CONFIG.audio_enabled})")
@@ -2683,23 +2067,29 @@ except Exception as _ge:                       # ne casse jamais le serveur prin
     logger.warning(f"Mode Gardien non chargé: {_ge}")
 
 
+@app.errorhandler(413)
+def _request_too_large(_error):
+    return jsonify({"ok": False, "error": "Requête trop volumineuse"}), 413
+
+
 @app.after_request
 def _security_headers(resp):
     """En-têtes de sécurité (CSP, Permissions-Policy…) sur les pages servies.
 
     CSP stricte : aucun script externe (on supprime les scripts opaques
-    type claude.ai). 'self' + inline (l'app embarque son JS). Permissions-Policy
+    tiers opaques). 'self' + inline (l'app embarque son JS). Permissions-Policy
     restreint caméra/micro à la même origine (nécessaire au Gardien)."""
     is_html = "text/html" in (resp.headers.get("Content-Type", ""))
     if is_html:
         resp.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "font-src 'self'; "
             "img-src 'self' data: blob:; "
             "media-src 'self' blob:; "
             "connect-src 'self'; "
+            "worker-src 'self' blob:; frame-src 'self'; object-src 'none'; "
             "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
         resp.headers["Permissions-Policy"] = (
             "camera=(self), microphone=(self), geolocation=(), "
@@ -2729,7 +2119,7 @@ if __name__ == "__main__":
 
     print("""
 ╔══════════════════════════════════════════════════╗
-║   JARVIS v4.0 — IA + MAISON CONNECTÉE           ║
+║   JARVIS v5.6 — DURABLE AGENCY + PROSPECTION + VOIX      ║
 ║   Backend: """ + AI_BACKEND.upper() + " — " + CONFIG[AI_BACKEND]["model"] + """
 ║   HomePod•AppleTV•Lumières•Anti-intrusion•Voix   ║
 ╠══════════════════════════════════════════════════╣
@@ -2746,6 +2136,7 @@ if __name__ == "__main__":
     if scheme == "http":
         print("⚠️  HTTP en clair. Pour du HTTPS : JARVIS_HTTPS=adhoc (test) ou JARVIS_SSL_CERT/KEY (prod).")
 
+    print("ℹ️  Lancement direct = serveur de développement. En usage permanent, utilise Waitress/Gunicorn via server/wsgi.py.")
     security.start()
     automation.start()
     proactive.start()

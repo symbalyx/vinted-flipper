@@ -77,3 +77,13 @@ def test_agent_max_turns_guard():
         "tool_calls": [{"id": "1", "function": {"name": "loop", "arguments": "{}"}}]}}
     out = ag.run("x", "SYS")
     assert isinstance(out, str) and len(out) > 0
+
+
+def test_sensitive_tool_arguments_are_redacted_for_logs():
+    from agent import _redact_tool_args
+    out = _redact_tool_args("email_envoyer", {
+        "destinataire": "a@example.com", "corps": "secret privé", "approval_token": "abc"
+    })
+    assert out["destinataire"] == "a@example.com"
+    assert "secret privé" not in out["corps"]
+    assert out["approval_token"] == "<secret>"

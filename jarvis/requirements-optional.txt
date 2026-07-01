@@ -1,4 +1,4 @@
-# JARVIS v5.2 — Dépendances OPTIONNELLES (dégradation gracieuse si absentes)
+# JARVIS v5.6 — Dépendances OPTIONNELLES (dégradation gracieuse si absentes)
 #   pip install -r requirements-optional.txt
 
 # ── Serveurs de production (recommandé, cf. INSTALL_*.md) ──

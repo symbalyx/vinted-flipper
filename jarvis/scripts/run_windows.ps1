@@ -1,4 +1,4 @@
-# JARVIS v5.2 — Lancement PRODUCTION Windows (Waitress).
+# JARVIS v5.6 — Lancement PRODUCTION Windows (Waitress).
 # Usage :  powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")

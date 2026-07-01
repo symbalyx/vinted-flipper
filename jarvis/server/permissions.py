@@ -19,6 +19,11 @@ import logging
 import threading
 from dataclasses import dataclass, field
 
+try:
+    from execution_context import CURRENT_MISSION_ID, CURRENT_STEP_ID
+except Exception:
+    CURRENT_MISSION_ID = CURRENT_STEP_ID = None
+
 logger = logging.getLogger("JARVIS.permissions")
 
 
@@ -37,11 +42,17 @@ ACTION_LEVELS = {
     "etat_lumieres": Level.READ_ONLY, "home_lights": Level.READ_ONLY,
     "calculer": Level.READ_ONLY, "processus_top": Level.READ_ONLY,
     "recherche_web": Level.READ_ONLY, "lire_page_web": Level.READ_ONLY,
+    "n8n_statut": Level.READ_ONLY, "n8n_lister_workflows": Level.READ_ONLY,
+    "email_previsualiser": Level.READ_ONLY,
+    "agency_lister_missions": Level.READ_ONLY, "agency_statut_mission": Level.READ_ONLY,
+    "prospection_lister_prospects": Level.READ_ONLY, "prospection_resume": Level.READ_ONLY,
     # REVERSIBLE
     "controler_lumiere": Level.REVERSIBLE, "activer_scene": Level.REVERSIBLE,
     "volume": Level.REVERSIBLE, "luminosite_ecran": Level.REVERSIBLE,
     "controle_media": Level.REVERSIBLE, "rappel": Level.REVERSIBLE,
     "mot_de_passe": Level.REVERSIBLE, "memoriser": Level.REVERSIBLE,
+    "agency_lancer_mission": Level.REVERSIBLE, "agency_annuler_mission": Level.REVERSIBLE,
+    "prospection_qualifier": Level.REVERSIBLE,
     # SENSITIVE
     "lire_fichier": Level.SENSITIVE, "ecrire_fichier": Level.SENSITIVE,
     "lister_fichiers": Level.SENSITIVE, "presse_papier_lire": Level.SENSITIVE,
@@ -50,11 +61,18 @@ ACTION_LEVELS = {
     "tuer_processus": Level.SENSITIVE, "homepod_dire": Level.SENSITIVE,
     "notif_tel": Level.SENSITIVE, "camera": Level.SENSITIVE,
     "verrouiller_pc": Level.SENSITIVE,
+    "n8n_creer_workflow": Level.SENSITIVE, "n8n_modifier_workflow": Level.SENSITIVE,
+    "prospection_ajouter_prospect": Level.SENSITIVE,
+    "prospection_preparer_message": Level.SENSITIVE,
     # CRITICAL
     "armer_alarme": Level.CRITICAL, "desarmer_alarme": Level.CRITICAL,
     "alimentation_pc": Level.CRITICAL, "appeler_hote": Level.CRITICAL,
     "appel_police": Level.CRITICAL, "protocole_urgence": Level.CRITICAL,
     "supprimer_donnees": Level.CRITICAL, "deverrouiller_porte": Level.CRITICAL,
+    "n8n_activer_workflow": Level.CRITICAL, "n8n_desactiver_workflow": Level.CRITICAL,
+    "email_envoyer": Level.CRITICAL,
+    "prospection_envoyer_brouillon": Level.CRITICAL,
+    "prospection_exclure": Level.CRITICAL,
 }
 
 REQUIRES_APPROVAL = {Level.SENSITIVE, Level.CRITICAL}
@@ -69,6 +87,24 @@ class Approval:
     created: float
     expires: float
     used: bool = False
+    context_id: str = ""
+    step_id: str = ""
+
+
+def _redact_params(params: dict | None):
+    if not isinstance(params, dict):
+        return {}
+    hidden = {"body", "corps", "contenu", "texte", "message", "workflow_json",
+              "password", "api_key", "token", "approval_token", "notes"}
+    out = {}
+    for key, value in params.items():
+        if key in hidden:
+            out[key] = f"<masqué:{len(str(value or ''))} caractères>"
+        elif key in {"public_email", "destinataire", "cc"}:
+            out[key] = "<coordonnée masquée>"
+        else:
+            out[key] = value
+    return out
 
 
 class PermissionManager:
@@ -89,14 +125,18 @@ class PermissionManager:
         level = self.level_of(action)
         token = secrets.token_urlsafe(24)
         now = time.time()
+        context_id = CURRENT_MISSION_ID.get() if CURRENT_MISSION_ID is not None else ""
+        step_id = CURRENT_STEP_ID.get() if CURRENT_STEP_ID is not None else ""
         appr = Approval(token=token, action=action, params=params or {}, level=level,
-                        created=now, expires=now + self.ttl)
+                        created=now, expires=now + self.ttl,
+                        context_id=context_id, step_id=step_id)
         with self._lock:
             self._approvals[token] = appr
         self._audit("approbation_demande", f"{action} ({level})",
-                    {"params": params, "token": token[:6] + "…"})
+                    {"params": _redact_params(params), "token": token[:6] + "…"})
         return {"approval_id": token, "action": action, "params": params or {},
-                "level": level, "expires_in": int(self.ttl)}
+                "level": level, "expires_in": int(self.ttl),
+                "context_id": context_id, "step_id": step_id}
 
     # ── Confirmation (usage unique, action+params exacts) ──────
     def confirm(self, token: str, action: str, params: dict = None):
@@ -116,7 +156,8 @@ class PermissionManager:
             if _normalize(appr.params) != _normalize(params or {}):
                 return False, "Les paramètres ne correspondent pas au jeton"
             appr.used = True
-        self._audit("approbation_confirmee", f"{action} ({appr.level})", {"params": params})
+        self._audit("approbation_confirmee", f"{action} ({appr.level})",
+                    {"params": _redact_params(params)})
         return True, "Approuvé"
 
     def guard(self, action: str, params: dict, approval_token: str = None):
@@ -137,8 +178,19 @@ class PermissionManager:
             if not appr or appr.used:
                 return False
             appr.used = True
-        self._audit("approbation_refusee", appr.action, {"params": appr.params})
+        self._audit("approbation_refusee", appr.action,
+                    {"params": _redact_params(appr.params)})
         return True
+
+    def peek(self, token: str):
+        """Retourne le contexte d'une approbation encore valide sans la consommer."""
+        now = time.time()
+        with self._lock:
+            appr = self._approvals.get(token)
+            if not appr or appr.used or now > appr.expires:
+                return None
+            return {"action": appr.action, "params": appr.params, "level": appr.level,
+                    "context_id": appr.context_id, "step_id": appr.step_id}
 
     def pending(self) -> list:
         """Approbations en attente (non utilisées, non expirées) pour l'UI."""
@@ -148,7 +200,8 @@ class PermissionManager:
             for tok in [t for t, a in self._approvals.items() if now > a.expires]:
                 del self._approvals[tok]
             return [{"approval_id": a.token, "action": a.action, "params": a.params,
-                     "level": a.level, "expires_in": max(0, int(a.expires - now))}
+                     "level": a.level, "expires_in": max(0, int(a.expires - now)),
+                     "context_id": a.context_id, "step_id": a.step_id}
                     for a in self._approvals.values() if not a.used]
 
     def _audit(self, kind, summary, meta):

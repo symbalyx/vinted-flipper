@@ -1,4 +1,4 @@
-# JARVIS v5.2 — Dépendances OBLIGATOIRES (cœur)
+# JARVIS v5.6 — Dépendances OBLIGATOIRES (cœur)
 #   pip install -r requirements_v4.txt
 #
 # ⚠️ opencv : on installe UNIQUEMENT opencv-contrib-python (qui contient cv2.face

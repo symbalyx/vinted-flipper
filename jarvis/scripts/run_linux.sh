@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# JARVIS v5.2 — Lancement PRODUCTION Linux (Gunicorn) avec arrêt gracieux.
+# JARVIS v5.6 — Lancement PRODUCTION Linux (Gunicorn) avec arrêt gracieux.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

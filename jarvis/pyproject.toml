@@ -1,7 +1,7 @@
 [project]
 name = "jarvis-guardian"
-version = "5.2.0"
-description = "JARVIS — assistant local + système de sécurité domestique (mode Gardien)"
+version = "5.6.0"
+description = "JARVIS — assistant local, Gardien, missions multi-agents et voix Whisper"
 readme = "README_v4.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -22,6 +22,7 @@ prod = ["waitress>=3.0.0", "gunicorn>=22.0.0", "cryptography>=42.0.0"]
 apple = ["pyatv>=0.14.5", "gtts>=2.5.0"]
 pc = ["mss>=9.0.0", "pyautogui>=0.9.54", "pyperclip>=1.8.2"]
 desktop = ["plyer>=2.1.0"]
+voice = ["faster-whisper>=1.1.0,<2"]
 dev = ["pytest>=8.0.0"]
 
 [tool.pytest.ini_options]

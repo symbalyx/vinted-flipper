@@ -47,3 +47,47 @@ pytest -q
 ## 7. Dépannage
 - Webcam non détectée : autorise l'accès caméra (Paramètres → Confidentialité).
 - `opencv` : **n'installe pas** `opencv-python` en plus de `opencv-contrib-python`.
+
+
+## Agency, n8n et voix
+
+Pour la voix locale :
+
+```bash
+pip install -r requirements-voice.txt
+```
+
+Configure ensuite `VOICE_STT_MODEL`, `VOICE_STT_DEVICE` et
+`VOICE_STT_COMPUTE_TYPE`, puis appelle `POST /api/voice/warmup` après le
+démarrage. L'interface Agency est disponible sur `/agency`.
+
+Pour n8n, renseigne `N8N_URL` et `N8N_API_KEY`. Pour les e-mails, renseigne les
+variables `SMTP_*`. Les actions externes restent bloquées jusqu'à approbation
+dans JARVIS.
+
+## v5.6 — démarrage durable
+
+Conserve les fichiers suivants entre deux mises à jour :
+
+```text
+data/agency.db
+data/prospecting.db
+```
+
+Pour réduire la latence vocale après le démarrage :
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8004/api/voice/warmup
+```
+
+Interfaces supplémentaires :
+
+```text
+http://localhost:8004/agency
+http://localhost:8004/prospection
+```
+
+Pour qu’une mission reprenne après redémarrage de Windows, installe le script de
+lancement comme service ou tâche planifiée avec redémarrage automatique. JARVIS
+ne travaille pas quand le PC est éteint, mais il reprend sa base SQLite au
+prochain démarrage.

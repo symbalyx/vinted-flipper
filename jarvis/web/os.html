@@ -135,13 +135,13 @@ header{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:c
 
 <script>
 "use strict";
-// ── Toutes les réponses serveur sont NON FIABLES → textContent, jamais innerHTML ──
+// ── Toutes les réponses serveur sont NON FIABLES → nœuds DOM sûrs uniquement ──
 const $=(s,r=document)=>r.querySelector(s);
 let online=false, speaking=false, waveRAF=null;
 
-function api(path,opts){opts=opts||{};opts.credentials="include";
+function api(path,opts){opts=opts||{};const timeout=Number(opts.timeout||20000);delete opts.timeout;opts.credentials="include";
   opts.headers=Object.assign({"Content-Type":"application/json"},opts.headers||{});
-  const c=new AbortController();const t=setTimeout(()=>c.abort(),20000);opts.signal=c.signal;
+  const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);opts.signal=c.signal;
   return fetch(path,opts).finally(()=>clearTimeout(t));}
 function toast(m){const t=$("#toast");t.textContent=m;t.style.opacity=1;clearTimeout(toast._t);toast._t=setTimeout(()=>t.style.opacity=0,2200);}
 
@@ -291,7 +291,7 @@ function modMap(body){
   clr.onclick=()=>{window.__mapPins=[];};
   bar.appendChild(rotBtn);bar.appendChild(clr);body.appendChild(bar);
   const hint=document.createElement("div");hint.className="hint";
-  hint.textContent="Globe orthographique — pays réels (Natural Earth, domaine public). Points = géoloc OSINT.";
+  hint.textContent="Globe orthographique — pays réels (Natural Earth, domaine public). Points = géolocalisation photo ou OSINT.";
   body.appendChild(hint);
   const ctx=cv.getContext("2d");const R=150,cx=210,cy=170;let lam=0,alive=true;
   // glisser pour tourner
@@ -355,6 +355,77 @@ function modOsint(body){
     catch(e){out.textContent="⚠️ OSINT indisponible.";}};
   go.onclick=run;inp.addEventListener("keydown",e=>{if(e.key==="Enter")run();});inp.focus();
 }
+function modPhotoGeo(body){
+  const intro=document.createElement("div");intro.className="hint";intro.style.textAlign="left";
+  intro.textContent="Dépose une photo autorisée : JARVIS lit d’abord les coordonnées GPS EXIF. Sans EXIF, la vision propose seulement une estimation de lieu public avec confiance et marge d’erreur. Il n’identifie ni ne piste une personne privée.";
+  const file=document.createElement("input");file.type="file";file.accept="image/jpeg,image/png,image/webp";file.style.marginTop="10px";
+  const hint=document.createElement("input");hint.placeholder="Indice facultatif sur le lieu (pays, région, monument…)";hint.maxLength=160;hint.style.marginTop="8px";
+  const purpose=document.createElement("select");purpose.style.cssText="width:100%;margin-top:8px;background:var(--bg);border:1px solid var(--border);color:var(--fg);padding:9px;border-radius:8px";
+  [["personal_photo","Ma photo / mon média"],["owned_property","Mon bien ou un site que je contrôle"],["public_place","Lieu public ou monument"],["business","Commerce ou établissement public"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;purpose.appendChild(option);});
+  const authWrap=document.createElement("label");authWrap.style.cssText="display:flex;gap:8px;align-items:flex-start;margin-top:8px;color:var(--muted);font-size:.72rem;line-height:1.35";
+  const auth=document.createElement("input");auth.type="checkbox";auth.style.marginTop="2px";const authText=document.createElement("span");authText.textContent="Je confirme posséder cette photo ou avoir l’autorisation d’analyser ce lieu. Toute recherche d’identité, d’adresse privée ou de suivi d’une personne est interdite.";authWrap.append(auth,authText);
+  const preview=document.createElement("img");preview.alt="Aperçu de la photo à géolocaliser";preview.style.cssText="display:none;width:100%;max-height:220px;object-fit:contain;margin-top:8px;border:1px solid var(--border);border-radius:9px;background:#02070b";
+  const action=document.createElement("button");action.className="btn cy";action.type="button";action.disabled=true;action.style.marginTop="8px";action.textContent="📍 Analyser et placer sur le globe";
+  const status=document.createElement("div");status.className="hint";status.style.textAlign="left";
+  const out=document.createElement("div");out.style.cssText="margin-top:8px;max-height:38vh;overflow:auto";
+  body.append(intro,file,hint,purpose,authWrap,preview,action,status,out);
+
+  let dataUrl="";
+  const kv=(key,value)=>{const row=document.createElement("div");row.className="kv";
+    const a=document.createElement("span");a.textContent=key;const b=document.createElement("span");b.style.cssText="color:var(--cyan);max-width:62%;text-align:right;word-break:break-word";b.textContent=String(value??"");row.append(a,b);return row;};
+  const safeNumber=value=>typeof value==="number"&&Number.isFinite(value);
+  const pinCandidate=(candidate,prefix="")=>{
+    if(!candidate||!safeNumber(candidate.latitude)||!safeNumber(candidate.longitude))return;
+    const label=[prefix,candidate.label,candidate.city,candidate.country].filter(Boolean).join(" · ")||"Photo";
+    addMapPin(candidate.latitude,candidate.longitude,label);
+  };
+  const candidateCard=(candidate,index,isBest)=>{
+    const card=document.createElement("div");card.className="res";
+    const title=document.createElement("a");title.textContent=`${isBest?"Meilleur point":"Candidat "+(index+1)} — ${candidate.label||candidate.city||candidate.country||"lieu non nommé"}`;
+    card.appendChild(title);
+    card.appendChild(kv("Coordonnées",`${Number(candidate.latitude).toFixed(6)}, ${Number(candidate.longitude).toFixed(6)}`));
+    card.appendChild(kv("Confiance",`${Math.round(Number(candidate.confidence||0)*100)} %`));
+    card.appendChild(kv("Précision annoncée",`± ${Math.max(0,Number(candidate.precision_meters||0)).toLocaleString("fr-FR")} m`));
+    const evidence=Array.isArray(candidate.evidence)?candidate.evidence:[];
+    if(evidence.length){const label=document.createElement("p");label.textContent=`Indices : ${evidence.join(" · ")}`;card.appendChild(label);}
+    const map=document.createElement("button");map.className="btn";map.type="button";map.style.marginTop="7px";map.textContent="Voir ce point sur le globe";map.onclick=()=>pinCandidate(candidate,isBest?"Photo":"Alternative");card.appendChild(map);
+    return card;
+  };
+  const render=result=>{
+    out.textContent="";
+    const exact=result.source==="exif_gps"&&result.exact===true;
+    out.appendChild(kv("Résultat",exact?"GPS EXIF présent":"Estimation visuelle — non exacte"));
+    out.appendChild(kv("Source",result.source||"inconnue"));
+    if(result.provider)out.appendChild(kv("Fournisseur",result.provider));
+    if(result.warning){const warning=document.createElement("div");warning.className="msg j";warning.style.marginTop="8px";warning.textContent=`⚠️ ${result.warning}`;out.appendChild(warning);}
+    if(result.best){out.appendChild(candidateCard(result.best,0,true));pinCandidate(result.best,exact?"EXIF":"Estimation");}
+    const candidates=Array.isArray(result.candidates)?result.candidates:[];
+    candidates.slice(1).forEach((candidate,index)=>out.appendChild(candidateCard(candidate,index+1,false)));
+    const uncertainty=Array.isArray(result.uncertainty)?result.uncertainty:[];
+    if(uncertainty.length){const u=document.createElement("div");u.className="msg j";u.style.marginTop="8px";u.textContent=`Incertitudes : ${uncertainty.join(" · ")}`;out.appendChild(u);}
+    if(!result.best){const unknown=document.createElement("div");unknown.className="msg j";unknown.style.marginTop="8px";unknown.textContent="Aucun point suffisamment fiable n’a été retenu.";out.appendChild(unknown);}
+  };
+
+  file.addEventListener("change",()=>{
+    dataUrl="";out.textContent="";status.textContent="";action.disabled=true;preview.style.display="none";
+    const selected=file.files&&file.files[0];if(!selected)return;
+    if(!["image/jpeg","image/png","image/webp"].includes(selected.type)){status.textContent="Format refusé : JPEG, PNG ou WebP uniquement.";file.value="";return;}
+    if(selected.size>2_000_000){status.textContent="Image trop volumineuse : maximum 2 Mo.";file.value="";return;}
+    const reader=new FileReader();
+    reader.onerror=()=>{status.textContent="Lecture de l’image impossible.";};
+    reader.onload=()=>{dataUrl=String(reader.result||"");preview.src=dataUrl;preview.style.display="block";action.disabled=!dataUrl;status.textContent=`${selected.name} · ${(selected.size/1024).toFixed(0)} Ko`;};
+    reader.readAsDataURL(selected);
+  });
+  action.onclick=async()=>{
+    if(!dataUrl)return;if(!auth.checked){status.textContent="Confirme d’abord que tu as le droit d’analyser cette photo.";return;}action.disabled=true;out.textContent="";status.textContent="Analyse en cours…";
+    const targetType=purpose.value==="owned_property"?"owned_property":purpose.value==="business"?"business":purpose.value==="public_place"?"public_landmark":"place";
+    try{const response=await api("/api/guardian/geolocate",{method:"POST",body:JSON.stringify({image:dataUrl,hint:hint.value.trim(),purpose:purpose.value,target_type:targetType,authorization:true}),timeout:60000});
+      const result=await response.json();if(!response.ok||result.ok===false)throw new Error(result.error||`Erreur HTTP ${response.status}`);
+      render(result);status.textContent=result.source==="exif_gps"?"Coordonnées EXIF trouvées.":"Analyse terminée : vérifie toujours l’estimation avant de l’utiliser.";
+    }catch(error){status.textContent=`⚠️ ${error.message||"Géolocalisation indisponible"}`;}finally{action.disabled=!dataUrl;}
+  };
+}
+
 function modGuardian(body){
   const p=document.createElement("div");p.className="hint";p.style.textAlign="left";
   p.textContent="Le mode Gardien (caméra/sonnette) s'ouvre en plein écran sécurisé.";
@@ -364,18 +435,21 @@ function modGuardian(body){
 
 // ── Dock ──
 const MODULES=[
-  {id:"chat",label:"Chat",icon:'<path d="M21 11.5a8.4 8.4 0 01-12 7.6L3 21l1.9-6A8.4 8.4 0 1121 11.5z"/>',build:modChat},
-  {id:"web",label:"Web",icon:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/>',build:modWeb},
-  {id:"map",label:"Carte 3D",icon:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/>',build:modMap},
-  {id:"osint",label:"OSINT",icon:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',build:modOsint},
-  {id:"guardian",label:"Gardien",icon:'<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',build:modGuardian},
-  {id:"system",label:"Système",icon:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/>',build:modSystem},
-  {id:"timeline",label:"Timeline",icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',build:modTimeline},
-  {id:"approvals",label:"Approuver",icon:'<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/>',build:modApprovals,badge:true},
-];
+  {id:"chat",label:"Chat",icon:[["path",{d:"M21 11.5a8.4 8.4 0 01-12 7.6L3 21l1.9-6A8.4 8.4 0 1121 11.5z"}]],build:modChat},
+  {id:"web",label:"Web",icon:[["circle",{cx:"12",cy:"12",r:"9"}],["path",{d:"M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"}]],build:modWeb},
+  {id:"map",label:"Carte 3D",icon:[["circle",{cx:"12",cy:"12",r:"9"}],["path",{d:"M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"}]],build:modMap},
+  {id:"photo",label:"Photo → globe",icon:[["rect",{x:"3",y:"4",width:"18",height:"16",rx:"2"}],["circle",{cx:"9",cy:"9",r:"2"}],["path",{d:"M21 15l-5-5L5 20"}]],build:modPhotoGeo},
+  {id:"osint",label:"OSINT",icon:[["circle",{cx:"11",cy:"11",r:"7"}],["path",{d:"M21 21l-4.3-4.3"}]],build:modOsint},
+  {id:"guardian",label:"Gardien",icon:[["path",{d:"M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"}]],build:modGuardian},
+  {id:"system",label:"Système",icon:[["rect",{x:"3",y:"4",width:"18",height:"12",rx:"2"}],["path",{d:"M8 20h8"}]],build:modSystem},
+  {id:"timeline",label:"Timeline",icon:[["circle",{cx:"12",cy:"12",r:"9"}],["path",{d:"M12 7v5l3 2"}]],build:modTimeline},
+  {id:"approvals",label:"Approuver",icon:[["path",{d:"M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"}],["path",{d:"M13.7 21a2 2 0 01-3.4 0"}]],build:modApprovals,badge:true},
+]
+function moduleIcon(parts){const NS="http://www.w3.org/2000/svg";const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("viewBox","0 0 24 24");svg.setAttribute("fill","none");svg.setAttribute("stroke","currentColor");svg.setAttribute("stroke-width","2");
+  (parts||[]).forEach(([tag,attrs])=>{const node=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([key,value])=>node.setAttribute(key,String(value)));svg.appendChild(node);});return svg;}
 (function(){const dock=$("#dock");MODULES.forEach(m=>{
-  const it=document.createElement("div");it.className="dock-item";it.title=m.label;
-  it.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+m.icon+'</svg>';
+  const it=document.createElement("div");it.className="dock-item";it.title=m.label;it.appendChild(moduleIcon(m.icon));
   const sp=document.createElement("span");sp.textContent=m.label;it.appendChild(sp);
   if(m.badge){const dot=document.createElement("span");dot.className="dot";dot.id="dock-badge";it.appendChild(dot);}
   it.onclick=()=>openWindow(m.id,m.label.toUpperCase(),m.build);dock.appendChild(it);});
@@ -404,6 +478,7 @@ function startStream(){try{const es=new EventSource("/api/stream");
 }catch(e){}}
 
 ping();startStream();refreshBadge();
+if(location.hash==="#photo"){const m=MODULES.find(item=>item.id==="photo");if(m)setTimeout(()=>openWindow(m.id,m.label.toUpperCase(),m.build),120);}
 setInterval(ping,15000);setInterval(refreshBadge,20000);
 setTimeout(()=>speak("Bonjour. Tous les systèmes sont en ligne."),600);
 </script>

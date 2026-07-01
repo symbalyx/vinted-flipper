@@ -133,7 +133,7 @@ main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;m
 //  RÈGLE DE SÉCURITÉ : ce script ne contient AUCUNE clé d'API. Il ne parle
 //  qu'à l'API JARVIS authentifiée (même origine, cookie de session). Toutes
 //  les réponses du serveur (phrases, états, métadonnées) sont traitées comme
-//  NON FIABLES et injectées via textContent / nœuds DOM — jamais innerHTML.
+//  NON FIABLES et injectées via textContent / nœuds DOM — jamais une chaîne HTML interprétée.
 // ────────────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
 const MAX_IMG_BYTES = 1500000;          // limite de taille d'image envoyée

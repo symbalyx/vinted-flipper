@@ -13,3 +13,8 @@ pc/
 screenshots/
 .env
 node_modules
+
+data/*.db*
+
+data/backups/*.db
+data/backups/*.tmp

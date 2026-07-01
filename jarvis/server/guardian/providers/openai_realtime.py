@@ -1,32 +1,48 @@
-"""
-Fournisseur OpenAI (vision + Realtime).
+"""Fournisseur OpenAI : vision optionnelle et jetons Realtime éphémères.
 
-⚠️ La clé principale OPENAI_API_KEY reste CÔTÉ SERVEUR. Pour la conversation
-temps réel dans le navigateur (WebRTC), le serveur ne renvoie qu'un JETON DE
-SESSION ÉPHÉMÈRE (`client_secret`) créé via l'API OpenAI ; la clé permanente
-n'est jamais transmise au client.
-
-Le modèle Realtime est configurable via OPENAI_REALTIME_MODEL (ne pas figer un
-nom de modèle ancien dans plusieurs fichiers).
-
-État : la vision est utilisable ; le mint de session Realtime est implémenté
-mais NON TESTÉ ici sans clé réelle — voir LIMITATIONS dans CHANGELOG_GUARDIAN.md.
+La clé permanente ``OPENAI_API_KEY`` reste côté serveur. Pour WebRTC, le
+navigateur ne reçoit qu'un client secret de courte durée créé par l'endpoint
+Realtime actuel. Aucune clé permanente n'est renvoyée ni journalisée.
 """
 
-import os
+from __future__ import annotations
+
 import logging
+import os
+from typing import Any
 
 import requests
 
-from .base import VisionProvider, RealtimeProvider, ProviderError
+from .base import ProviderError, RealtimeProvider, VisionProvider
 
 logger = logging.getLogger("JARVIS.guardian.openai")
 
-OPENAI_BASE = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_BASE = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+DEFAULT_REALTIME_MODEL = "gpt-realtime-2"
+DEFAULT_VISION_MODEL = "gpt-4o-mini"  # configurable; kept for Chat Completions compatibility
 
 
 def _key() -> str:
-    return os.getenv("OPENAI_API_KEY", "")
+    return os.getenv("OPENAI_API_KEY", "").strip()
+
+
+def _bounded_ttl() -> int:
+    try:
+        ttl = int(os.getenv("OPENAI_REALTIME_TOKEN_TTL", "60"))
+    except (TypeError, ValueError):
+        ttl = 60
+    return max(10, min(ttl, 600))
+
+
+def _safe_headers() -> dict[str, str]:
+    headers = {
+        "Authorization": f"Bearer {_key()}",
+        "Content-Type": "application/json",
+    }
+    safety_id = os.getenv("OPENAI_SAFETY_IDENTIFIER", "").strip()
+    if safety_id:
+        headers["OpenAI-Safety-Identifier"] = safety_id
+    return headers
 
 
 class OpenAIVisionProvider(VisionProvider):
@@ -34,7 +50,7 @@ class OpenAIVisionProvider(VisionProvider):
 
     def __init__(self, config=None):
         self.config = config
-        self.model = os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini")
+        self.model = os.getenv("OPENAI_VISION_MODEL", DEFAULT_VISION_MODEL)
         self.timeout = getattr(config, "request_timeout", 20.0) if config else 20.0
 
     def available(self) -> bool:
@@ -45,18 +61,27 @@ class OpenAIVisionProvider(VisionProvider):
             raise ProviderError("OPENAI_API_KEY absente (côté serveur).")
         url = image_b64 if image_b64.startswith("data:") else f"data:image/jpeg;base64,{image_b64}"
         try:
-            r = requests.post(f"{OPENAI_BASE}/chat/completions",
-                headers={"Authorization": f"Bearer {_key()}",
-                         "Content-Type": "application/json"},
-                json={"model": self.model, "max_tokens": 300, "temperature": 0.0,
-                      "messages": [{"role": "user", "content": [
-                          {"type": "text", "text": prompt},
-                          {"type": "image_url", "image_url": {"url": url}}]}]},
-                timeout=self.timeout)
-            r.raise_for_status()
-            return r.json()["choices"][0]["message"]["content"].strip()
-        except requests.exceptions.RequestException as e:
-            raise ProviderError(f"OpenAI vision: {e}")
+            response = requests.post(
+                f"{OPENAI_BASE}/chat/completions",
+                headers=_safe_headers(),
+                json={
+                    "model": self.model,
+                    "max_tokens": 300,
+                    "temperature": 0.0,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": url}},
+                        ],
+                    }],
+                },
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            return response.json()["choices"][0]["message"]["content"].strip()
+        except (requests.exceptions.RequestException, KeyError, TypeError, ValueError) as exc:
+            raise ProviderError(f"OpenAI vision: {exc}") from exc
 
 
 class OpenAIRealtimeProvider(RealtimeProvider):
@@ -64,29 +89,53 @@ class OpenAIRealtimeProvider(RealtimeProvider):
 
     def __init__(self, config=None):
         self.config = config
-        self.model = (getattr(config, "openai_realtime_model", None)
-                      or os.getenv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview"))
-        self.voice = os.getenv("OPENAI_REALTIME_VOICE", "verse")
+        self.model = (
+            getattr(config, "openai_realtime_model", None)
+            or os.getenv("OPENAI_REALTIME_MODEL", DEFAULT_REALTIME_MODEL)
+        )
+        self.voice = os.getenv("OPENAI_REALTIME_VOICE", "marin")
 
-    def mint_ephemeral_session(self) -> dict:
-        """Crée une session Realtime éphémère côté serveur. Le navigateur reçoit
-        seulement le `client_secret` à durée de vie courte, jamais la clé."""
+    def available(self) -> bool:
+        return bool(_key())
+
+    def mint_ephemeral_session(self) -> dict[str, Any]:
+        """Crée un client secret Realtime court via ``/realtime/client_secrets``.
+
+        La structure de retour conserve ``client_secret.value`` pour rester
+        compatible avec l'interface JARVIS existante, mais ne contient jamais la
+        clé permanente utilisée dans l'en-tête serveur.
+        """
         if not _key():
             raise ProviderError("OPENAI_API_KEY absente (côté serveur).")
+
+        payload = {
+            "expires_after": {"anchor": "created_at", "seconds": _bounded_ttl()},
+            "session": {
+                "type": "realtime",
+                "model": self.model,
+                "audio": {"output": {"voice": self.voice}},
+            },
+        }
         try:
-            r = requests.post(f"{OPENAI_BASE}/realtime/sessions",
-                headers={"Authorization": f"Bearer {_key()}",
-                         "Content-Type": "application/json"},
-                json={"model": self.model, "voice": self.voice},
-                timeout=15)
-            r.raise_for_status()
-            data = r.json()
-            # On ne renvoie QUE le secret éphémère + métadonnées non sensibles.
+            response = requests.post(
+                f"{OPENAI_BASE}/realtime/client_secrets",
+                headers=_safe_headers(),
+                json=payload,
+                timeout=15,
+            )
+            response.raise_for_status()
+            data = response.json()
+            value = data.get("value") if isinstance(data, dict) else None
+            expires_at = data.get("expires_at") if isinstance(data, dict) else None
+            if not isinstance(value, str) or not value.startswith("ek_"):
+                raise ProviderError("OpenAI Realtime: client secret invalide ou absent.")
             return {
                 "provider": "openai",
                 "model": self.model,
-                "client_secret": data.get("client_secret", {}),
-                "expires_at": data.get("client_secret", {}).get("expires_at"),
+                "client_secret": {"value": value, "expires_at": expires_at},
+                "expires_at": expires_at,
             }
-        except requests.exceptions.RequestException as e:
-            raise ProviderError(f"OpenAI Realtime session: {e}")
+        except ProviderError:
+            raise
+        except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
+            raise ProviderError(f"OpenAI Realtime session: {exc}") from exc

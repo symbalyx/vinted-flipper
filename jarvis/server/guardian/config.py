@@ -58,12 +58,15 @@ class GuardianConfig:
     vision_provider: str = "ollama"          # ollama | openai | gemini
     speech_provider: str = "ollama"          # ollama | openai | gemini | template
     realtime_provider: str = "none"          # none | openai | gemini
-    openai_realtime_model: str = "gpt-4o-realtime-preview"
+    openai_realtime_model: str = "gpt-realtime-2"
 
     # ── Limites de robustesse ───────────────────────────────────
     max_image_bytes: int = 2_000_000         # 2 Mo : refuse les images trop lourdes
     request_timeout: float = 20.0            # AbortController côté serveur
     rate_limit_per_min: int = 30             # requêtes d'analyse / minute / session
+    # Géolocalisation photo : endpoint plus coûteux, volontairement plus limité.
+    photo_geo_rate_limit_per_min: int = 6
+    photo_geo_min_confidence: float = 0.35
 
     # ── Chemins ────────────────────────────────────────────────
     db_path: str = "memory/guardian.db"
@@ -94,10 +97,12 @@ def load_config() -> GuardianConfig:
         vision_provider=os.getenv("GUARDIAN_VISION_PROVIDER", "ollama"),
         speech_provider=os.getenv("GUARDIAN_SPEECH_PROVIDER", "ollama"),
         realtime_provider=os.getenv("GUARDIAN_REALTIME_PROVIDER", "none"),
-        openai_realtime_model=os.getenv("OPENAI_REALTIME_MODEL", "gpt-4o-realtime-preview"),
+        openai_realtime_model=os.getenv("OPENAI_REALTIME_MODEL", "gpt-realtime-2"),
         max_image_bytes=_i("GUARDIAN_MAX_IMAGE_BYTES", 2_000_000),
         request_timeout=_f("GUARDIAN_REQUEST_TIMEOUT", 20.0),
         rate_limit_per_min=_i("GUARDIAN_RATE_LIMIT_PER_MIN", 30),
+        photo_geo_rate_limit_per_min=_i("GUARDIAN_PHOTO_GEO_RATE_LIMIT_PER_MIN", 6),
+        photo_geo_min_confidence=_f("GUARDIAN_PHOTO_GEO_MIN_CONFIDENCE", 0.35),
         db_path=os.getenv("GUARDIAN_DB_PATH", "memory/guardian.db"),
         snapshot_dir=os.getenv("GUARDIAN_SNAPSHOT_DIR", "security/guardian_snaps"),
     )

@@ -1,11 +1,11 @@
-# JARVIS v5.2 — auto-hébergement Docker
+# JARVIS v5.6 — auto-hébergement Docker
 #   cp .env.example .env   (remplis JARVIS_PASSWORD, etc.)
 #   docker compose up -d --build
 #   → http://localhost:8004/app   ·   /os (HUD)   ·   /gardien
 services:
   jarvis:
     build: .
-    image: jarvis-guardian:5.2
+    image: jarvis-guardian:5.6
     restart: unless-stopped
     ports:
       - "8004:8004"
@@ -20,6 +20,7 @@ services:
       - jarvis_memory:/app/memory
       - jarvis_security:/app/security
       - jarvis_logs:/app/logs
+      - jarvis_data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8004/api/health"]
       interval: 30s
@@ -28,14 +29,12 @@ services:
 
   # Vision locale optionnelle (aucune image ne quitte le réseau).
   #   décommente puis: GUARDIAN_VISION_PROVIDER=ollama, JARVIS_VISION_MODEL=llava
-  # ollama:
-  #   image: ollama/ollama:latest
-  #   restart: unless-stopped
-  #   volumes: [ ollama:/root/.ollama ]
-  #   ports: [ "11434:11434" ]
+  # Ollama peut être lancé séparément avec une version explicitement épinglée.
+  # Ne déploie pas une image flottante « latest » en production.
 
 volumes:
   jarvis_memory:
   jarvis_security:
   jarvis_logs:
+  jarvis_data:
   # ollama:

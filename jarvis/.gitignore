@@ -9,6 +9,11 @@ memory/*.db
 memory/*.db-wal
 memory/*.db-shm
 logs/*.log
+data/*.db*
+!data/.gitkeep
+data/backups/*.db
+data/backups/*.tmp
+!data/backups/.gitkeep
 
 # 🛡️ Gardien : base SQLite + snapshots + visages (aucune image réelle dans Git)
 security/

@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════════╗
-║  JARVIS v5.2 — Conversations persistantes (côté serveur)      ║
+║  JARVIS v5.6 — Conversations persistantes (côté serveur)      ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Plusieurs conversations distinctes, chacune avec son historique, persistées en
