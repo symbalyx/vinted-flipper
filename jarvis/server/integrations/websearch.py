@@ -27,20 +27,56 @@ import requests
 logger = logging.getLogger("JARVIS.websearch")
 
 
-def is_safe_public_url(url: str) -> bool:
-    """Anti-SSRF : http(s) uniquement + rejette IP privées/loopback/link-local."""
+def _ip_is_blocked(ip: ipaddress._BaseAddress) -> bool:
+    return bool(
+        ip.is_private or ip.is_loopback or ip.is_link_local
+        or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+        or (ip.version == 6 and getattr(ip, "ipv4_mapped", None) is not None
+            and _ip_is_blocked(ip.ipv4_mapped)))
+
+
+def validate_url_for_fetch(url: str):
+    """Anti-SSRF strict. Retourne (ok: bool, raison: str, ips: list[str]).
+
+    Refuse : schéma ≠ http/https, identifiants intégrés (user:pass@), hôte absent,
+    IP privée/loopback/link-local/réservée/multicast/unspecified, 169.254.169.254
+    (link-local → métadonnées cloud), ::1, ainsi que les hôtes qui NE résolvent
+    pas. Toutes les adresses résolues doivent être publiques.
+    """
     try:
         u = urlparse(url)
-        if u.scheme not in ("http", "https") or not u.hostname:
-            return False
-        for fam, _, _, _, sa in socket.getaddrinfo(u.hostname, None):
-            ip = ipaddress.ip_address(sa[0])
-            if (ip.is_private or ip.is_loopback or ip.is_link_local
-                    or ip.is_reserved or ip.is_multicast):
-                return False
-        return True
     except Exception:
-        return False
+        return False, "URL illisible", []
+    if u.scheme not in ("http", "https"):
+        return False, "schéma non autorisé", []
+    if u.username or u.password or "@" in (u.netloc or ""):
+        return False, "identifiants intégrés interdits", []
+    host = u.hostname
+    if not host:
+        return False, "hôte absent", []
+    try:
+        infos = socket.getaddrinfo(host, u.port or (443 if u.scheme == "https" else 80),
+                                   proto=socket.IPPROTO_TCP)
+    except Exception:
+        return False, "résolution DNS impossible", []
+    ips = []
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False, "adresse invalide", []
+        if _ip_is_blocked(ip):
+            return False, f"adresse interne/réservée refusée ({ip})", []
+        ips.append(str(ip))
+    if not ips:
+        return False, "aucune adresse résolue", []
+    return True, "", ips
+
+
+def is_safe_public_url(url: str) -> bool:
+    """Anti-SSRF : http(s) uniquement + rejette IP privées/loopback/link-local."""
+    ok, _, _ = validate_url_for_fetch(url)
+    return ok
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
@@ -158,16 +194,50 @@ def search(query: str, max_results: int = 5) -> dict:
     return {"answer": answer, "results": results}
 
 
+MAX_PAGE_BYTES = 3_000_000       # limite de taille (anti-DoS)
+MAX_REDIRECTS = 3
+
+
 def read_page(url: str, max_chars: int = 4000) -> str:
-    """Récupère le texte lisible d'une page web (pour résumé par l'IA)."""
+    """Récupère le texte lisible d'une page web (pour résumé par l'IA).
+
+    Anti-SSRF : chaque saut (URL initiale ET chaque redirection) est revalidé
+    (schéma, hôte, IP publique) AVANT la requête ; les redirections sont suivies
+    manuellement et bornées. Empêche une URL publique de rediriger vers localhost.
+    Taille de réponse et timeout bornés.
+    """
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    if not is_safe_public_url(url):
-        return "⛔ URL refusée (adresse interne/privée ou schéma non autorisé)."
+    raw = ""
     try:
-        r = requests.get(url, headers=HEADERS, timeout=15, allow_redirects=False)
-        raw = r.text
+        for _hop in range(MAX_REDIRECTS + 1):
+            ok, reason, _ips = validate_url_for_fetch(url)
+            if not ok:
+                return f"⛔ URL refusée ({reason})."
+            r = requests.get(url, headers=HEADERS, timeout=15,
+                             allow_redirects=False, stream=True)
+            if r.is_redirect or r.status_code in (301, 302, 303, 307, 308):
+                nxt = r.headers.get("Location", "")
+                r.close()
+                if not nxt:
+                    return "(redirection sans cible)"
+                # Résout les redirections relatives par rapport à l'URL courante.
+                from urllib.parse import urljoin
+                url = urljoin(url, nxt)
+                continue
+            # Lecture bornée en taille.
+            chunks, total = [], 0
+            for chunk in r.iter_content(8192):
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= MAX_PAGE_BYTES:
+                    break
+            r.close()
+            raw = b"".join(chunks).decode(r.encoding or "utf-8", "replace")
+            break
+        else:
+            return "⛔ Trop de redirections."
     except Exception as e:
         return f"Impossible de charger la page : {e}"
     # Vire scripts/styles puis balises

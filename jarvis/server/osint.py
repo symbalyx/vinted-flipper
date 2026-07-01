@@ -81,11 +81,26 @@ def reverse_dns(ip: str) -> str:
 
 
 def resolve_domain(domain: str) -> list:
+    """Résout un domaine en n'exposant QUE des adresses publiques (anti-SSRF).
+
+    Un domaine qui résout vers une IP privée/loopback/réservée est ignoré (on ne
+    divulgue pas d'infrastructure interne et on n'ouvre aucune connexion vers elle).
+    """
     try:
         infos = socket.getaddrinfo(domain, None)
-        return sorted({i[4][0] for i in infos})
     except Exception:
         return []
+    out = set()
+    for info in infos:
+        addr = info[4][0]
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            continue
+        if not (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            out.add(addr)
+    return sorted(out)
 
 
 def whois_query(query: str, server: str = "whois.iana.org") -> str:

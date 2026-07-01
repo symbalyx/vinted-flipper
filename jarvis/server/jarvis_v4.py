@@ -1150,6 +1150,38 @@ def _require_auth():
     return jsonify({"error": "Authentification requise"}), 401
 
 
+_MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.before_request
+def _csrf_protect():
+    """Protection CSRF pour les requêtes mutatives authentifiées par cookie.
+
+    Politique : on vérifie `Origin` (sinon `Referer`) QUAND il est présent — un
+    navigateur envoie toujours `Origin` sur un POST cross-site, donc une origine
+    inconnue est refusée. Les clients non-navigateur (scripts, `X-JARVIS-Token`)
+    n'ont pas d'`Origin` ambiant et ne sont pas des vecteurs CSRF : ils passent.
+    Les jetons d'appareil/API suivent une politique distincte des sessions.
+    """
+    if not AUTH_ENABLED or request.method not in _MUTATING_METHODS:
+        return None
+    if request.path == "/api/health":
+        return None
+    # Client API par jeton (pas de cookie ambiant) → politique distincte.
+    if _const_eq(request.headers.get("X-JARVIS-Token", ""), API_TOKEN):
+        return None
+    from urllib.parse import urlparse
+    host = request.host  # inclut le port
+    origin = request.headers.get("Origin", "")
+    referer = request.headers.get("Referer", "")
+    source = origin or referer
+    if source and urlparse(source).netloc != host:
+        logger.warning("CSRF refusé: origine=%s host=%s path=%s",
+                       urlparse(source).netloc, host, request.path)
+        return jsonify({"error": "Origine non autorisée (CSRF)"}), 403
+    return None
+
+
 @app.route("/app")
 def webapp():
     """Sert l'app web unifiée (Chat + Maison + Sécurité + Système + Timeline)."""
@@ -1197,8 +1229,9 @@ def login():
     return render_template_string(LOGIN_HTML, error="")
 
 
-@app.route("/logout", methods=["POST", "GET"])
+@app.route("/logout", methods=["POST"])
 def logout():
+    # POST uniquement : une déconnexion est une mutation (pas de GET, anti-CSRF).
     session.clear()
     return redirect("/login")
 

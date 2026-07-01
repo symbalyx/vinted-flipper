@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import sqlite3
 import threading
 import time
@@ -148,9 +149,35 @@ class MissionStore:
                 "checkpoint_json": "TEXT NOT NULL DEFAULT '{}'",
                 "idempotency_key": "TEXT NOT NULL DEFAULT ''",
                 "error_kind": "TEXT NOT NULL DEFAULT ''",
+                # v5.7 incrément 2 — baux au niveau ÉTAPE (récupération worker mort)
+                "worker_id": "TEXT NOT NULL DEFAULT ''",
+                "lease_token": "TEXT NOT NULL DEFAULT ''",
+                "lease_acquired_at": "REAL NOT NULL DEFAULT 0",
+                "lease_expires_at": "REAL NOT NULL DEFAULT 0",
+                "attempt_started_at": "REAL NOT NULL DEFAULT 0",
+                "error_type": "TEXT NOT NULL DEFAULT ''",
             }
             for name, ddl in step_cols.items():
                 self._ensure_column(db, "mission_steps", name, ddl)
+            # v5.7 incrément 2 — réconciliation des reçus d'idempotence in_flight
+            receipt_cols = {
+                "operation_id": "TEXT NOT NULL DEFAULT ''",
+                "lease_owner": "TEXT NOT NULL DEFAULT ''",
+                "provider_reference": "TEXT NOT NULL DEFAULT ''",
+                "request_fingerprint": "TEXT NOT NULL DEFAULT ''",
+                "response_fingerprint": "TEXT NOT NULL DEFAULT ''",
+                "reconciliation_status": "TEXT NOT NULL DEFAULT ''",
+            }
+            for name, ddl in receipt_cols.items():
+                self._ensure_column(db, "mission_action_receipts", name, ddl)
+            # Table de version de schéma (migrations versionnées, additive).
+            db.execute("""CREATE TABLE IF NOT EXISTS schema_version (
+                id INTEGER PRIMARY KEY CHECK (id=1), version INTEGER NOT NULL, updated_at REAL)""")
+            db.execute("""INSERT INTO schema_version(id,version,updated_at) VALUES(1,?,?)
+                ON CONFLICT(id) DO UPDATE SET version=excluded.version, updated_at=excluded.updated_at""",
+                (57, time.time()))
+            db.execute("CREATE INDEX IF NOT EXISTS idx_steps_lease "
+                       "ON mission_steps(status,lease_expires_at)")
             # Reçus d'idempotence en deux phases (v5.7) : un reçu peut être
             # « in_flight » (effet en cours, écrit AVANT l'action) puis
             # « succeeded ». Les reçus v5.6 existants sont réputés « succeeded ».
@@ -294,18 +321,125 @@ class MissionStore:
                 db.execute("""UPDATE missions SET updated_at=?, last_progress_at=?, version=version+1
                               WHERE id=?""", (now, now, row["mission_id"]))
 
-    def claim_step(self, step_id: str) -> dict | None:
-        """Passe atomiquement une étape prête en RUNNING et incrémente son essai."""
+    def claim_step(self, step_id: str, worker_id: str = "",
+                   lease_seconds: float = 0) -> dict | None:
+        """Acquiert atomiquement une étape prête → RUNNING, avec un BAIL d'étape.
+
+        Deux workers ne peuvent jamais acquérir la même étape : le UPDATE
+        conditionnel exige que l'étape soit prête/en retry ET sans bail actif
+        (ou bail expiré). Un `lease_token` aléatoire est posé ; il devra être
+        présenté pour renouveler le bail ou enregistrer un résultat.
+        """
         now = time.time()
+        token = secrets.token_urlsafe(18)
+        expires = now + max(0.001, float(lease_seconds)) if lease_seconds else 0
         with self._lock, self._connect() as db:
-            cur = db.execute("""UPDATE mission_steps
-                              SET status='running', attempt=attempt+1, started_at=?, heartbeat_at=?
-                              WHERE id=? AND status IN ('pending','retry_wait') AND next_run_at<=?""",
-                             (now, now, step_id, now))
+            cur = db.execute(
+                """UPDATE mission_steps
+                   SET status='running', attempt=attempt+1, started_at=?, heartbeat_at=?,
+                       worker_id=?, lease_token=?, lease_acquired_at=?, lease_expires_at=?,
+                       attempt_started_at=?
+                   WHERE id=? AND status IN ('pending','ready','retry_wait','retry_scheduled')
+                     AND next_run_at<=?""",
+                (now, now, worker_id, token, now, expires, now, step_id, now))
             if cur.rowcount != 1:
                 return None
             row = db.execute("SELECT * FROM mission_steps WHERE id=?", (step_id,)).fetchone()
-        return self._step_dict(row)
+        step = self._step_dict(row)
+        if step is not None:
+            step["lease_token"] = token
+        return step
+
+    def renew_step_lease(self, step_id: str, worker_id: str, lease_token: str,
+                         lease_seconds: float) -> bool:
+        """Renouvelle le bail SEULEMENT pour le bon worker+token et une étape active."""
+        now = time.time()
+        with self._lock, self._connect() as db:
+            cur = db.execute(
+                """UPDATE mission_steps SET lease_expires_at=?, heartbeat_at=?
+                   WHERE id=? AND worker_id=? AND lease_token=? AND status IN ('running','leased')""",
+                (now + max(0.001, float(lease_seconds)), now, step_id, worker_id, lease_token))
+        return cur.rowcount == 1
+
+    def record_step_result(self, step_id: str, worker_id: str, lease_token: str,
+                           **fields) -> bool:
+        """Enregistre un résultat UNIQUEMENT si le worker détient encore le bail.
+
+        Empêche un ancien worker (bail expiré, étape reprise par un autre) d'écrire
+        un résultat périmé. Retourne False si le bail n'est plus valide.
+        """
+        allowed = {"status", "result", "error", "finished_at", "error_kind",
+                   "error_type", "checkpoint_json", "next_run_at", "failure_cycle"}
+        values = {k: v for k, v in fields.items() if k in allowed}
+        now = time.time()
+        with self._lock, self._connect() as db:
+            row = db.execute(
+                "SELECT worker_id,lease_token,mission_id FROM mission_steps WHERE id=?",
+                (step_id,)).fetchone()
+            if not row or row["worker_id"] != worker_id or row["lease_token"] != lease_token:
+                return False
+            if values:
+                sql = ", ".join(f"{k}=?" for k in values)
+                db.execute(f"UPDATE mission_steps SET {sql} WHERE id=?",
+                           (*values.values(), step_id))
+            # Libère le bail à la fin de l'exécution.
+            db.execute("UPDATE mission_steps SET lease_expires_at=0 WHERE id=?", (step_id,))
+            db.execute("""UPDATE missions SET updated_at=?, last_progress_at=?, version=version+1
+                          WHERE id=?""", (now, now, row["mission_id"]))
+        return True
+
+    def reap_expired_steps(self, next_run_delay: float = 30.0, event_cb=None) -> int:
+        """Récupère les étapes dont le worker est mort (bail expiré).
+
+        Idempotent : ne traite que les étapes LEASED/RUNNING dont
+        `lease_expires_at` est expiré (>0 et < now). Après reprise, `lease_expires_at`
+        est remis à 0, donc un second passage ne les retraite pas (compteur non
+        doublé). Le checkpoint est conservé ; l'interruption est classée temporaire.
+        """
+        now = time.time()
+        reaped = []
+        with self._lock, self._connect() as db:
+            rows = db.execute(
+                """SELECT id, mission_id, attempt FROM mission_steps
+                   WHERE status IN ('running','leased') AND lease_expires_at>0
+                     AND lease_expires_at<?""", (now,)).fetchall()
+            for row in rows:
+                db.execute(
+                    """UPDATE mission_steps
+                       SET status='retry_wait', error_kind='transient',
+                           error_type='TRANSIENT_WORKER_LOST',
+                           worker_id='', lease_token='', lease_expires_at=0,
+                           next_run_at=?, heartbeat_at=?
+                       WHERE id=?""",
+                    (now + max(0.0, float(next_run_delay)), now, row["id"]))
+                reaped.append(dict(row))
+            if reaped:
+                db.execute("PRAGMA optimize")
+        for row in reaped:
+            if event_cb:
+                try:
+                    event_cb(row["mission_id"], row["id"], row["attempt"])
+                except Exception:
+                    pass
+        return len(reaped)
+
+    def reconcile_stuck_receipts(self, max_in_flight_seconds: float = 900.0) -> int:
+        """Marque les reçus restés « in_flight » trop longtemps comme nécessitant
+        une réconciliation. NE réexécute JAMAIS l'action (anti double-effet)."""
+        cutoff = time.time() - max(0.0, float(max_in_flight_seconds))
+        with self._lock, self._connect() as db:
+            cur = db.execute(
+                """UPDATE mission_action_receipts
+                   SET reconciliation_status='RECONCILIATION_REQUIRED', updated_at=?
+                   WHERE status='in_flight' AND reconciliation_status=''
+                     AND COALESCE(updated_at, created_at) < ?""",
+                (time.time(), cutoff))
+        return cur.rowcount
+
+    def schema_version(self) -> int:
+        with self._lock, self._connect() as db:
+            row = db.execute("SELECT version FROM schema_version WHERE id=1").fetchone()
+        return int(row["version"]) if row else 0
 
     def claim_mission(self, mission_id: str, owner: str, lease_seconds: float = 30) -> bool:
         now = time.time()

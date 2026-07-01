@@ -1,3 +1,93 @@
+# CHANGELOG v5.7
+
+## Incrément 2 — baux d'étape, reaper, classification, backoff, réconciliation, CSRF, SSRF
+Base : incrément 1 (213 tests) → **236 tests** (`compileall` OK, `pytest` 236 passed).
+Aucun test historique cassé. Simulation de crash exécutée avec succès (voir §Validation).
+
+### Migrations SQLite (additives, données v5.6/v5.7-i1 préservées)
+- `mission_steps` : `worker_id`, `lease_token`, `lease_acquired_at`,
+  `lease_expires_at`, `attempt_started_at`, `error_type` + index
+  `idx_steps_lease(status,lease_expires_at)`.
+- `mission_action_receipts` : `operation_id`, `lease_owner`, `provider_reference`,
+  `request_fingerprint`, `response_fingerprint`, `reconciliation_status`.
+- Nouvelle table `schema_version` (version = **57**), migrations versionnées.
+
+### 1-3. Baux d'étape + heartbeat + reaper (`server/agency/store.py`, `orchestrator.py`)
+- `claim_step(step_id, worker_id, lease_seconds)` : acquisition **atomique**
+  (UPDATE conditionnel sur le statut) + pose d'un **lease_token aléatoire**. Deux
+  workers ne peuvent jamais acquérir la même étape.
+- `renew_step_lease(step_id, worker_id, lease_token, s)` : renouvellement réservé
+  au bon worker+token sur une étape encore active.
+- `record_step_result(step_id, worker_id, lease_token, …)` : un ancien worker dont
+  le bail a expiré (étape reprise) **ne peut plus écrire** de résultat périmé.
+- `reap_expired_steps(delay, event_cb)` : reprend les étapes LEASED/RUNNING dont le
+  bail est expiré → `retry_wait`, `TRANSIENT_WORKER_LOST`, checkpoint conservé,
+  bail invalidé, événement journalisé. **Idempotent** (compteur d'essais non doublé).
+- Reaper + réconciliation câblés dans le superviseur (`_reaper_tick`), cadence
+  `AGENCY_REAPER_INTERVAL_SECONDS`. Heartbeat renouvelle le bail d'étape.
+
+### 4. Classification des erreurs (`server/agency/errors.py`)
+- `TRANSIENT_*` (réseau, timeout, rate-limit, service indisponible, worker perdu),
+  `PERMANENT_*` (validation, permission, config, non supporté), `HUMAN_REQUIRED`,
+  `CANCELLED_BY_USER`. `classify_error(exc, text)`. Les temporaires se retentent ;
+  les permanentes bloquent/échouent ; un refus d'approbation → HUMAN_REQUIRED
+  (jamais retenté pour contourner l'utilisateur).
+
+### 5. Backoff + jitter (`server/agency/backoff.py`)
+- `next_delay = clamp(base·2^(n-1), base, max) ± jitter`, `Retry-After` respecté,
+  persistable (`next_run_at`). Variables `AGENCY_RETRY_*`.
+
+### 6. Réconciliation des reçus `in_flight`
+- `reconcile_stuck_receipts(max_in_flight_seconds)` : un reçu `in_flight` trop
+  ancien passe en `RECONCILIATION_REQUIRED` — **jamais** de réexécution automatique
+  (anti double-effet). Un in_flight bloque tout rejeu aveugle (fail-closed).
+
+### 7. CSRF (`server/jarvis_v4.py`)
+- `before_request` : sur méthode mutative, `Origin` (sinon `Referer`) est vérifié
+  **quand présent** → origine étrangère **refusée (403)** ; les clients sans Origin
+  (scripts, `X-JARVIS-Token`) passent (politique distincte). `/logout` **POST-only**.
+
+### 8. SSRF (`server/integrations/websearch.py`, `server/osint.py`)
+- `validate_url_for_fetch` : http/https seulement, refus des identifiants intégrés,
+  résolution DNS + **toutes** les IP doivent être publiques (privé/loopback/
+  link-local/réservé/multicast/unspecified/`::1`/169.254.169.254 bloqués).
+- `read_page` : redirections suivies **manuellement** et **revalidées** à chaque
+  saut (bloque une URL publique redirigeant vers localhost), bornées, taille et
+  timeout limités. `osint.resolve_domain` ne renvoie que des IP publiques.
+
+### Validation (résultats réels)
+```
+python -m compileall server tests   → OK (exit 0)
+pytest -q                            → 236 passed
+```
+Simulation de crash (scriptée, exécutée) : worker A acquiert l'étape, écrit un
+checkpoint et un reçu `in_flight`, « meurt » ; le bail expire ; le reaper reprend
+l'étape (checkpoint conservé, `TRANSIENT_WORKER_LOST`) ; worker B termine ;
+l'écriture de A est refusée ; **aucun e-mail renvoyé** (reçu in_flight bloquant).
+
+### Tests ajoutés
+- `tests/test_agency_step_leases.py` (12) — baux, reaper idempotent, classification,
+  backoff, réconciliation, version de schéma.
+- `tests/test_csrf_ssrf.py` (11) — Origin CSRF, logout POST-only, SSRF (localhost,
+  métadonnées, privé, IPv6, schéma, credentials, DNS→privé, redirection→localhost).
+
+### Fichiers modifiés (incrément 2)
+`server/agency/store.py`, `server/agency/orchestrator.py`,
+`server/agency/errors.py` (nouveau), `server/agency/backoff.py` (nouveau),
+`server/jarvis_v4.py`, `server/integrations/websearch.py`, `server/osint.py`,
+`.env.example`, `tests/test_agency_step_leases.py` (nouveau),
+`tests/test_csrf_ssrf.py` (nouveau), `CHANGELOG_V5.7.md`, `DURABLE_LEASES_GUIDE.md` (nouveau).
+
+### Restant pour les incréments suivants
+Routage de TOUTES les écritures de résultat via `record_step_result` (aujourd'hui
+le bail est appliqué au claim/heartbeat/reaper et `record_step_result` est
+disponible+testé ; le write terminal de l'orchestrateur passe encore par
+`update_step`). Puis : SSE/MJPEG bornés, scopes appareils imposés, liveness des
+missions bloquées, vérif indépendante artefacts/reçus, migrations versionnées
+étendues, sauvegarde/restauration testée.
+
+---
+
 # CHANGELOG v5.7 — Durabilité & sécurité (incrément 1)
 
 Base : v5.6 (207 tests). Après cet incrément : **213 tests** (`compileall` OK,

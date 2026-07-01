@@ -71,6 +71,11 @@ class MissionOrchestrator:
         self._worker_id = uuid.uuid4().hex[:12]
         self._lease_seconds = float(_env_int("AGENCY_LEASE_SECONDS", 30, 15, 3600))
         self._heartbeat_seconds = float(_env_int("AGENCY_HEARTBEAT_SECONDS", 5, 2, 120))
+        # Baux d'ÉTAPE + reaper des workers morts (incrément 2).
+        self._step_lease_seconds = float(_env_int("AGENCY_STEP_LEASE_SECONDS", 120, 20, 7200))
+        self._step_heartbeat_seconds = float(_env_int("AGENCY_STEP_HEARTBEAT_SECONDS", 20, 5, 600))
+        self._reaper_interval = float(_env_int("AGENCY_REAPER_INTERVAL_SECONDS", 30, 5, 600))
+        self._last_reap = 0.0
         self._lock = threading.RLock()
         self._shutdown = threading.Event()
         self._supervisor_interval = max(0.2, float(supervisor_interval))
@@ -243,12 +248,42 @@ class MissionOrchestrator:
         """Relance les missions persistées après crash ou tranche de temps."""
         while not self._shutdown.wait(self._supervisor_interval):
             try:
+                self._reaper_tick()
                 for mission in self.store.recoverable(limit=25):
                     if mission.get("metadata", {}).get("auto_run", True) is False:
                         continue
                     self.start(mission["id"])
             except Exception:
                 logger.exception("Le superviseur Agency a rencontré une erreur")
+
+    def _reaper_tick(self):
+        """Reprend les étapes dont le worker est mort (bail expiré) et réconcilie
+        les reçus in_flight bloqués. Cadencé par AGENCY_REAPER_INTERVAL_SECONDS."""
+        now = time.time()
+        if now - self._last_reap < self._reaper_interval:
+            return
+        self._last_reap = now
+        try:
+            from .backoff import next_delay
+            delay = next_delay(1)  # premier retry après reprise, borné + jitter
+        except Exception:
+            delay = 30.0
+
+        def _abandon(mission_id, step_id, attempt):
+            self._event(mission_id, "step_abandoned",
+                        f"Étape {step_id[:8]} reprise (worker mort, bail expiré) "
+                        f"— essai {attempt}, classée TRANSIENT_WORKER_LOST")
+
+        try:
+            reaped = self.store.reap_expired_steps(next_run_delay=delay, event_cb=_abandon)
+            if reaped:
+                logger.info("Reaper : %d étape(s) récupérée(s)", reaped)
+        except Exception:
+            logger.exception("Reaper d'étapes en échec")
+        try:
+            self.store.reconcile_stuck_receipts()
+        except Exception:
+            logger.exception("Réconciliation des reçus en échec")
 
     def _run(self, mission_id: str, cancel_flag: threading.Event):
         owner = f"{self._worker_id}:{mission_id[:12]}"
@@ -381,7 +416,12 @@ class MissionOrchestrator:
                         and all(dep in completed for dep in s.get("depends_on", []))
                     ]
                     for step in ready[:slots]:
-                        claimed = self.store.claim_step(step["id"])
+                        # Acquisition avec BAIL d'étape (worker_id + lease_token) :
+                        # deux workers ne peuvent pas prendre la même étape, et un
+                        # worker mort verra son bail expirer puis l'étape reprise.
+                        claimed = self.store.claim_step(
+                            step["id"], worker_id=self._lease_owners.get(mission_id, ""),
+                            lease_seconds=self._step_lease_seconds)
                         if not claimed:
                             continue
                         self._event(
@@ -623,12 +663,18 @@ class MissionOrchestrator:
     def _execute_step_with_heartbeat(self, mission_id: str, step: dict, all_steps: dict):
         stop = threading.Event()
 
+        owner = self._lease_owners.get(mission_id, "")
+        lease_token = step.get("lease_token", "")
+
         def beat():
-            while not stop.wait(self._heartbeat_seconds):
-                owner = self._lease_owners.get(mission_id, "")
+            while not stop.wait(min(self._heartbeat_seconds, self._step_heartbeat_seconds)):
                 if owner:
                     self.store.renew_mission_lease(
                         mission_id, owner, self._lease_seconds)
+                    # Renouvelle le BAIL d'étape tant que ce worker est vivant.
+                    if lease_token:
+                        self.store.renew_step_lease(
+                            step["id"], owner, lease_token, self._step_lease_seconds)
                 self.store.heartbeat_mission(mission_id)
                 self.store.heartbeat_step(step["id"])
 
