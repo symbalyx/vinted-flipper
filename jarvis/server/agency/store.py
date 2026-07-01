@@ -151,6 +151,12 @@ class MissionStore:
             }
             for name, ddl in step_cols.items():
                 self._ensure_column(db, "mission_steps", name, ddl)
+            # Reçus d'idempotence en deux phases (v5.7) : un reçu peut être
+            # « in_flight » (effet en cours, écrit AVANT l'action) puis
+            # « succeeded ». Les reçus v5.6 existants sont réputés « succeeded ».
+            self._ensure_column(db, "mission_action_receipts", "status",
+                                "TEXT NOT NULL DEFAULT 'succeeded'")
+            self._ensure_column(db, "mission_action_receipts", "updated_at", "REAL")
             db.execute("CREATE INDEX IF NOT EXISTS idx_missions_runnable ON missions(status,next_run_at)")
             db.execute("CREATE INDEX IF NOT EXISTS idx_steps_runnable ON mission_steps(mission_id,status,next_run_at)")
 
@@ -397,16 +403,50 @@ class MissionStore:
         return dict(row) if row else None
 
     def record_action_receipt(self, mission_id: str, step_id: str, action: str,
-                              params: dict, result: str):
+                              params: dict, result: str, status: str = "succeeded"):
         if not mission_id or not step_id:
             return None
         key, params_hash = self._receipt_parts(mission_id, step_id, action, params)
+        now = time.time()
         with self._lock, self._connect() as db:
             db.execute("""INSERT OR IGNORE INTO mission_action_receipts
-                (receipt_key,mission_id,step_id,action,params_hash,result,created_at)
-                VALUES (?,?,?,?,?,?,?)""",
-                (key, mission_id, step_id, action, params_hash, str(result)[:10000], time.time()))
+                (receipt_key,mission_id,step_id,action,params_hash,result,created_at,status,updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                (key, mission_id, step_id, action, params_hash,
+                 str(result)[:10000], now, status, now))
         return key
+
+    def begin_action_receipt(self, mission_id: str, step_id: str, action: str, params: dict):
+        """Phase 1 (AVANT l'effet) : pose un reçu « in_flight » de façon atomique.
+
+        Retourne (receipt_key, existing) où `existing` est le reçu déjà présent
+        (dict) si l'action a déjà été tentée/réussie, sinon None. Empêche le
+        double-envoi après un crash : sur rejeu, un reçu « in_flight » bloque la
+        ré-exécution (réconciliation requise) et « succeeded » réutilise le résultat.
+        """
+        if not mission_id or not step_id:
+            return None, None
+        key, params_hash = self._receipt_parts(mission_id, step_id, action, params)
+        now = time.time()
+        with self._lock, self._connect() as db:
+            row = db.execute("SELECT * FROM mission_action_receipts WHERE receipt_key=?",
+                             (key,)).fetchone()
+            if row:
+                return key, dict(row)
+            db.execute("""INSERT INTO mission_action_receipts
+                (receipt_key,mission_id,step_id,action,params_hash,result,created_at,status,updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                (key, mission_id, step_id, action, params_hash, "", now, "in_flight", now))
+        return key, None
+
+    def finalize_action_receipt(self, receipt_key: str, result: str, status: str = "succeeded"):
+        """Phase 2 (APRÈS l'effet) : marque le reçu « succeeded » (ou autre)."""
+        if not receipt_key:
+            return
+        with self._lock, self._connect() as db:
+            db.execute("""UPDATE mission_action_receipts
+                SET result=?, status=?, updated_at=? WHERE receipt_key=?""",
+                (str(result)[:10000], status, time.time(), receipt_key))
 
     def add_artifact(self, mission_id: str, kind: str, name: str, uri: str = "",
                      step_id: str = "", sha256: str = "", metadata: dict | None = None):

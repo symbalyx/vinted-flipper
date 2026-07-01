@@ -180,29 +180,46 @@ class GuardianService:
             "dwell": round(self.agg.dwell, 1), "confirmations": self.agg.consecutive,
         }
 
-    def _build_facts(self, obs, observation_valid: bool, meta: dict) -> Facts:
+    def _build_facts(self, obs, observation_valid: bool, meta: dict,
+                     trusted: bool = False) -> Facts:
+        """Construit les faits de décision.
+
+        SÉCURITÉ : les faits CRITIQUES (validation humaine, approbation
+        propriétaire, déclenchement manuel, franchissement de zone porte) ne
+        peuvent JAMAIS venir du `meta` fourni par le navigateur. Ils ne sont pris
+        en compte que si `trusted=True` (appel serveur interne, ex. trigger_siren
+        après approbation). Le chemin /api/guardian/analyze passe trusted=False :
+        le client ne peut donc pas forcer ALERT ni autoriser la sirène.
+        """
+        meta = meta or {}
         dwell = self.agg.dwell
         conf = self.agg.consecutive
         present = bool(obs and obs.person_count >= 1)
         loiter = dwell >= self.cfg.loiter_seconds
+
+        def t(key, default=False):
+            return bool(meta.get(key, default)) if trusted else default
+
         return Facts(
             observation_valid=observation_valid,
             person_present=present,
             dwell_seconds=dwell,
             confirmations=conf,
+            # Perception (issue de la vision, non du client) :
             door_contact=bool(obs and obs.door_contact),
-            door_zone_breached=bool(meta.get("door_zone_breached", False)),
             face_covered=bool(obs and obs.face_covered),
-            approaching_door=bool(meta.get("approaching_door", False)),
             repeated_return=self.agg.returns >= 2,
             behavior_confirmed=loiter and conf >= self.cfg.min_confirmations,
-            in_public_zone=bool(meta.get("in_public_zone", False)),
-            known_person=bool(meta.get("known_person", False)),
-            human_validated_intrusion=bool(meta.get("human_validated_intrusion", False)),
-            owner_approved_alert=bool(meta.get("owner_approved_alert", False)),
-            manual_trigger=bool(meta.get("manual_trigger", False)),
             alarm_armed=self.armed,
-            within_active_schedule=bool(meta.get("within_active_schedule", True)),
+            # Faits de décision / critiques : uniquement si trusted (serveur).
+            door_zone_breached=t("door_zone_breached"),
+            approaching_door=t("approaching_door"),
+            in_public_zone=t("in_public_zone"),
+            known_person=t("known_person"),
+            human_validated_intrusion=t("human_validated_intrusion"),
+            owner_approved_alert=t("owner_approved_alert"),
+            manual_trigger=t("manual_trigger"),
+            within_active_schedule=t("within_active_schedule", True) if trusted else True,
         )
 
     def _confirmed_facts(self):
@@ -246,11 +263,23 @@ class GuardianService:
 
     # ── Sirène : autorisation requise, jamais via LLM ──────────
     def trigger_siren(self, source: str = "manuel", approval_facts: dict = None) -> dict:
-        """Déclenche la sirène SEULEMENT si la politique l'autorise."""
-        facts = self._build_facts(None, True, approval_facts or {"manual_trigger": source == "manuel"})
+        """Déclenche la sirène SEULEMENT si la politique l'autorise.
+
+        `approval_facts` est TRUSTED (serveur) : c'est le seul chemin autorisé à
+        poser manual_trigger/owner_approved_alert. Le cooldown est réellement
+        appliqué (correctif : il était défini mais jamais vérifié)."""
+        now = time.time()
+        last = getattr(self, "_last_siren_at", 0.0)
+        if now - last < self.cfg.siren_cooldown:
+            wait = int(self.cfg.siren_cooldown - (now - last))
+            return {"ok": False, "message": f"Sirène en cooldown ({wait}s restantes)."}
+        facts = self._build_facts(
+            None, True, approval_facts or {"manual_trigger": source == "manuel"},
+            trusted=True)
         decision = self.policy.decide(State.ALERT, facts, self._confirmed_facts())
         if not decision.siren_allowed:
             return {"ok": False, "message": "Sirène non autorisée par la politique (fail-closed)."}
+        self._last_siren_at = now
         if self.store:
             self.store.add_event("siren", f"Sirène déclenchée ({source})", state=State.ALERT, level="alert")
         if self.siren:

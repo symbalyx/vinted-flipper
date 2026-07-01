@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -23,6 +24,16 @@ from .models import MissionStatus, StepStatus
 from .planner import plan_with_llm, ROLES
 
 logger = logging.getLogger("JARVIS.agency")
+
+
+def _env_int(name: str, default: int, lo: int, hi: int) -> int:
+    """Lit un entier borné depuis l'environnement (fail-safe sur défaut clampé)."""
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        value = default
+    return max(lo, min(value, hi))
+
 
 TERMINAL = {
     MissionStatus.COMPLETED.value,
@@ -45,15 +56,21 @@ class MissionOrchestrator:
         self.planner_callable = planner_callable
         self.approval_probe = approval_probe or (lambda _mid: [])
         self.event_log = event_log
-        self.default_max_agents = max(1, min(int(default_max_agents), 8))
-        self.default_step_attempts = max(1, min(int(default_step_attempts), 12))
+        # Limites configurables (spec v5.7 §6). Les valeurs par défaut préservent
+        # le comportement v5.6 ; les variables d'environnement permettent de les
+        # ajuster sans toucher au code.
+        self.default_max_agents = _env_int(
+            "AGENCY_MAX_CONCURRENT_AGENTS", int(default_max_agents), 1, 32)
+        self.default_step_attempts = _env_int(
+            "AGENCY_DEFAULT_MAX_ATTEMPTS", int(default_step_attempts), 1, 20)
         self.completion_validator = completion_validator
         self.memory_provider = memory_provider or (lambda _query: [])
         self._threads: dict[str, threading.Thread] = {}
         self._cancel: dict[str, threading.Event] = {}
         self._lease_owners: dict[str, str] = {}
         self._worker_id = uuid.uuid4().hex[:12]
-        self._lease_seconds = 30.0
+        self._lease_seconds = float(_env_int("AGENCY_LEASE_SECONDS", 30, 15, 3600))
+        self._heartbeat_seconds = float(_env_int("AGENCY_HEARTBEAT_SECONDS", 5, 2, 120))
         self._lock = threading.RLock()
         self._shutdown = threading.Event()
         self._supervisor_interval = max(0.2, float(supervisor_interval))
@@ -607,7 +624,7 @@ class MissionOrchestrator:
         stop = threading.Event()
 
         def beat():
-            while not stop.wait(5):
+            while not stop.wait(self._heartbeat_seconds):
                 owner = self._lease_owners.get(mission_id, "")
                 if owner:
                     self.store.renew_mission_lease(

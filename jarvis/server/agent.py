@@ -35,6 +35,8 @@ def _redact_tool_result(name, result):
         "prospection_envoyer_brouillon", "prospection_lister_prospects",
         "n8n_creer_workflow", "n8n_modifier_workflow",
         "lire_fichier", "presse_papier_lire",
+        # Secrets générés : ne jamais persister/diffuser (SSE/timeline/logs).
+        "mot_de_passe", "gen_password",
     }
     if name in private_results:
         return f"<résultat masqué:{len(text)} caractères>"
@@ -104,14 +106,24 @@ class ToolRegistry:
                 mission_id = appr.get("context_id", "") or mission_id
                 step_id = appr.get("step_id", "") or step_id
 
-        # Si une action externe identique a déjà réussi pour cette étape, on
-        # renvoie le reçu persistant au lieu de la rejouer après un crash.
-        if self.action_receipts is not None and mission_id and step_id:
+        tracked = self.action_receipts is not None and bool(mission_id) and bool(step_id)
+        # Action à effet externe (SENSIBLE/CRITIQUE) : idempotence à 2 phases.
+        external = tracked and self.perms is not None and self.perms.requires_approval(name)
+
+        # Reçu déjà présent ? On distingue « succeeded » (réutiliser) de
+        # « in_flight » (effet incertain après crash → NE PAS rejouer).
+        if tracked:
             receipt = self.action_receipts.get_action_receipt(
                 mission_id, step_id, name, args)
             if receipt:
+                status = receipt.get("status", "succeeded")
+                if status == "in_flight":
+                    if approval_token and self.perms is not None:
+                        self.perms.confirm(approval_token, name, args)  # consomme le jeton
+                    return ("⛔ Action « " + name + " » déjà tentée mais résultat NON "
+                            "confirmé (reçu in_flight après interruption). Rejeu bloqué "
+                            "pour éviter un double effet — vérification humaine requise.")
                 if approval_token and self.perms is not None:
-                    # Consomme le nouveau jeton exact, mais ne rejoue pas l'effet.
                     self.perms.confirm(approval_token, name, args)
                 return ((receipt.get("result") or "Action déjà exécutée") +
                         "\n[idempotence: résultat réutilisé, action non rejouée]")
@@ -127,15 +139,34 @@ class ToolRegistry:
                             f"d'approbation (id={req['approval_id'][:8]}…). "
                             "Confirme-la dans l'interface pour l'exécuter.")
                 return f"⛔ Action refusée : {info.get('message', 'non autorisée')}"
+
+        # Phase 1 : pour un effet externe, on pose le reçu « in_flight » AVANT
+        # d'exécuter, de façon atomique (empêche le double-envoi après crash).
+        receipt_key = None
+        if external:
+            receipt_key, existing = self.action_receipts.begin_action_receipt(
+                mission_id, step_id, name, args)
+            if existing:
+                if existing.get("status") == "in_flight":
+                    return ("⛔ Action « " + name + " » en cours/incertaine (in_flight) — "
+                            "rejeu bloqué, vérification humaine requise.")
+                return ((existing.get("result") or "Action déjà exécutée") +
+                        "\n[idempotence: résultat réutilisé, action non rejouée]")
         try:
             value = tool["handler"](**args)
             result = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
-            if self.action_receipts is not None and mission_id and step_id:
-                self.action_receipts.record_action_receipt(
-                    mission_id, step_id, name, args, result)
+            if external and receipt_key:
+                self.action_receipts.finalize_action_receipt(receipt_key, result, "succeeded")
+            elif tracked:
+                self.action_receipts.record_action_receipt(mission_id, step_id, name, args, result)
             return result
         except Exception as e:
             logger.warning(f"Outil {name} a échoué: {e}")
+            # Effet externe : on LAISSE le reçu « in_flight » (fail-closed) — un
+            # rejeu aveugle est bloqué tant qu'un humain n'a pas vérifié.
+            if external and receipt_key:
+                return (f"Erreur outil {name}: {e} "
+                        "[effet externe incertain — reçu conservé in_flight, rejeu bloqué]")
             return f"Erreur outil {name}: {e}"   # le LLM voit l'erreur et peut réagir
 
 
