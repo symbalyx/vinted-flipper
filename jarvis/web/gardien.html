@@ -8,12 +8,20 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'">
 <title>JARVIS — Mode Gardien</title>
 <style>
-:root{--bg:#06080e;--panel:rgba(255,255,255,.05);--border:rgba(255,255,255,.1);--fg:#ECEDEF;--muted:#9aa3b2;
- --accent:#38bdf8;--accent-glow:rgba(56,189,248,.25);--green:#22c55e;--red:#ef4444;--amber:#f59e0b;
- --font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--ease:cubic-bezier(.16,1,.3,1)}
+/* Palette adaptée d'OpenJarvis (Apache-2.0) — cyan/zinc, réinterprétée en CSS
+   natif, sans CDN ni police externe. Voir CREDITS.md / NOTICE. */
+:root{--bg:#0a0a0b;--bg-2:#121214;--panel:rgba(255,255,255,.045);--border:rgba(255,255,255,.09);
+ --border-subtle:rgba(255,255,255,.05);--fg:#ededef;--muted:#8d8d93;--muted-2:#5c5c63;
+ --accent:#22d3ee;--accent-hover:#67e8f9;--accent-glow:rgba(34,211,238,.3);--accent-subtle:rgba(34,211,238,.1);
+ --green:#3ddc97;--red:#ff6b6b;--amber:#f5a524;
+ --radius:1rem;--radius-md:.75rem;--radius-sm:.5rem;
+ --shadow-md:0 4px 14px -2px rgb(0 0 0/.5),0 0 0 1px rgba(79,209,255,.04);
+ --shadow-lg:0 18px 40px -12px rgb(0 0 0/.7),0 0 0 1px rgba(79,209,255,.06);
+ --font:'Chakra Petch','Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+ --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;--ease:cubic-bezier(.16,1,.3,1)}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:linear-gradient(180deg,#0c1018,#06080e);color:var(--fg);font-family:var(--font);min-height:100dvh;display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--border);background:rgba(8,12,20,.7);position:sticky;top:0;z-index:10}
+body{background:radial-gradient(1100px 500px at 70% -10%,rgba(34,211,238,.06),transparent),linear-gradient(180deg,#0c0c0e,#0a0a0b);color:var(--fg);font-family:var(--font);min-height:100dvh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--border);background:rgba(12,12,14,.72);backdrop-filter:blur(14px);position:sticky;top:0;z-index:10}
 .orb{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#9fe6ff,var(--accent) 45%,#1f6f9c);box-shadow:0 0 18px var(--accent-glow);animation:b 3s var(--ease) infinite}
 .orb.watch{background:radial-gradient(circle at 35% 30%,#ffd0d0,var(--red) 45%,#7a1414);box-shadow:0 0 24px rgba(239,68,68,.5)}
 @keyframes b{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
@@ -35,10 +43,11 @@ main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;m
 .subtitle{position:absolute;left:0;right:0;bottom:0;padding:22px 20px;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent);font-size:1.3rem;font-weight:600;line-height:1.35;min-height:80px;display:flex;align-items:flex-end}
 .camoff{color:var(--muted);text-align:center;padding:50px 20px}
 .side{display:flex;flex-direction:column;gap:14px}
-.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
-.card h3{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px}
-.bigbtn{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:.95rem;background:linear-gradient(180deg,#3fc4ff,#1f93cc);color:#001018}
-.bigbtn.stop{background:linear-gradient(180deg,#ff5a5a,#c62828);color:#fff}
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow-md)}
+.card h3{font-size:.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;font-family:var(--mono)}
+.bigbtn{width:100%;padding:14px;border-radius:var(--radius-md);border:1px solid transparent;cursor:pointer;font-family:var(--font);font-weight:700;font-size:.95rem;letter-spacing:.3px;background:linear-gradient(180deg,var(--accent-hover),var(--accent));color:#04222a;box-shadow:0 0 18px var(--accent-glow);transition:.18s}
+.bigbtn:hover{box-shadow:0 0 26px var(--accent-glow)}
+.bigbtn.stop{background:linear-gradient(180deg,#ff8a8a,var(--red));color:#2a0606;box-shadow:0 0 18px rgba(255,107,107,.35)}
 .controls{display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .ctl{display:flex;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--muted);gap:8px}
 .ctl select{background:#06080e;border:1px solid var(--border);color:var(--fg);padding:5px 8px;border-radius:8px;max-width:60%}

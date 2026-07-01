@@ -146,6 +146,18 @@ Priorité tenue : **sécurité → zéro faux déclenchement → intégration ba
 
 ---
 
+## 4bis. Réutilisation open-source (design + détecteur)
+- **Design de l'interface** : le langage visuel (palette cyan/zinc, rayons,
+  ombres, typographies HUD) est adapté d'**OpenJarvis** (Stanford, Apache-2.0)
+  et réinterprété en **CSS natif** dans `web/index.html` et `web/gardien.html`
+  — aucun code React/Tauri, aucune police/CDN externe (CSP intacte).
+- **Détecteur enfichable** (`server/security_mod/detectors.py`) : HOG par défaut
+  (install minimale) + backend **ONNX/YOLOv8** optionnel (`GUARDIAN_DETECTOR=onnx`,
+  `GUARDIAN_ONNX_MODEL`), à dégradation gracieuse — schéma inspiré du projet
+  **thevickypedia/Jarvis** (MIT). Le décodage YOLO est testé indépendamment d'un
+  modèle réel ; le chemin runtime ONNX reste optionnel (non testé en CI).
+- Attribution : voir `CREDITS.md` et `NOTICE`.
+
 ## 5. Résultats de tests (réels)
 Voir `TEST_RESULTS.md` (sortie exacte de `python -m compileall` et `pytest -q`).
 **111 tests passent** (48 historiques + 63 nouveaux). Aucun test historique cassé.

@@ -1,0 +1,19 @@
+JARVIS + Mode Gardien
+Ce produit inclut des éléments de design inspirés de logiciels développés par
+des tiers.
+
+------------------------------------------------------------------------------
+OpenJarvis (https://github.com/open-jarvis/OpenJarvis)
+Copyright the OpenJarvis authors (Stanford Scaling Intelligence).
+Licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Réutilisation : tokens/langage de design de l'interface (réinterprétés en CSS
+natif). Aucun code source React/Tauri d'OpenJarvis n'est distribué ici.
+------------------------------------------------------------------------------
+Jarvis (https://github.com/thevickypedia/Jarvis)
+Copyright (c) 2020 Vignesh Rao. Licensed under the MIT License.
+
+Réutilisation : schéma de conception (détecteur enfichable import-guardé),
+réimplémenté. Aucun code source copié verbatim.
+------------------------------------------------------------------------------

@@ -32,6 +32,7 @@ from security_mod.detector import (
     PersonDetector, FaceBank, BehaviorAnalyzer,
     THREAT_WEIGHTS, threat_level, HAS_FACE_RECOGNITION
 )
+from security_mod.detectors import get_person_detector
 from learning import LearningEngine
 from emergency import EmergencyDispatcher
 from event_log import EventLog
@@ -1013,7 +1014,9 @@ class SecuritySystem:
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
             history=500, varThreshold=self.cfg["motion_threshold"], detectShadows=False)
         # v4 : détecteurs avancés
-        self.person_detector = PersonDetector() if self.cfg.get("person_detection") else None
+        # Détecteur enfichable : HOG par défaut, ONNX moderne si GUARDIAN_DETECTOR=onnx
+        # + modèle fourni (dégradation gracieuse, cf. security_mod/detectors.py).
+        self.person_detector = get_person_detector() if self.cfg.get("person_detection") else None
         self.facebank = FaceBank()
         self.behavior = BehaviorAnalyzer()   # analyse comportementale (inspirée Veesion)
         self.stats = {"frames": 0, "intrusions": 0, "known_seen": 0, "behaviors": 0}
