@@ -1,0 +1,14 @@
+# JARVIS v5.2 — Conversation audio TEMPS RÉEL (optionnel, cloud)
+#   pip install -r requirements-realtime.txt
+#
+# Aucune dépendance pip supplémentaire n'est requise : les fournisseurs
+# OpenAI Realtime / Gemini Live sont appelés via `requests` (déjà dans le cœur)
+# et le WebRTC se fait dans le NAVIGATEUR. Le serveur ne délivre qu'un jeton de
+# session éphémère ; les clés (OPENAI_API_KEY / GEMINI_API_KEY) restent côté
+# serveur, jamais exposées au client.
+#
+# Variables d'environnement (voir .env.example) :
+#   GUARDIAN_REALTIME_PROVIDER=openai|gemini|none
+#   OPENAI_API_KEY=...            (jamais commitée, jamais servie au navigateur)
+#   OPENAI_REALTIME_MODEL=gpt-4o-realtime-preview
+#   GEMINI_API_KEY=...            (Gemini Live : squelette, non finalisé)

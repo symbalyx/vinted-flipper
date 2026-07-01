@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- Défense en profondeur : le serveur pose aussi ces en-têtes. Aucun script
+     externe n'est autorisé (l'ancien script tiers opaque a été supprimé). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'">
+<title>JARVIS — Mode Gardien</title>
+<style>
+:root{--bg:#06080e;--panel:rgba(255,255,255,.05);--border:rgba(255,255,255,.1);--fg:#ECEDEF;--muted:#9aa3b2;
+ --accent:#38bdf8;--accent-glow:rgba(56,189,248,.25);--green:#22c55e;--red:#ef4444;--amber:#f59e0b;
+ --font:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;--ease:cubic-bezier(.16,1,.3,1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:linear-gradient(180deg,#0c1018,#06080e);color:var(--fg);font-family:var(--font);min-height:100dvh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--border);background:rgba(8,12,20,.7);position:sticky;top:0;z-index:10}
+.orb{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#9fe6ff,var(--accent) 45%,#1f6f9c);box-shadow:0 0 18px var(--accent-glow);animation:b 3s var(--ease) infinite}
+.orb.watch{background:radial-gradient(circle at 35% 30%,#ffd0d0,var(--red) 45%,#7a1414);box-shadow:0 0 24px rgba(239,68,68,.5)}
+@keyframes b{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion: reduce){.orb,*{animation:none!important;transition:none!important}}
+.brand b{letter-spacing:4px;font-weight:700}
+.brand small{display:block;color:var(--muted);font-size:.64rem;letter-spacing:.5px}
+.hgrow{flex:1}
+.pill{font-size:.7rem;color:var(--muted);border:1px solid var(--border);background:var(--panel);padding:5px 11px;border-radius:999px}
+.pill.live{color:var(--red);border-color:var(--red)}
+.pill.off{color:var(--amber);border-color:var(--amber)}
+a.back{color:var(--muted);text-decoration:none;font-size:.8rem;border:1px solid var(--border);padding:6px 11px;border-radius:9px}
+main{flex:1;display:grid;grid-template-columns:1fr 360px;gap:16px;padding:16px;max-width:1280px;margin:0 auto;width:100%}
+@media(max-width:880px){main{grid-template-columns:1fr}}
+.stage{position:relative;border:1px solid var(--border);border-radius:18px;overflow:hidden;background:#000;min-height:300px;display:flex;align-items:center;justify-content:center}
+#vid{width:100%;display:block;transform:scaleX(-1)}
+.tag{position:absolute;top:12px;left:12px;display:flex;gap:7px;align-items:center;font-family:var(--mono);font-size:.66rem;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:999px;color:var(--green)}
+.tag .rec{width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 1.3s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.subtitle{position:absolute;left:0;right:0;bottom:0;padding:22px 20px;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent);font-size:1.3rem;font-weight:600;line-height:1.35;min-height:80px;display:flex;align-items:flex-end}
+.camoff{color:var(--muted);text-align:center;padding:50px 20px}
+.side{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px}
+.card h3{font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px}
+.bigbtn{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;font-family:var(--font);font-weight:700;font-size:.95rem;background:linear-gradient(180deg,#3fc4ff,#1f93cc);color:#001018}
+.bigbtn.stop{background:linear-gradient(180deg,#ff5a5a,#c62828);color:#fff}
+.controls{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.ctl{display:flex;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--muted);gap:8px}
+.ctl select{background:#06080e;border:1px solid var(--border);color:var(--fg);padding:5px 8px;border-radius:8px;max-width:60%}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1;padding:7px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:.74rem}
+.seg button.on{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+.log{flex:1;overflow-y:auto;max-height:38vh;display:flex;flex-direction:column;gap:8px}
+.line{font-size:.82rem;padding:8px 11px;border-radius:10px;line-height:1.45}
+.line.jarvis{background:rgba(56,189,248,.1);border:1px solid var(--accent-glow);color:#dff4ff}
+.line.sys{background:var(--panel);border:1px solid var(--border);color:var(--muted)}
+.line .who{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;opacity:.7;display:block;margin-bottom:2px}
+.btn{padding:10px 14px;border-radius:9px;border:1px solid var(--border);background:var(--panel);color:var(--fg);cursor:pointer;font-family:var(--font)}
+.disc{font-size:.7rem;color:var(--muted);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:9px 11px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f1320;border:1px solid var(--accent);padding:9px 16px;border-radius:999px;font-size:.8rem;opacity:0;transition:.3s;z-index:80;pointer-events:none}
+.meter{display:flex;gap:4px;margin-top:4px}
+.meter i{flex:1;height:7px;border-radius:3px;background:var(--border)}
+.meter i.l1{background:var(--green)}.meter i.l2{background:var(--amber)}.meter i.l3{background:var(--red)}
+.siren-btn{width:100%;margin-top:10px;padding:11px;border-radius:11px;border:1px solid rgba(239,68,68,.5);background:rgba(239,68,68,.12);color:var(--red);font-weight:700;cursor:pointer}
+.siren-btn.on{background:var(--red);color:#fff}
+.killbtn{width:100%;margin-top:8px;padding:12px;border-radius:11px;border:1px solid var(--border);background:#1a1d28;color:#fff;font-weight:700;cursor:pointer}
+#flash{position:fixed;inset:0;background:var(--red);opacity:0;pointer-events:none;z-index:90}
+#flash.on{animation:fl .5s steps(1) infinite}@keyframes fl{0%,100%{opacity:0}50%{opacity:.5}}
+@media (prefers-reduced-motion: reduce){#flash.on{animation:none;opacity:.4}}
+</style>
+</head>
+<body>
+<header>
+  <div class="orb" id="orb"></div>
+  <div class="brand"><b>JARVIS</b><small>MODE GARDIEN</small></div>
+  <div class="hgrow"></div>
+  <span class="pill" id="net-pill">hors ligne</span>
+  <span class="pill" id="status-pill">arrêté</span>
+  <a class="back" href="/app">← App</a>
+</header>
+
+<main>
+  <div class="stage">
+    <video id="vid" autoplay muted playsinline style="display:none"></video>
+    <div class="tag" id="tag" style="display:none"><span class="rec"></span>SURVEILLANCE</div>
+    <div class="subtitle" id="subtitle" style="display:none"></div>
+    <div class="camoff" id="camoff">
+      <p style="margin-top:12px">Caméra éteinte. Le serveur JARVIS gère l'analyse
+      (aucune clé n'est saisie ici). Démarre le Gardien pour commencer.</p>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <button class="bigbtn" id="go">▶ Démarrer le Gardien</button>
+      <div class="controls">
+        <div class="ctl"><span>Caméra</span><select id="cam-select"></select></div>
+        <div class="ctl"><span>Cadence d'analyse</span>
+          <div class="seg" id="cadence">
+            <button data-v="6">6 s</button>
+            <button data-v="8" class="on">8 s</button>
+            <button data-v="12">12 s</button>
+          </div></div>
+        <div class="ctl"><span>Voix haute (TTS)</span><input id="tts" type="checkbox" checked></div>
+        <div class="ctl"><span>Garder l'écran allumé</span><input id="wake" type="checkbox" checked></div>
+        <div class="ctl"><span>Escalade auto (sirène)</span><input id="escalate" type="checkbox"></div>
+        <div><div class="ctl"><span>Niveau (état serveur)</span><span id="state-label" style="color:var(--muted);font-family:var(--mono);font-size:.7rem">IDLE</span></div>
+          <div class="meter" id="meter"><i></i><i></i><i></i></div></div>
+        <button class="siren-btn" id="siren-btn">🚨 Déclencher la sirène</button>
+        <button class="killbtn" id="kill-btn">■ Coupure immédiate (caméra · micro · audio)</button>
+      </div>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">🔔 Le son sort sur <b>cet appareil</b> — place-le à l'entrée (vieux tél/tablette = la sonnette). Décisions et sirène sont validées <b>côté serveur</b>.</div>
+    </div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <h3>Journal</h3>
+      <div class="log" id="log"></div>
+    </div>
+    <div class="disc">⚖️ Dissuasion sur <b>ta</b> propriété. JARVIS ne se fait jamais passer pour la police et n'invente aucune action. Préviens que tu enregistres (lois audio variables selon les pays).</div>
+  </div>
+</main>
+
+<canvas id="cv" style="display:none"></canvas>
+<div id="flash"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+// ────────────────────────────────────────────────────────────────────────
+//  RÈGLE DE SÉCURITÉ : ce script ne contient AUCUNE clé d'API. Il ne parle
+//  qu'à l'API JARVIS authentifiée (même origine, cookie de session). Toutes
+//  les réponses du serveur (phrases, états, métadonnées) sont traitées comme
+//  NON FIABLES et injectées via textContent / nœuds DOM — jamais innerHTML.
+// ────────────────────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const MAX_IMG_BYTES = 1500000;          // limite de taille d'image envoyée
+const REQ_TIMEOUT = 20000;              // AbortController
+const MIN_REQ_INTERVAL = 3000;          // anti-flood client
+
+let running = false, stream = null, loopT = null, busy = false;
+let cadence = 8000, online = false, lastReq = 0, wakeLock = null;
+let recon = null;                       // timer de reconnexion contrôlée
+
+// ── Appel API authentifié avec timeout (AbortController) ──
+async function api(path, opts) {
+  opts = opts || {};
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), REQ_TIMEOUT);
+  opts.signal = ctrl.signal;
+  opts.credentials = "include";
+  opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
+  try {
+    return await fetch(path, opts);
+  } finally {
+    clearTimeout(to);
+  }
+}
+
+function toast(m) {
+  const t = $("toast"); t.textContent = m; t.style.opacity = 1;
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.opacity = 0, 2400);
+}
+
+// ── Journal : création explicite de nœuds DOM (anti-XSS) ──
+function addLine(kind, who, text) {
+  const box = $("log");
+  const d = document.createElement("div");
+  d.className = "line " + (kind === "jarvis" ? "jarvis" : "sys");
+  const w = document.createElement("span");
+  w.className = "who";
+  w.textContent = who;                  // textContent : jamais interprété en HTML
+  const p = document.createElement("div");
+  p.textContent = text;                 // contenu non fiable → texte pur
+  d.appendChild(w); d.appendChild(p);
+  box.appendChild(d);
+  while (box.children.length > 60) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(text, live) {
+  const p = $("status-pill"); p.textContent = text;
+  p.className = "pill" + (live ? " live" : "");
+}
+function setNet(ok) {
+  online = ok;
+  const p = $("net-pill");
+  p.textContent = ok ? "en ligne" : "hors ligne";
+  p.className = "pill" + (ok ? "" : " off");
+}
+function setMeter(state) {
+  $("state-label").textContent = state || "IDLE";
+  let lvl = 0;
+  if (state === "ENGAGING") lvl = 1;
+  else if (state === "WARNING") lvl = 2;
+  else if (state === "ALERT") lvl = 3;
+  document.querySelectorAll("#meter i").forEach((el, i) => {
+    el.className = (i < lvl) ? ("l" + lvl) : "";
+  });
+}
+
+// ── Connectivité + reconnexion contrôlée ──
+async function ping() {
+  try {
+    const r = await api("/api/guardian/status");
+    if (r.ok) { setNet(true); return true; }
+  } catch (e) {}
+  setNet(false);
+  return false;
+}
+function scheduleReconnect() {
+  if (recon) return;
+  let delay = 2000;
+  const tick = async () => {
+    const ok = await ping();
+    if (ok) { clearTimeout(recon); recon = null; toast("Reconnecté ✓"); return; }
+    delay = Math.min(delay * 1.6, 30000);   // backoff borné
+    recon = setTimeout(tick, delay);
+  };
+  recon = setTimeout(tick, delay);
+}
+
+// ── Caméra ──
+async function listCameras() {
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const sel = $("cam-select"); sel.textContent = "";
+    devs.filter(d => d.kind === "videoinput").forEach((d, i) => {
+      const o = document.createElement("option");
+      o.value = d.deviceId;
+      o.textContent = d.label || ("Caméra " + (i + 1));  // textContent
+      sel.appendChild(o);
+    });
+  } catch (e) {}
+}
+
+async function startCamera() {
+  const sel = $("cam-select").value;
+  const constraints = {
+    video: sel ? { deviceId: { exact: sel } } : { facingMode: "environment" },
+    audio: false                          // audio désactivé par défaut (vie privée)
+  };
+  stream = await navigator.mediaDevices.getUserMedia(constraints);
+  const v = $("vid");
+  v.srcObject = stream;
+  v.style.display = "block";
+  $("camoff").style.display = "none";
+  $("tag").style.display = "flex";
+  $("subtitle").style.display = "flex";
+  await listCameras();
+}
+
+// ── Capture d'une frame bornée en taille ──
+function grabFrame() {
+  const v = $("vid"), c = $("cv");
+  const w = v.videoWidth || 640, h = v.videoHeight || 480;
+  c.width = 480; c.height = Math.round(480 * h / w);
+  const ctx = c.getContext("2d");
+  ctx.drawImage(v, 0, 0, c.width, c.height);
+  let q = 0.5, url = c.toDataURL("image/jpeg", q);
+  // Réduit la qualité si l'image dépasse la limite.
+  while (url.length * 0.75 > MAX_IMG_BYTES && q > 0.2) {
+    q -= 0.1; url = c.toDataURL("image/jpeg", q);
+  }
+  return (url.length * 0.75 > MAX_IMG_BYTES) ? null : url;
+}
+
+// ── Boucle d'analyse (serveur décide tout) ──
+async function analyzeOnce() {
+  if (busy || !running) return;
+  const now = Date.now();
+  if (now - lastReq < MIN_REQ_INTERVAL) return;   // rate-limit client
+  lastReq = now;
+  busy = true;
+  $("orb").classList.add("watch");
+  try {
+    const img = grabFrame();
+    if (!img) { busy = false; return; }
+    const r = await api("/api/guardian/analyze", {
+      method: "POST",
+      body: JSON.stringify({ image: img, meta: { escalate: $("escalate").checked } })
+    });
+    if (!r.ok) {
+      if (r.status === 401) { setNet(false); toast("Session expirée — reconnecte-toi."); }
+      else if (r.status === 429) toast("Trop de requêtes (serveur).");
+      busy = false; return;
+    }
+    setNet(true);
+    const d = await r.json();
+    if (!d || !d.ok) { busy = false; return; }
+    setMeter(d.state);
+    if (d.phrase) {
+      $("subtitle").textContent = d.phrase;        // textContent
+      addLine("jarvis", "JARVIS", d.phrase);
+      speak(d.phrase);
+    } else if (d.state === "IDLE" || d.state === "OBSERVING") {
+      $("subtitle").textContent = "Zone surveillée.";
+    }
+    // La sirène n'est JAMAIS déclenchée par une phrase : seulement si le serveur
+    // l'autorise ET que l'escalade auto est cochée par l'utilisateur.
+    if (d.decision && d.decision.siren_allowed && $("escalate").checked) {
+      startSiren("auto");
+    }
+  } catch (e) {
+    if (e.name === "AbortError") toast("Délai dépassé.");
+    setNet(false); scheduleReconnect();
+  } finally {
+    busy = false;
+  }
+}
+
+// ── Synthèse vocale (locale, navigateur) ──
+function speak(text) {
+  if (!$("tts").checked || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "fr-FR"; u.rate = 1.02; u.pitch = 0.95;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// ── Sirène : un SEUL AudioContext, cooldown + durée max, arrêt accessible ──
+let audioCtx = null, sirenNodes = null, sirenStopT = null, sirenCooldownUntil = 0, sirenOn = false;
+const SIREN_MAX_MS = 30000, SIREN_COOLDOWN_MS = 60000;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function startSiren(source) {
+  if (sirenOn) return;
+  if (Date.now() < sirenCooldownUntil) { toast("Sirène en cooldown."); return; }
+  const ctx = getAudioCtx();
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = "sawtooth"; o.connect(g); g.connect(ctx.destination);
+  g.gain.value = 0.0001;
+  const t0 = ctx.currentTime;
+  g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.05);
+  // Balayage continu géré par un LFO simple (réutilise les mêmes nœuds).
+  const lfo = ctx.createOscillator(), lfoGain = ctx.createGain();
+  lfo.frequency.value = 2; lfoGain.gain.value = 300; o.frequency.value = 800;
+  lfo.connect(lfoGain); lfoGain.connect(o.frequency);
+  o.start(); lfo.start();
+  sirenNodes = { o, g, lfo, lfoGain };
+  sirenOn = true;
+  $("siren-btn").classList.add("on");
+  $("siren-btn").textContent = "⏹ Couper la sirène";
+  flash(true);
+  if (source) addLine("sys", "Système", "Sirène déclenchée (" + source + ").");
+  sirenStopT = setTimeout(() => stopSiren(true), SIREN_MAX_MS);   // durée max
+}
+function stopSiren(byTimer) {
+  if (!sirenOn) return;
+  sirenOn = false;
+  if (sirenStopT) { clearTimeout(sirenStopT); sirenStopT = null; }
+  if (sirenNodes) {
+    try { sirenNodes.o.stop(); sirenNodes.lfo.stop(); } catch (e) {}
+    try { sirenNodes.o.disconnect(); sirenNodes.g.disconnect();
+          sirenNodes.lfo.disconnect(); sirenNodes.lfoGain.disconnect(); } catch (e) {}
+    sirenNodes = null;
+  }
+  sirenCooldownUntil = Date.now() + SIREN_COOLDOWN_MS;
+  $("siren-btn").classList.remove("on");
+  $("siren-btn").textContent = "🚨 Déclencher la sirène";
+  flash(false);
+}
+function toggleSiren() {
+  if (sirenOn) { stopSiren(false); return; }
+  // Déclenchement MANUEL : autorisé par la politique serveur.
+  api("/api/guardian/siren", { method: "POST", body: JSON.stringify({ action: "start" }) })
+    .then(r => r.json()).then(d => {
+      if (d && d.ok) startSiren("manuel");
+      else toast((d && d.message) || "Sirène refusée.");
+    }).catch(() => startSiren("manuel-local"));
+}
+function flash(on) {
+  const f = $("flash");
+  // Flash OFF par défaut : on respecte prefers-reduced-motion ; on n'active le
+  // clignotement que si l'utilisateur a coché l'escalade.
+  if (on && $("escalate").checked) f.classList.add("on");
+  else f.classList.remove("on");
+}
+
+// ── Wake lock (garder l'écran allumé sur tablette/téléphone) ──
+async function acquireWake() {
+  if (!$("wake").checked || !("wakeLock" in navigator)) return;
+  try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+}
+function releaseWake() { try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null; }
+
+// ── Démarrage / arrêt ──
+async function start() {
+  if (!(await ping())) { toast("Serveur JARVIS injoignable."); scheduleReconnect(); return; }
+  try {
+    await startCamera();
+  } catch (e) {
+    toast("Caméra refusée : " + e.name); return;
+  }
+  await api("/api/guardian/enable", { method: "POST", body: JSON.stringify({ on: true }) }).catch(() => {});
+  running = true;
+  $("orb").classList.add("watch");
+  setStatus("EN GARDE", true);
+  $("go").textContent = "■ Arrêter le Gardien";
+  $("go").classList.add("stop");
+  acquireWake();
+  loopT = setInterval(analyzeOnce, cadence);
+  analyzeOnce();
+  addLine("sys", "Système", "Gardien démarré. Analyse toutes les " + (cadence / 1000) + " s.");
+}
+function stop() {
+  running = false;
+  if (loopT) { clearInterval(loopT); loopT = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }   // arrêt réel caméra/micro
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  stopSiren(false);
+  releaseWake();
+  api("/api/guardian/enable", { method: "POST", body: JSON.stringify({ on: false }) }).catch(() => {});
+  const v = $("vid"); v.srcObject = null; v.style.display = "none";
+  $("camoff").style.display = "block";
+  $("tag").style.display = "none"; $("subtitle").style.display = "none";
+  $("orb").classList.remove("watch");
+  setStatus("arrêté", false);
+  setMeter("IDLE");
+  $("go").textContent = "▶ Démarrer le Gardien";
+  $("go").classList.remove("stop");
+}
+// Coupure immédiate, totale et idempotente.
+function killAll() {
+  stop();
+  if (audioCtx) { try { audioCtx.close(); } catch (e) {} audioCtx = null; }
+  toast("Coupure immédiate effectuée.");
+  addLine("sys", "Système", "Coupure immédiate : caméra, micro et audio arrêtés.");
+}
+
+// ── Câblage des contrôles (aucun onclick inline = compatible CSP stricte) ──
+$("go").addEventListener("click", () => running ? stop() : start());
+$("siren-btn").addEventListener("click", toggleSiren);
+$("kill-btn").addEventListener("click", killAll);
+document.querySelectorAll("#cadence button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#cadence button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  cadence = parseInt(b.dataset.v, 10) * 1000;
+  if (running) { clearInterval(loopT); loopT = setInterval(analyzeOnce, cadence); }
+}));
+$("cam-select").addEventListener("change", async () => {
+  if (running) { if (stream) stream.getTracks().forEach(t => t.stop()); await startCamera(); }
+});
+// Libère caméra/audio si l'onglet est fermé/masqué longtemps.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && running) acquireWake();
+});
+window.addEventListener("pagehide", killAll);
+window.addEventListener("beforeunload", () => { if (stream) stream.getTracks().forEach(t => t.stop()); });
+
+// ── Init ──
+ping();
+setInterval(() => { if (!running) ping(); }, 15000);
+</script>
+</body>
+</html>

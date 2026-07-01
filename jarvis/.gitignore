@@ -1,0 +1,29 @@
+# Secrets & config locale
+.env
+config/apple_credentials.json
+
+# Données personnelles / générées (JAMAIS dans Git)
+memory/*.json
+memory/*.jsonl
+memory/*.db
+memory/*.db-wal
+memory/*.db-shm
+logs/*.log
+
+# 🛡️ Gardien : base SQLite + snapshots + visages (aucune image réelle dans Git)
+security/
+guardian_snaps/
+**/guardian.db*
+known_faces/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Captures écran runtime
+pc/
+screenshots/

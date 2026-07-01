@@ -1,0 +1,24 @@
+# JARVIS v5.2 — Dépendances OBLIGATOIRES (cœur)
+#   pip install -r requirements_v4.txt
+#
+# ⚠️ opencv : on installe UNIQUEMENT opencv-contrib-python (qui contient cv2.face
+# ET tout opencv-python). NE JAMAIS installer opencv-python en plus : les deux
+# ensemble provoquent des conflits de symboles. (Bug corrigé vs v4.)
+#
+# Dépendances optionnelles : voir requirements-optional.txt et
+# requirements-realtime.txt.
+
+flask>=3.0.0,<4
+flask-cors>=4.0.0
+requests>=2.32.0
+numpy>=1.26.0,<3
+Pillow>=10.3.0
+
+# Vision/caméra + reconnaissance faciale (contrib = surensemble d'opencv-python)
+opencv-contrib-python>=4.10.0
+
+# Validation stricte des sorties de vision (Gardien)
+pydantic>=2.6.0
+
+# Infos système
+psutil>=6.0.0

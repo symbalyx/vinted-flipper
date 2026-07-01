@@ -1,0 +1,29 @@
+# JARVIS v5.2 — Dépendances OPTIONNELLES (dégradation gracieuse si absentes)
+#   pip install -r requirements-optional.txt
+
+# ── Serveurs de production (recommandé, cf. INSTALL_*.md) ──
+waitress>=3.0.0        # Windows
+gunicorn>=22.0.0       # Linux
+
+# ── HTTPS auto-signé pour tests (JARVIS_HTTPS=adhoc) ──
+cryptography>=42.0.0
+
+# ── Notifications bureau ──
+plyer>=2.1.0
+
+# ── Apple : HomePod (AirPlay) + Apple TV ──
+pyatv>=0.14.5
+gtts>=2.5.0
+
+# ── Contrôle PC avancé ──
+mss>=9.0.0
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+# (Linux : 'playerctl' pour le média, 'brightnessctl' pour la luminosité)
+# (Windows volume : pycaw>=20240210 + comtypes>=1.4.0)
+
+# ── Tests (dev) ──
+pytest>=8.0.0
+
+# ── 👁️ Vision réelle LOCALE : aucune dépendance pip. Utilise Ollama :
+#   ollama pull llava   (ou llama3.2-vision / qwen2.5-vl)

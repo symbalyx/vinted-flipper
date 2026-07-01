@@ -1,5 +1,15 @@
 # Vinted Flipper 🔄
 
+> 🛡️ **Projet JARVIS + Mode Gardien** : ce dépôt héberge aussi le projet
+> JARVIS (assistant local + sécurité domestique) dans le dossier [`jarvis/`](jarvis/).
+> Audit, intégration du Mode Gardien, sécurité et tests :
+> voir [`jarvis/CHANGELOG_GUARDIAN.md`](jarvis/CHANGELOG_GUARDIAN.md),
+> [`jarvis/SECURITY.md`](jarvis/SECURITY.md) et
+> [`jarvis/TEST_RESULTS.md`](jarvis/TEST_RESULTS.md).
+
+---
+
+
 **Analyseur achat/revente Vinted** — détecte les arnaques, calcule les marges, génère des annonces pro, suit tes performances.
 
 ```

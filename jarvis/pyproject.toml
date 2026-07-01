@@ -1,0 +1,33 @@
+[project]
+name = "jarvis-guardian"
+version = "5.2.0"
+description = "JARVIS — assistant local + système de sécurité domestique (mode Gardien)"
+readme = "README_v4.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "flask>=3.0.0,<4",
+    "flask-cors>=4.0.0",
+    "requests>=2.32.0",
+    "numpy>=1.26.0,<3",
+    "Pillow>=10.3.0",
+    "opencv-contrib-python>=4.10.0",
+    "pydantic>=2.6.0",
+    "psutil>=6.0.0",
+]
+
+[project.optional-dependencies]
+prod = ["waitress>=3.0.0", "gunicorn>=22.0.0", "cryptography>=42.0.0"]
+apple = ["pyatv>=0.14.5", "gtts>=2.5.0"]
+pc = ["mss>=9.0.0", "pyautogui>=0.9.54", "pyperclip>=1.8.2"]
+desktop = ["plyer>=2.1.0"]
+dev = ["pytest>=8.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
