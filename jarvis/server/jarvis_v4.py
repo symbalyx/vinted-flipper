@@ -18,7 +18,7 @@ import numpy as np
 import requests
 import flask
 from flask import (Flask, request, jsonify, Response, render_template_string,
-                   session, redirect)
+                   session, redirect, send_from_directory)
 from flask_cors import CORS
 
 # ── Intégrations maison (dégradation gracieuse si modules absents) ──
@@ -1824,6 +1824,34 @@ def web_read():
     if not url:
         return jsonify({"error": "Paramètre url requis"}), 400
     return jsonify({"url": url, "text": websearch.read_page(url)})
+
+
+# ── 🛰️ OSINT d'INFRASTRUCTURE (IP / domaine / hachage — jamais de personnes) ──
+_OSINT_HITS = []
+
+
+@app.route("/api/osint/lookup")
+def osint_lookup():
+    import osint
+    q = request.args.get("q", "").strip()[:253]
+    if not q:
+        return jsonify({"ok": False, "error": "Paramètre q requis"}), 400
+    # Rate-limit simple (10/min) : l'OSINT fait des appels réseau.
+    now = time.time()
+    _OSINT_HITS[:] = [t for t in _OSINT_HITS if now - t < 60]
+    if len(_OSINT_HITS) >= 10:
+        return jsonify({"ok": False, "error": "Trop de requêtes OSINT"}), 429
+    _OSINT_HITS.append(now)
+    res = osint.lookup(q)
+    event_log.add("osint", f"Lookup {res.get('type','?')} : {q}", meta={"type": res.get("type")})
+    return jsonify(res)
+
+
+# ── Ressources statiques auto-hébergées (fond de carte GeoJSON, etc.) ──
+@app.route("/assets/<path:fn>")
+def web_assets(fn):
+    assets = Path(__file__).resolve().parent.parent / "web" / "assets"
+    return send_from_directory(assets, fn, max_age=86400)
 
 
 @app.route("/api/notify/test", methods=["POST"])

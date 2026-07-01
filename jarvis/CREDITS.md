@@ -31,6 +31,12 @@ leurs auteurs. Les licences respectives sont reproduites ci-dessous par renvoi.
   **création originale** (SVG/CSS/canvas), inspirée de l'esthétique HUD Iron Man,
   écrite sans dépendance ni CDN.
 
+## Natural Earth — fond de carte (domaine public)
+- Source : Natural Earth (`ne_110m_admin_0_countries`, échelle 1:110m).
+- Statut : **domaine public** (aucune restriction). Simplifié (coordonnées
+  arrondies) et vendu localement dans `web/assets/world.geojson` pour la carte du
+  JARVIS OS — **aucune tuile ni CDN externe** (100% auto-hébergé).
+
 ---
 Le reste du projet JARVIS (v4/v5) provient de l'archive fournie par le
 propriétaire du dépôt. Le mode Gardien et les durcissements de sécurité sont

@@ -274,32 +274,86 @@ function decide(id,ok,cb){const path=ok?"/api/approvals/confirm":"/api/approvals
   api(path,{method:"POST",body:JSON.stringify({approval_id:id})}).then(r=>r.json()).then(d=>{
     toast(ok?(d.ok?"✅ Exécuté":"⛔ "+(d.message||"refusé")):"Refusé");cb&&cb();}).catch(()=>toast("Erreur"));}
 
-// ── Module Carte / Globe 3D (canvas wireframe original, sans dépendance) ──
-function modGlobe(body){
-  const cv=document.createElement("canvas");cv.width=400;cv.height=320;cv.style.width="100%";
-  body.appendChild(cv);const hint=document.createElement("div");hint.className="hint";
-  hint.textContent="Globe filaire (visuel). Carte géo réelle = module carto auto-hébergé (à venir).";
+// ── Module Carte / Globe : pays RÉELS (GeoJSON auto-hébergé), sans CDN ni tuile ──
+window.__geo=null; window.__mapPins=[]; window.__mapAutoRot=true;
+async function loadGeo(){if(window.__geo)return window.__geo;
+  try{const r=await api("/assets/world.geojson");window.__geo=await r.json();}catch(e){window.__geo={features:[]};}
+  return window.__geo;}
+function addMapPin(lat,lon,label){if(typeof lat!=="number"||typeof lon!=="number")return;
+  window.__mapPins.push({lat,lon,label:String(label||"")});openWindow("map","CARTE / GLOBE",modMap);}
+function modMap(body){
+  const cv=document.createElement("canvas");cv.width=420;cv.height=340;cv.style.width="100%";cv.style.cursor="grab";
+  body.appendChild(cv);
+  const bar=document.createElement("div");bar.className="row";bar.style.marginTop="8px";
+  const rotBtn=document.createElement("button");rotBtn.className="btn";rotBtn.textContent="⏸ Rotation";
+  rotBtn.onclick=()=>{window.__mapAutoRot=!window.__mapAutoRot;rotBtn.textContent=(window.__mapAutoRot?"⏸":"▶")+" Rotation";};
+  const clr=document.createElement("button");clr.className="btn";clr.textContent="Effacer points";
+  clr.onclick=()=>{window.__mapPins=[];};
+  bar.appendChild(rotBtn);bar.appendChild(clr);body.appendChild(bar);
+  const hint=document.createElement("div");hint.className="hint";
+  hint.textContent="Globe orthographique — pays réels (Natural Earth, domaine public). Points = géoloc OSINT.";
   body.appendChild(hint);
-  const ctx=cv.getContext("2d");let rot=0,alive=true;
-  const R=120,cx=200,cy=160;
-  const draw=()=>{if(!alive||!document.body.contains(cv))return;
-    ctx.clearRect(0,0,400,320);ctx.strokeStyle="rgba(34,211,238,.5)";ctx.lineWidth=1;
-    // méridiens
-    for(let m=0;m<12;m++){const a=m*Math.PI/6+rot;ctx.beginPath();
-      for(let p=-90;p<=90;p+=6){const la=p*Math.PI/180;
-        const x3=Math.cos(la)*Math.sin(a),z3=Math.cos(la)*Math.cos(a),y3=Math.sin(la);
-        const sx=cx+R*x3,sy=cy-R*y3;const front=z3>=-0.02;
-        ctx.globalAlpha=front?0.8:0.15;p===-90?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);}
-      ctx.stroke();}
-    // parallèles
-    for(let p=-60;p<=60;p+=30){const la=p*Math.PI/180;ctx.beginPath();
-      for(let d=0;d<=360;d+=6){const a=d*Math.PI/180+rot;
-        const x3=Math.cos(la)*Math.sin(a),z3=Math.cos(la)*Math.cos(a),y3=Math.sin(la);
-        ctx.globalAlpha=z3>=-0.02?0.6:0.12;const sx=cx+R*x3,sy=cy-R*y3;d===0?ctx.moveTo(sx,sy):ctx.lineTo(sx,sy);}
-      ctx.stroke();}
-    ctx.globalAlpha=1;ctx.strokeStyle="rgba(103,232,249,.9)";ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.stroke();
-    rot+=0.006;requestAnimationFrame(draw);};
-  draw();
+  const ctx=cv.getContext("2d");const R=150,cx=210,cy=170;let lam=0,alive=true;
+  // glisser pour tourner
+  let drag=false,px=0;cv.addEventListener("mousedown",e=>{drag=true;px=e.clientX;window.__mapAutoRot=false;rotBtn.textContent="▶ Rotation";});
+  window.addEventListener("mouseup",()=>drag=false);
+  cv.addEventListener("mousemove",e=>{if(drag){lam+=(e.clientX-px)*0.6;px=e.clientX;}});
+  function project(lat,lon){const p=lat*Math.PI/180,l=(lon+lam)*Math.PI/180;
+    const cosc=Math.cos(p)*Math.cos(l);
+    return {x:cx+R*Math.cos(p)*Math.sin(l),y:cy-R*Math.sin(p),vis:cosc>=0};}
+  loadGeo().then(geo=>{
+    const draw=()=>{if(!alive||!document.body.contains(cv))return;
+      ctx.clearRect(0,0,cv.width,cv.height);
+      // océan
+      ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.fillStyle="rgba(8,30,42,.7)";ctx.fill();
+      ctx.strokeStyle="rgba(103,232,249,.8)";ctx.lineWidth=1.5;ctx.stroke();
+      ctx.lineWidth=0.7;ctx.strokeStyle="rgba(34,211,238,.55)";ctx.fillStyle="rgba(34,211,238,.10)";
+      (geo.features||[]).forEach(f=>{const g=f.geometry;if(!g)return;
+        const polys=g.type==="Polygon"?[g.coordinates]:g.type==="MultiPolygon"?g.coordinates:[];
+        polys.forEach(poly=>poly.forEach(ring=>{ctx.beginPath();let started=false,any=false;
+          for(const pt of ring){const pr=project(pt[1],pt[0]);
+            if(!pr.vis){started=false;continue;}any=true;
+            if(!started){ctx.moveTo(pr.x,pr.y);started=true;}else ctx.lineTo(pr.x,pr.y);}
+          if(any){ctx.fill();ctx.stroke();}}));});
+      // points OSINT
+      window.__mapPins.forEach(pin=>{const pr=project(pin.lat,pin.lon);if(!pr.vis)return;
+        ctx.beginPath();ctx.arc(pr.x,pr.y,4,0,2*Math.PI);ctx.fillStyle="#ff6b6b";ctx.fill();
+        ctx.strokeStyle="#fff";ctx.lineWidth=1;ctx.stroke();
+        if(pin.label){ctx.fillStyle="#eaffff";ctx.font="10px monospace";ctx.fillText(pin.label,pr.x+7,pr.y+3);}});
+      if(window.__mapAutoRot)lam+=0.25;requestAnimationFrame(draw);};
+    draw();
+  });
+}
+
+// ── Module OSINT d'infrastructure (IP / domaine / hachage — jamais de personnes) ──
+function modOsint(body){
+  const row=document.createElement("div");row.className="row";
+  const inp=document.createElement("input");inp.placeholder="IP, domaine ou hachage…";
+  const go=document.createElement("button");go.className="btn cy";go.textContent="Analyser";
+  const out=document.createElement("div");out.style.cssText="margin-top:8px;max-height:44vh;overflow:auto";
+  const note=document.createElement("div");note.className="hint";note.style.marginTop="6px";
+  note.textContent="OSINT d'infrastructure uniquement (jamais de recherche de personnes).";
+  row.appendChild(inp);row.appendChild(go);body.appendChild(row);body.appendChild(out);body.appendChild(note);
+  const kv=(k,v)=>{const d=document.createElement("div");d.className="kv";
+    const a=document.createElement("span");a.textContent=k;const b=document.createElement("span");b.style.color="var(--cyan)";
+    b.style.maxWidth="60%";b.style.textAlign="right";b.style.wordBreak="break-all";b.textContent=String(v);
+    d.appendChild(a);d.appendChild(b);return d;};
+  const run=async()=>{const q=inp.value.trim();if(!q)return;out.textContent="Analyse…";
+    try{const d=await(await api("/api/osint/lookup?q="+encodeURIComponent(q))).json();out.textContent="";
+      if(!d.ok){out.appendChild(kv("Résultat",d.error||"inconnu"));return;}
+      out.appendChild(kv("Type",d.type));
+      if(d.type==="ip"){out.appendChild(kv("IP",d.ip));out.appendChild(kv("Portée",d.global?"publique":"privée/réservée"));
+        if(d.reverse_dns)out.appendChild(kv("Reverse DNS",d.reverse_dns));
+        if(d.note)out.appendChild(kv("Note",d.note));
+        if(d.geo&&d.geo.lat!=null){out.appendChild(kv("Pays",d.geo.country||"?"));out.appendChild(kv("Org",d.geo.org||"?"));
+          const b=document.createElement("button");b.className="btn cy";b.style.marginTop="8px";b.textContent="📍 Localiser sur la carte";
+          b.onclick=()=>addMapPin(d.geo.lat,d.geo.lon,d.ip);out.appendChild(b);}
+        if(d.whois){const w=document.createElement("pre");w.style.cssText="margin-top:8px;white-space:pre-wrap;font-size:.68rem;color:var(--muted);max-height:22vh;overflow:auto";w.textContent=d.whois;out.appendChild(w);}}
+      else if(d.type==="domain"){(d.addresses||[]).forEach(a=>out.appendChild(kv("Adresse",a)));
+        if(d.whois){const w=document.createElement("pre");w.style.cssText="margin-top:8px;white-space:pre-wrap;font-size:.68rem;color:var(--muted);max-height:26vh;overflow:auto";w.textContent=d.whois;out.appendChild(w);}}
+      else if(d.type==="hash"){out.appendChild(kv("Algo",d.algo));out.appendChild(kv("Note",d.note||""));}}
+    catch(e){out.textContent="⚠️ OSINT indisponible.";}};
+  go.onclick=run;inp.addEventListener("keydown",e=>{if(e.key==="Enter")run();});inp.focus();
 }
 function modGuardian(body){
   const p=document.createElement("div");p.className="hint";p.style.textAlign="left";
@@ -312,7 +366,8 @@ function modGuardian(body){
 const MODULES=[
   {id:"chat",label:"Chat",icon:'<path d="M21 11.5a8.4 8.4 0 01-12 7.6L3 21l1.9-6A8.4 8.4 0 1121 11.5z"/>',build:modChat},
   {id:"web",label:"Web",icon:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/>',build:modWeb},
-  {id:"globe",label:"Globe 3D",icon:'<circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/>',build:modGlobe},
+  {id:"map",label:"Carte 3D",icon:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/>',build:modMap},
+  {id:"osint",label:"OSINT",icon:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',build:modOsint},
   {id:"guardian",label:"Gardien",icon:'<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',build:modGuardian},
   {id:"system",label:"Système",icon:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/>',build:modSystem},
   {id:"timeline",label:"Timeline",icon:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',build:modTimeline},

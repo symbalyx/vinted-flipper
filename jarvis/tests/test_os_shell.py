@@ -18,8 +18,9 @@ def test_os_page_served(client):
     assert "claude.ai" not in low and "sk-" not in html
     assert "googleapis" not in low and "cdn." not in low and "unpkg" not in low
     assert "content-security-policy" in low
-    # Modules attendus câblés sur l'API réelle
-    for ep in ("/api/chat", "/api/web/search", "/api/approvals", "/api/stream", "/api/timeline"):
+    # Modules attendus câblés sur l'API réelle (dont carte géo + OSINT)
+    for ep in ("/api/chat", "/api/web/search", "/api/approvals", "/api/stream",
+               "/api/timeline", "/api/osint/lookup", "/assets/world.geojson"):
         assert ep in html
 
 

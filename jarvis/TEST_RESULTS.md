@@ -18,9 +18,9 @@ Aucune erreur de compilation.
 ```
 ........................................................................ [ 57%]
 .....................................................                    [100%]
-128 passed in 1.38s
+142 passed in 1.91s
 ```
-(48 historiques + 63 Gardien + 6 détecteur + 8 approbations/UI + 3 OS = **128**.)
+(48 historiques + 63 Gardien + 6 détecteur + 8 approbations/UI + 3 OS + 14 OSINT = **142**.)
 
 ## Détail par fichier (collecte)
 ```

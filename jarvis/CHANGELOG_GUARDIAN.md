@@ -186,6 +186,19 @@ Priorité tenue : **sécurité → zéro faux déclenchement → intégration ba
 - ⚠️ Le projet `jarvis-OS` (AGPL-3.0) a servi d'**inspiration seulement** :
   aucune ligne copiée (voir `CREDITS.md`).
 
+## 4quinquies. Carte géo auto-hébergée + OSINT d'infrastructure
+- **Carte / Globe (module OS)** : globe **orthographique** avec les **pays réels**
+  (GeoJSON Natural Earth, domaine public, simplifié et **vendu localement** dans
+  `web/assets/world.geojson`). **Aucune tuile ni CDN externe** (offline, CSP
+  intacte). Rotation auto + glisser, points géolocalisés OSINT.
+- **OSINT d'INFRASTRUCTURE** (`server/osint.py`, endpoint `/api/osint/lookup`) :
+  IP / domaine / hachage uniquement. Classification (privé/public/réservé),
+  reverse DNS, résolution, WHOIS (port 43, sans clé), géoloc IP **optionnelle**
+  (`OSINT_GEO_URL`, désactivée par défaut). Rate-limit + journalisation.
+  ⚠️ **Jamais de ciblage de personnes** (pas de visage/nom/réseaux sociaux) —
+  refus par conception. Une IP privée ne déclenche aucun appel externe.
+- Route statique `/assets/<fichier>` (auto-hébergement du fond de carte).
+
 ## 5. Résultats de tests (réels)
 Voir `TEST_RESULTS.md` (sortie exacte de `python -m compileall` et `pytest -q`).
 **111 tests passent** (48 historiques + 63 nouveaux). Aucun test historique cassé.
