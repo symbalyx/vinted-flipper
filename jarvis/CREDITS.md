@@ -22,6 +22,15 @@ leurs auteurs. Les licences respectives sont reproduites ci-dessous par renvoi.
   à la manière de leur intégration `face_recognition` import-guardée).
   Aucune ligne copiée telle quelle ; il s'agit d'une réimplémentation propre.
 
+## jarvis-OS (AGPL-3.0) — INSPIRATION UNIQUEMENT, aucun code copié
+- Dépôt : projet « jarvis-OS » fourni par le propriétaire (licence **AGPL-3.0**).
+- ⚠️ L'AGPL-3.0 est un copyleft fort : copier son code imposerait l'AGPL à tout
+  le projet (incompatible avec nos bases MIT/Apache). Nous n'avons donc **repris
+  aucune ligne** de son code (ni `wakeup_setup/demo.html`, ni `WakeSequence.tsx`).
+- Le **cœur JARVIS animé** (`web/os.html`) et le shell multi-fenêtres sont une
+  **création originale** (SVG/CSS/canvas), inspirée de l'esthétique HUD Iron Man,
+  écrite sans dépendance ni CDN.
+
 ---
 Le reste du projet JARVIS (v4/v5) provient de l'archive fournie par le
 propriétaire du dépôt. Le mode Gardien et les durcissements de sécurité sont

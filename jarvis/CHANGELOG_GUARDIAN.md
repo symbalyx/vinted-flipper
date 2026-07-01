@@ -171,6 +171,21 @@ Priorité tenue : **sécurité → zéro faux déclenchement → intégration ba
   **flux temps réel SSE** (`/api/stream`) qui rafraîchit la cloche et la timeline.
   Tout en vanilla JS, `textContent` (anti-XSS), sans dépendance ni CDN.
 
+## 4quater. JARVIS OS — cœur animé + interfaces multiples + Docker
+- **`web/os.html`** (route `/os`) : shell « Iron Man » avec un **cœur JARVIS
+  animé original** (anneaux SVG rotatifs + réacteur + onde canvas) qui **s'anime
+  quand JARVIS parle** (état lié à la synthèse vocale + évènements SSE).
+- **Fenêtres de modules** déplaçables ouvrables à la demande (pas une seule
+  interface) : Chat, Recherche Web, **Globe 3D** (canvas filaire original),
+  Gardien, Système, Timeline, Approbations. Toutes branchées sur l'API réelle,
+  `textContent` anti-XSS, CSP stricte, **aucun CDN**.
+- **Micro** (dictée) et **bus SSE** : le cœur réagit aux évènements Gardien.
+- **Docker** (auto-hébergement) : `Dockerfile` + `docker-compose.yml` +
+  `.dockerignore`, Gunicorn, healthcheck, volumes de persistance (aucune donnée
+  perso dans l'image). En conteneur headless : `opencv-python-headless`.
+- ⚠️ Le projet `jarvis-OS` (AGPL-3.0) a servi d'**inspiration seulement** :
+  aucune ligne copiée (voir `CREDITS.md`).
+
 ## 5. Résultats de tests (réels)
 Voir `TEST_RESULTS.md` (sortie exacte de `python -m compileall` et `pytest -q`).
 **111 tests passent** (48 historiques + 63 nouveaux). Aucun test historique cassé.

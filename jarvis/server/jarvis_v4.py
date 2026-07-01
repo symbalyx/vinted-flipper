@@ -1341,6 +1341,15 @@ def webapp():
     return Response(web.read_text(encoding="utf-8"), mimetype="text/html")
 
 
+@app.route("/os")
+def os_shell():
+    """Shell « JARVIS OS » : cœur animé + fenêtres de modules (style Iron Man)."""
+    web = Path(__file__).resolve().parent.parent / "web" / "os.html"
+    if not web.exists():
+        return "Interface OS introuvable (web/os.html).", 404
+    return Response(web.read_text(encoding="utf-8"), mimetype="text/html")
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if not AUTH_ENABLED:
