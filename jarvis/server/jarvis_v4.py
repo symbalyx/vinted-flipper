@@ -1847,6 +1847,33 @@ def osint_lookup():
     return jsonify(res)
 
 
+# ── 📸 Géolocalisation d'une PHOTO (photo d'un lieu → point sur le globe) ──
+_GEO_HITS = []
+
+
+@app.route("/api/geo/locate-photo", methods=["POST"])
+def geo_locate_photo():
+    import geolocate
+    body = request.get_json(silent=True) or {}
+    image = body.get("image", "")
+    if not isinstance(image, str) or not image:
+        return jsonify({"ok": False, "error": "image manquante"}), 400
+    if int(len(image) * 3 / 4) > 4_000_000:                # limite de taille
+        return jsonify({"ok": False, "error": "Image trop volumineuse"}), 413
+    now = time.time()
+    _GEO_HITS[:] = [t for t in _GEO_HITS if now - t < 60]
+    if len(_GEO_HITS) >= 8:                                # rate-limit (appels modèle)
+        return jsonify({"ok": False, "error": "Trop de requêtes"}), 429
+    _GEO_HITS.append(now)
+    vp = getattr(globals().get("guardian_service", None), "vision", None)
+    res = geolocate.locate_photo(image, vp)
+    if res.get("ok"):
+        event_log.add("geo", f"Photo localisée : {res.get('place') or '?'} "
+                             f"(conf {res.get('confidence')})",
+                      meta={"country": res.get("country"), "source": res.get("source")})
+    return jsonify(res)
+
+
 # ── Ressources statiques auto-hébergées (fond de carte GeoJSON, etc.) ──
 @app.route("/assets/<path:fn>")
 def web_assets(fn):
