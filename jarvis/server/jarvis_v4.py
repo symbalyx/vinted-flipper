@@ -1605,9 +1605,43 @@ def conversation(cid):
     return jsonify(c)
 
 
+# ── Bornage des flux longs (SSE + MJPEG) contre l'épuisement de ressources ──
+try:
+    _STREAM_MAX = max(2, int(os.getenv("JARVIS_MAX_STREAMS", "24")))
+except (TypeError, ValueError):
+    _STREAM_MAX = 24
+_stream_count = {"n": 0}
+_stream_lock = threading.Lock()
+
+
+def _acquire_stream_slot() -> bool:
+    with _stream_lock:
+        if _stream_count["n"] >= _STREAM_MAX:
+            return False
+        _stream_count["n"] += 1
+        return True
+
+
+def _release_stream_slot():
+    with _stream_lock:
+        _stream_count["n"] = max(0, _stream_count["n"] - 1)
+
+
+def _bounded_stream(iterator):
+    """Enveloppe un générateur de flux et libère le slot à la fermeture."""
+    try:
+        for chunk in iterator:
+            yield chunk
+    finally:
+        _release_stream_slot()
+
+
 @app.route("/api/security/stream")
 def video_feed():
-    return Response(security.video_stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
+    if not _acquire_stream_slot():
+        return jsonify({"error": "Trop de flux simultanés"}), 429
+    return Response(_bounded_stream(security.video_stream()),
+                    mimetype="multipart/x-mixed-replace; boundary=frame")
 
 
 @app.route("/api/security/alerts")
@@ -1769,6 +1803,8 @@ def timeline():
 @app.route("/api/stream")
 def stream():
     """Bus temps réel (SSE) : pousse les évènements au dashboard."""
+    if not _acquire_stream_slot():
+        return jsonify({"error": "Trop de flux simultanés"}), 429
     q = queue.Queue(maxsize=100)
     def _push(ev):
         try:
@@ -1791,6 +1827,7 @@ def stream():
                 event_log.subscribers.remove(_push)
             except ValueError:
                 pass
+            _release_stream_slot()
     return Response(gen(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
