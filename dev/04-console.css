@@ -1,0 +1,233 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   La console — cinq potentiomètres, comme sur la planche « innovation
+   pédagogique ». Trois façons de régler un curseur, toutes réellement
+   actives : glisser le bouton, toucher un cran, ou les flèches du clavier.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.rack{margin-top:clamp(30px,4vw,52px);border:1px solid var(--forest-line-2);
+  border-radius:var(--r3);background:linear-gradient(176deg,#26503A,#1B3A28 68%);
+  box-shadow:0 40px 80px -60px rgba(0,0,0,.9),inset 0 1px 0 rgba(169,196,176,.16);
+  overflow:hidden}
+
+.rack-bar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);
+  padding:var(--s4) clamp(16px,2vw,26px);border-bottom:1px solid var(--forest-line)}
+.rack-brand{display:flex;align-items:center;gap:9px;margin-right:auto}
+.rack-brand .logo{width:20px;color:var(--gold-l)}
+.rack-brand span{font-family:'JetBrains Mono',monospace;font-size:.63rem;letter-spacing:.19em;
+  text-transform:uppercase;color:var(--on-forest-2)}
+.rack-reset{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:8px 14px;
+  border-radius:var(--rp);border:1px solid var(--forest-line-2);
+  font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--on-forest-2);
+  transition:border-color var(--dur) var(--ez),color var(--dur) var(--ez)}
+.rack-reset svg{width:13px;height:13px;stroke-width:2;flex:none}
+.rack-reset:hover{border-color:var(--on-forest-2);color:var(--white)}
+
+/* prémix — rangée de rappels de situation */
+.premix{display:flex;gap:var(--s2);overflow-x:auto;scrollbar-width:thin;
+  padding:var(--s4) clamp(16px,2vw,26px);border-bottom:1px solid var(--forest-line);
+  scroll-snap-type:x proximity}
+.premix::-webkit-scrollbar{height:3px}
+.premix::-webkit-scrollbar-thumb{background:var(--forest-line-2);border-radius:2px}
+.premix button{flex:none;scroll-snap-align:start;text-align:left;padding:9px 14px;
+  border-radius:var(--r2);border:1px solid var(--forest-line-2);min-height:var(--tap);
+  transition:border-color var(--dur) var(--ez),background var(--dur) var(--ez)}
+.premix button:hover{border-color:var(--on-forest-3);background:rgba(169,196,176,.1)}
+.premix button[aria-pressed="true"]{border-color:var(--gold-l);background:rgba(226,182,39,.14)}
+.premix b{display:block;font-family:'JetBrains Mono',monospace;font-size:.58rem;
+  letter-spacing:.15em;color:var(--gold-l);font-weight:600}
+.premix span{display:block;font-size:.8rem;font-weight:600;color:var(--white);white-space:nowrap;
+  margin-top:2px}
+
+.rack-hint{padding:var(--s4) clamp(16px,2vw,26px) 0;font-size:.82rem;line-height:1.54;
+  color:var(--on-forest-2);max-width:74ch}
+.rack-hint kbd{font-family:'JetBrains Mono',monospace;font-size:.72em;padding:2px 5px;
+  border-radius:3px;border:1px solid var(--forest-line-2);color:var(--white)}
+
+.rack-body{display:grid;gap:clamp(20px,2.6vw,32px);padding:clamp(16px,2vw,26px)}
+@media (min-width:1000px){
+  /* pupitre à gauche, fiche à droite — proportions inégales assumées */
+  .rack-body{grid-template-columns:minmax(0,7fr) minmax(0,5fr);align-items:start}
+}
+
+/* ── un module = un curseur ───────────────────────────────────────────────── */
+.mods{display:grid;gap:var(--s3)}
+@media (min-width:660px){.mods{grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(4px,.7vw,10px)}}
+
+.mod{--c:var(--r);--cl:var(--r-l);
+  display:grid;padding:var(--s3);border-radius:var(--r2);
+  border:1px solid var(--forest-line);background:rgba(0,0,0,.16);
+  transition:border-color var(--dur) var(--ez);
+  /* En colonne étroite : bouton à gauche, identité et lecture à droite,
+     diodes en pleine largeur dessous. Module compact, tout reste au pouce. */
+  grid-template-columns:auto minmax(0,1fr);
+  grid-template-areas:"knob id" "knob out" "leds leds";
+  align-items:center;column-gap:var(--s4);row-gap:var(--s2)}
+.mod>.knob{grid-area:knob}
+.mod>.mod-id{grid-area:id;align-self:end}
+.mod>.mod-out{grid-area:out;align-self:start}
+.mod>.leds{grid-area:leds}
+.mod.live{border-color:var(--cl)}
+@media (min-width:660px){
+  /* En pupitre : la disposition physique de la planche — diodes au-dessus,
+     bouton en dessous. `align-content:start` empêche les rangées de s'étirer,
+     les cinq boutons restent alignés même si un libellé passe sur deux lignes. */
+  .mod{grid-template-columns:minmax(0,1fr);grid-template-areas:none;
+    justify-items:center;align-content:start;gap:var(--s3);padding:var(--s4) var(--s2)}
+  .mod>.knob,.mod>.mod-id,.mod>.mod-out,.mod>.leds{grid-area:auto}
+}
+
+.mod-id{display:flex;align-items:baseline;gap:8px}
+@media (min-width:660px){.mod-id{flex-direction:column;align-items:center;gap:3px;order:-1}}
+.mod-id b{font-size:1.24rem;font-weight:900;line-height:1;letter-spacing:-.04em;color:var(--cl)}
+.mod-id span{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--on-forest-3);white-space:nowrap}
+
+/* diodes — cinq crans, cliquables, cible tactile généreuse */
+.leds{display:flex;flex-direction:column-reverse;gap:1px}
+@media (max-width:659px){.leds{flex-direction:row;gap:2px;margin-top:var(--s2)}}
+.led{display:grid;place-items:center;width:32px;height:31px;border-radius:4px}
+@media (max-width:659px){.led{width:auto;flex:1;height:34px}}
+.led i{display:block;width:9px;height:9px;border-radius:50%;
+  border:1.6px solid var(--forest-line-2);background:transparent;
+  transition:background var(--dur) var(--ez),border-color var(--dur) var(--ez)}
+.led:hover i{border-color:var(--cl)}
+.led.on i{background:var(--cl);border-color:var(--cl);box-shadow:0 0 7px -1px var(--cl)}
+
+/* bouton rotatif */
+.knob{position:relative;width:clamp(62px,7.4vw,84px);aspect-ratio:1;border-radius:50%;
+  touch-action:none;cursor:grab;display:grid;place-items:center;
+  background:
+    radial-gradient(circle at 50% 34%,#FCFBF7 0%,#DCD8CE 42%,#A9A49A 74%,#CFCAC0 100%);
+  border:3.5px solid var(--cl);
+  box-shadow:0 6px 16px -8px rgba(0,0,0,.85),inset 0 1px 2px rgba(255,255,255,.9),
+    inset 0 -3px 7px rgba(0,0,0,.28);
+  transition:box-shadow var(--dur) var(--ez),border-color var(--dur) var(--ez)}
+.knob:hover{box-shadow:0 8px 20px -8px rgba(0,0,0,.9),inset 0 1px 2px rgba(255,255,255,.9),
+  inset 0 -3px 7px rgba(0,0,0,.28),0 0 0 5px rgba(255,255,255,.07)}
+.knob.grabbing{cursor:grabbing}
+/* stries du plateau — texture de vrai potentiomètre */
+.knob::before{content:"";position:absolute;inset:11%;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,
+    rgba(255,255,255,.5) 0deg 1.6deg,rgba(120,116,108,.16) 1.6deg 3.2deg);
+  opacity:.55;pointer-events:none}
+/* index du bouton : la position réellement lue.
+   `place-self:stretch` est indispensable — le `place-items:center` du bouton
+   ferait sinon rétrécir ces enfants absolus au lieu de les étirer. */
+.knob-ix{position:absolute;inset:0;place-self:stretch;pointer-events:none;
+  transition:transform .16s var(--ez)}
+@media (prefers-reduced-motion:reduce){.knob-ix{transition:none}}
+/* aiguille en variante foncée : elle doit trancher sur le plateau argenté */
+.knob-ix::after{content:"";position:absolute;left:50%;top:8%;width:3px;height:34%;
+  margin-left:-1.5px;border-radius:2px;background:var(--ct);
+  box-shadow:0 0 0 .5px rgba(0,0,0,.22)}
+/* graduations autour du bouton */
+.knob-ticks{position:absolute;inset:-15%;place-self:stretch;pointer-events:none;
+  color:var(--forest-line-2)}
+.knob:focus-visible{outline:2.5px solid var(--gold-l);outline-offset:5px}
+
+.mod-out{text-align:left;min-width:0}
+@media (min-width:660px){.mod-out{text-align:center;order:4;min-height:4.1em}}
+.mod-out b{display:block;font-family:'JetBrains Mono',monospace;font-size:.72rem;
+  font-weight:700;color:var(--cl);letter-spacing:.04em}
+.mod-out span{display:block;font-size:.76rem;font-weight:600;line-height:1.26;color:var(--white);
+  margin-top:2px}
+
+/* ── lecture du mix ───────────────────────────────────────────────────────── */
+.mix{margin-top:var(--s4);border:1px solid var(--forest-line);border-radius:var(--r2);
+  overflow:hidden}
+.mix-codes{display:flex;flex-wrap:wrap;gap:5px;padding:var(--s3)}
+.mix-codes b{font-family:'JetBrains Mono',monospace;font-size:.66rem;font-weight:700;
+  padding:4px 9px;border-radius:var(--rp)}
+.mix-read{display:flex;gap:10px;align-items:flex-start;padding:var(--s3);
+  border-top:1px solid var(--forest-line);font-size:.85rem;line-height:1.5}
+.mix-read i{width:7px;height:7px;border-radius:50%;flex:none;margin-top:6px}
+.mix-read .lbl{display:block;font-family:'JetBrains Mono',monospace;font-size:.56rem;
+  letter-spacing:.17em;text-transform:uppercase;margin-bottom:3px}
+.mix-read.calm{color:var(--on-forest-2)}
+.mix-read.calm i{background:var(--on-forest-3)}
+.mix-read.calm .lbl{color:var(--on-forest-3)}
+.mix-read.watch{background:rgba(226,182,39,.1);color:#F4E4AE}
+.mix-read.watch i{background:var(--gold-l)}
+.mix-read.watch .lbl{color:var(--gold-l)}
+.mix-share{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;
+  padding:var(--s3);border-top:1px solid var(--forest-line)}
+.mix-share .sig{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.14em;
+  color:var(--on-forest-3);margin-right:auto}
+.mix-share button{display:inline-flex;align-items:center;gap:7px;min-height:36px;
+  padding:7px 13px;border-radius:var(--rp);border:1px solid var(--forest-line-2);
+  font-size:.76rem;font-weight:600;color:var(--on-forest-2);
+  transition:border-color var(--dur) var(--ez),color var(--dur) var(--ez)}
+.mix-share button svg{width:13px;height:13px;stroke-width:2;flex:none}
+.mix-share button:hover{border-color:var(--on-forest-2);color:var(--white)}
+
+/* ── la fiche de niveau ───────────────────────────────────────────────────── */
+.fiche{--c:var(--r);--ct:var(--r-t);
+  border:1px solid var(--forest-line-2);border-radius:var(--r2);background:var(--paper);
+  color:var(--ink);overflow:hidden;display:flex;flex-direction:column}
+.fiche-top{padding:var(--s5) clamp(15px,1.8vw,21px);background:var(--ct);color:#fff}
+.fiche-eye{display:flex;flex-wrap:wrap;gap:4px var(--s4);justify-content:space-between;
+  font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.15em;
+  text-transform:uppercase;color:rgba(255,255,255,.82)}
+.fiche-code{margin-top:var(--s4);font-family:'JetBrains Mono',monospace;font-size:1.32rem;
+  font-weight:700;line-height:1;color:rgba(255,255,255,.9)}
+.fiche-title{margin-top:5px;font-size:clamp(1.24rem,2.1vw,1.6rem);font-weight:800;
+  letter-spacing:-.032em;line-height:1.08;color:#fff}
+.fiche-line{margin-top:var(--s3);font-size:.93rem;line-height:1.48;font-style:italic;
+  color:rgba(255,255,255,.94)}
+.fiche-steps{display:flex;flex-wrap:wrap;gap:4px;padding:var(--s3) clamp(15px,1.8vw,21px);
+  background:var(--paper-2);border-bottom:1px solid var(--line)}
+.fiche-steps button{min-width:38px;min-height:34px;padding:5px 10px;border-radius:var(--rp);
+  border:1px solid var(--line-2);font-family:'JetBrains Mono',monospace;font-size:.66rem;
+  font-weight:700;color:var(--muted);
+  transition:border-color var(--dur) var(--ez),background var(--dur) var(--ez),
+    color var(--dur) var(--ez)}
+.fiche-steps button:hover{border-color:var(--ct);color:var(--ct)}
+.fiche-steps button[aria-pressed="true"]{background:var(--ct);border-color:var(--ct);color:#fff}
+.fiche-body{padding:var(--s5) clamp(15px,1.8vw,21px);display:grid;gap:var(--s5);flex:1;
+  align-content:start}
+.fiche-blk h4{font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:500;
+  letter-spacing:.17em;text-transform:uppercase;color:var(--muted);margin-bottom:var(--s3);
+  padding-bottom:6px;border-bottom:1px solid var(--line)}
+.fiche-blk ul{list-style:none;display:grid;gap:7px}
+.fiche-blk li{font-size:.88rem;line-height:1.46;padding-left:15px;position:relative;
+  color:var(--ink-2)}
+.fiche-blk li::before{content:"›";position:absolute;left:0;top:-1px;color:var(--ct);font-weight:700}
+.fiche-blk.say li{font-style:italic;padding-left:17px}
+.fiche-blk.say li::before{content:"«";top:0}
+.fiche-intent{padding:var(--s4);border-left:3px solid var(--ct);background:var(--paper-2)}
+.fiche-intent .lbl{display:block;font-family:'JetBrains Mono',monospace;font-size:.56rem;
+  letter-spacing:.17em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.fiche-intent b{font-size:1rem;font-weight:700;letter-spacing:-.02em}
+.fiche-q{font-size:.9rem;line-height:1.56;color:var(--ink-2);max-width:46ch}
+.fiche-q b{color:var(--ink)}
+
+/* La fiche est une surface claire posée dans une bande vert profond : on
+   annule ici les règles `.on-forest` qui, sinon, y peindraient du blanc. */
+.fiche h2,.fiche h3,.fiche h4,.fiche strong{color:inherit}
+.fiche .fiche-title{color:#fff}
+.fiche .btn-ghost{color:var(--ink);border-color:var(--line-2)}
+.fiche .btn-ghost:hover{color:var(--ink);border-color:var(--ink);background:var(--paper-3)}
+
+/* volet réservé — le contenu opérationnel n'est pas publié */
+.locked{border:1px dashed var(--line-2);border-radius:var(--r2);padding:var(--s5);
+  background:repeating-linear-gradient(-52deg,transparent 0 9px,rgba(142,23,16,.035) 9px 18px)}
+.locked-h{display:flex;align-items:center;gap:9px;margin-bottom:var(--s3)}
+.locked-h svg{width:15px;height:15px;flex:none;color:var(--brick);stroke-width:2}
+.locked-h span{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.17em;
+  text-transform:uppercase;color:var(--brick);font-weight:600}
+.locked p{font-size:.86rem;line-height:1.56;color:var(--ink-2);max-width:44ch}
+.locked ul{list-style:none;display:flex;flex-wrap:wrap;gap:5px;margin-top:var(--s4)}
+.locked li{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);padding:4px 9px;border-radius:var(--rp);
+  border:1px solid var(--line)}
+.locked .btn{margin-top:var(--s4)}
+.demo-flag{display:inline-flex;align-items:center;gap:6px;margin-top:var(--s3);
+  font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--brick);font-weight:600}
+.demo-flag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--brick)}
+
+/* message éphémère */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:300;
+  background:var(--ink);color:var(--paper);padding:11px 19px;border-radius:var(--rp);
+  font-size:.83rem;font-weight:600;box-shadow:0 16px 34px -20px rgba(0,0,0,.7);
+  max-width:calc(100vw - 32px);text-align:center}

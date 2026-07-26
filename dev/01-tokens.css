@@ -1,0 +1,75 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RHESO — jetons de design
+   Palette relevée sur la charte (présentation RHESO, juillet 2026) :
+   papier crème, vert profond, rouge brique, or. Les cinq couleurs de curseur
+   sont celles du référentiel. Variantes `-t` : texte sur crème (≥ 4.5:1).
+   Variantes `-l` : texte et traits sur vert profond (≥ 4.5:1).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root{
+  /* papier */
+  --paper:#FBF5DF;
+  --paper-2:#F5EBCB;
+  --paper-3:#EDDFB6;
+  --paper-4:#E3D2A4;
+  --white:#FFFDF6;
+
+  /* vert profond */
+  --forest:#234A33;
+  --forest-2:#1B3A28;
+  --forest-3:#2C5A3F;
+
+  /* rouge brique + or */
+  --brick:#8E1710;
+  --brick-2:#7A100A;
+  --brick-l:#E8836F;
+  --gold:#C29A0C;
+  --gold-t:#7E6305;
+  --gold-l:#E3B627;
+
+  /* encres */
+  --ink:#1D1A11;
+  --ink-2:#4A4335;
+  --muted:#6B6250;
+  --line:#D9C89E;
+  --line-2:#C0AC7E;
+
+  /* sur vert profond */
+  --on-forest:#F3EEDC;
+  --on-forest-2:#A9C4B0;
+  --on-forest-3:#9CBCA5;
+  --forest-line:rgba(169,196,176,.22);
+  --forest-line-2:rgba(169,196,176,.42);
+
+  /* Curseurs — référentiel RHESO.
+     `--x`   couleur d'identité, pour les traits et les surfaces décoratives ;
+     `--x-t` variante foncée : texte sur crème, ET fond des surfaces pleines
+             portant du texte blanc (l'or brut ne passe pas en blanc) ;
+     `--x-l` variante claire : texte et traits sur vert profond. */
+  --r:#405B4A;  --h:#C8A010;  --e:#D06818;  --s:#3A7A8A;  --o:#C0607A;
+  --r-t:#33503F; --h-t:#7A620A; --e-t:#9C4C10; --s-t:#2F6674; --o-t:#A63A58;
+  --r-l:#8FBBA1; --h-l:#E5C74A; --e-l:#EFA265; --s-l:#8CC0CD; --o-l:#E2A9B7;
+
+  --focus:#8E1710;
+
+  /* espace — échelle non linéaire, volontairement irrégulière */
+  --s1:4px; --s2:8px; --s3:13px; --s4:18px; --s5:26px; --s6:38px;
+  --s7:54px; --s8:76px; --s9:104px; --s10:148px;
+
+  --r1:2px; --r2:6px; --r3:14px; --rp:999px;
+
+  --gut:clamp(20px,4.6vw,72px);
+  --maxw:1300px;
+  --tap:44px;
+
+  /* type */
+  --d0:clamp(2.3rem,5.1vw,4.1rem);
+  --d1:clamp(1.85rem,3.4vw,2.75rem);
+  --d2:clamp(1.5rem,2.6vw,2.05rem);
+  --d3:clamp(1.12rem,1.8vw,1.38rem);
+
+  /* débord : distance entre le bord du contenu et le bord réel de la fenêtre */
+  --bleed:calc(var(--gut) + max(0px,(100vw - var(--maxw)) / 2));
+
+  --ez:cubic-bezier(.2,.72,.2,1);
+  --dur:.19s;
+}
