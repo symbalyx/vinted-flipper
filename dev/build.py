@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
-"""Assemble site/index.html — un seul fichier, aucune dépendance réseau.
+"""Assemble le site dans site/. Aucune dépendance réseau, aucun outil externe.
 
-Les polices, le logo et les motifs sont embarqués ; seules les photographies
-restent des fichiers séparés (mises en cache par le navigateur, chargées en
-différé). Lancer : python3 build.py
+Produit deux versions de la même page :
+
+  index.html           polices, logo et motifs embarqués ; les deux photos
+                       restent des fichiers séparés — mises en cache par le
+                       navigateur et chargées en parallèle. À mettre en ligne.
+  index-autonome.html  tout embarqué, photos comprises. Un seul fichier, à
+                       envoyer ou à ouvrir depuis une clé USB.
+
+Lancer : python3 build.py
 """
+import base64
 import math
 import pathlib
 import re
+from urllib.parse import quote
 
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE.parent / "site"
@@ -107,11 +115,35 @@ OUT.mkdir(parents=True, exist_ok=True)
 (OUT / "index.html").write_text(page, encoding="utf-8")
 
 # favicon : le logo de la plaquette, en rouge brique sur fond crème
-(OUT / "favicon.svg").write_text(
+FAVICON = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-84 -72 1436 1376">'
     '<rect x="-84" y="-72" width="1436" height="1376" rx="250" fill="#FBF5DF"/>'
-    f'<g fill="{BRICK}">{LOGO_PATHS}</g></svg>',
-    encoding="utf-8",
+    f'<g fill="{BRICK}">{LOGO_PATHS}</g></svg>'
 )
+(OUT / "favicon.svg").write_text(FAVICON, encoding="utf-8")
 
 print(f"site/index.html — {len(page.encode('utf-8')) / 1024:.0f} Kio")
+
+
+# ── version autonome ───────────────────────────────────────────────────────
+# Un seul fichier : les deux photographies et le favicon y sont embarqués en
+# base64. À privilégier pour envoyer la page par courriel ou l'ouvrir depuis
+# une clé USB. Pour une mise en ligne, `index.html` reste préférable — les
+# images y sont des fichiers séparés, donc mis en cache et chargés en
+# parallèle.
+def data_uri(name, mime):
+    return "data:" + mime + ";base64," + base64.b64encode((OUT / name).read_bytes()).decode()
+
+
+solo = page
+for photo in ("fondateurs.webp", "equipe.webp"):
+    solo = solo.replace(f'src="{photo}"', f'src="{data_uri(photo, "image/webp")}"')
+    # la photo du héros n'a plus rien à précharger : elle est déjà dans le HTML
+    solo = solo.replace(' fetchpriority="high"', "")
+solo = solo.replace(
+    'href="favicon.svg" type="image/svg+xml"',
+    'href="data:image/svg+xml,' + quote(FAVICON, safe="") + '" type="image/svg+xml"',
+).replace('<link rel="apple-touch-icon" href="favicon.svg">\n', "")
+
+(OUT / "index-autonome.html").write_text(solo, encoding="utf-8")
+print(f"site/index-autonome.html — {len(solo.encode('utf-8')) / 1024:.0f} Kio (tout embarqué)")

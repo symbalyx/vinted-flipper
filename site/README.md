@@ -5,13 +5,28 @@ Site vitrine du système RHESO. Aucun build à exécuter pour servir la page :
 
 ```
 site/
-  index.html      la page entière (styles + script + polices + logo embarqués)
-  fondateurs.webp photo du héros
-  equipe.webp     photo de la section « Qui sommes-nous ? »
-  favicon.svg     logo RHESO, rouge brique sur crème
-  _headers        CSP et en-têtes de sécurité (Cloudflare Pages)
-  robots.txt      indexation autorisée, collecte pour entraînement refusée
+  index.html           la page (styles, script, polices et logo embarqués)
+  fondateurs.webp      photo du héros
+  equipe.webp          photo de la section « Qui sommes-nous ? »
+  favicon.svg          logo RHESO, rouge brique sur crème
+  _headers             CSP et en-têtes de sécurité (Cloudflare Pages)
+  robots.txt           indexation autorisée, collecte pour entraînement refusée
+
+  index-autonome.html  la même page, photos et favicon compris, en un seul
+                       fichier. Ne dépend d'aucun voisin.
 ```
+
+## Quelle version utiliser
+
+**`index.html`** pour la mise en ligne. Les photos sont des fichiers séparés :
+le navigateur les met en cache et les charge en parallèle, la photo de
+l'équipe n'est même chargée qu'à l'approche de la section.
+
+**`index-autonome.html`** pour tout le reste — l'envoyer par courriel,
+l'ouvrir depuis une clé USB, le montrer sans connexion. Un double-clic suffit,
+tout fonctionne, console comprise. Il pèse 473 Kio contre 288, et rien n'y est
+mis en cache : c'est le prix de l'autonomie. Les deux fichiers ont exactement
+le même contenu et sont régénérés ensemble.
 
 ## Déploiement Cloudflare Pages
 
