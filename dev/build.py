@@ -88,6 +88,36 @@ def steps():
     )
 
 
+# ── typographie française ──────────────────────────────────────────────────
+NBSP = " "
+
+
+def typo_fr(html):
+    """Insère les espaces insécables dans le texte, jamais dans le balisage.
+
+    Le script applique déjà cette règle au texte qu'il génère ; le HTML écrit à
+    la main n'en bénéficiait pas, et un guillemet fermant pouvait se retrouver
+    seul en début de ligne. On ne traite que ce qui est hors des chevrons :
+    les attributs (href, aria-label…) ne sont jamais touchés.
+
+    On s'en tient à l'espace insécable ordinaire U+00A0 : l'espace fine
+    U+202F n'est pas dans le sous-ensemble des fontes embarquées et
+    provoquerait un repli disgracieux.
+    """
+    def fix(t):
+        t = re.sub(r"[ \t\n]+([:;!?»])", NBSP + r"\1", t)
+        t = re.sub(r"(«)[ \t\n]+", r"\1" + NBSP, t)
+        return t
+
+    out, i = [], 0
+    for m in re.finditer(r"<[^>]*>", html):
+        out.append(fix(html[i:m.start()]))
+        out.append(m.group(0))
+        i = m.end()
+    out.append(fix(html[i:]))
+    return "".join(out)
+
+
 # ── assemblage ─────────────────────────────────────────────────────────────
 fonts = "\n".join(
     read(f)
@@ -109,6 +139,7 @@ body = (
     .replace("{{RAYS_HERO}}", rays())
     .replace("{{STEPS}}", steps())
 )
+body = typo_fr(body)
 # les logos restants sont décoratifs sauf celui de l'en-tête (déjà étiqueté
 # par l'aria-label du lien) : on les rend transparents aux lecteurs d'écran
 body = body.replace("{{LOGO}}", logo_deco("logo"))

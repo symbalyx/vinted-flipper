@@ -24,9 +24,21 @@ l'équipe n'est même chargée qu'à l'approche de la section.
 
 **`index-autonome.html`** pour tout le reste — l'envoyer par courriel,
 l'ouvrir depuis une clé USB, le montrer sans connexion. Un double-clic suffit,
-tout fonctionne, console comprise. Il pèse 473 Kio contre 288, et rien n'y est
+tout fonctionne, console comprise. Il pèse 689 Kio contre 316, et rien n'y est
 mis en cache : c'est le prix de l'autonomie. Les deux fichiers ont exactement
 le même contenu et sont régénérés ensemble.
+
+## Les photographies
+
+Elles sont extraites de la présentation PDF et servies à leur **résolution
+native** : 1062 × 1415 pour le héros, 944 × 708 pour l'équipe, en WebP qualité
+80. Soit une densité effective d'environ 1,5× sur un écran de bureau et 3× sur
+mobile.
+
+C'est le plafond : ces images sont les rasters embarqués dans le PDF, il n'y a
+rien de plus à en tirer. Pour un rendu net sur écran Retina en grand format, il
+faudrait **les fichiers photo d'origine** — les recompresser depuis le PDF
+n'ajoutera aucun détail.
 
 ## Déploiement Cloudflare Pages
 
