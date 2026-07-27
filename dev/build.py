@@ -144,7 +144,44 @@ body = typo_fr(body)
 # par l'aria-label du lien) : on les rend transparents aux lecteurs d'écran
 body = body.replace("{{LOGO}}", logo_deco("logo"))
 
-script = read("06-data.js") + "\n" + read("07-app.js")
+def strip_js_comments(js):
+    """Retire les commentaires du script avant publication.
+
+    Les notes de `dev/` expliquent ce qui a été retiré du référentiel et
+    pourquoi — utile en maintenance, contre-productif en production : elles
+    signalent à un concurrent qu'une version antérieure contenait les réponses
+    et lui donnent les noms de champs à chercher. Elles restent dans `dev/` et
+    dans le README ; elles ne partent pas dans la page.
+
+    Le retrait se fait à la ligne, jamais au caractère : analyser du JavaScript
+    au tokeniseur maison casse sur les gabarits imbriqués (`buildAxes` en
+    contient). Ne sont retirées que les lignes ENTIÈREMENT occupées par un
+    commentaire — un `//` ou un `/*` en fin de ligne de code est laissé, et une
+    ligne de gabarit ne ressemble jamais à un commentaire, ce que la garde
+    ci-dessous vérifie. Le résultat est relu par `node --check`.
+    """
+    lignes, sortie, dans_gabarit, dans_bloc = js.split("\n"), [], False, False
+    for ligne in lignes:
+        seule = re.match(r"\s*(/\*|\*/|\*(?!/)|//)", ligne)
+        if dans_gabarit and seule:
+            raise SystemExit("Ligne de gabarit confondue avec un commentaire : " + ligne.strip())
+        if not dans_gabarit:
+            if dans_bloc:
+                dans_bloc = "*/" not in ligne
+                continue
+            if seule and seule.group(1) == "/*":
+                dans_bloc = "*/" not in ligne
+                continue
+            if seule:
+                continue
+        sortie.append(ligne)
+        if ligne.count("`") % 2:
+            dans_gabarit = not dans_gabarit
+    txt = re.sub(r"[ \t]+$", "", "\n".join(sortie), flags=re.M)
+    return re.sub(r"\n{3,}", "\n\n", txt)
+
+
+script = strip_js_comments(read("06-data.js") + "\n" + read("07-app.js"))
 
 page = head + body + "\n<script>\n" + script + "\n</script>\n</body>\n</html>\n"
 
@@ -184,3 +221,42 @@ solo = solo.replace(
 
 (OUT / "index-autonome.html").write_text(solo, encoding="utf-8")
 print(f"site/index-autonome.html — {len(solo.encode('utf-8')) / 1024:.0f} Kio (tout embarqué)")
+
+# ── contrôles de publication ───────────────────────────────────────────────
+# Le script sort d'un découpage maison : on le fait relire par node avant de
+# considérer la page comme livrable.
+import subprocess
+import tempfile
+
+with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as fh:
+    fh.write(script)
+    probe = fh.name
+check = subprocess.run(["node", "--check", probe], capture_output=True, text=True)
+pathlib.Path(probe).unlink()
+if check.returncode != 0:
+    raise SystemExit("Script invalide après retrait des commentaires :\n" + check.stderr)
+
+# Rien de ce qui a été retiré du référentiel ne doit reparaître dans la page.
+# Un réglage aux cinq valeurs identiques est l'état neutre de la console : il
+# ne prescrit rien. Toute combinaison contrastée, elle, est une réponse.
+def prescriptions(js):
+    trouve = []
+    for m in re.finditer(r"mix:\s*\{R:(\d),\s*H:(\d),\s*E:(\d),\s*S:(\d),\s*O:(\d)\}", js):
+        if len(set(m.groups())) > 1:
+            trouve.append(m.group(0))
+    return trouve
+
+
+INTERDITS = {
+    "seuil d'interaction": lambda js: re.findall(r"m\.[RHESO]\s*(?:===|>=|<=)\s*\d", js),
+    "commentaire de maintenance": lambda js: re.findall(r"/\*|(?<![:\w])//", js),
+    "réglage préchargé": prescriptions,
+}
+for cible in ("index.html", "index-autonome.html"):
+    txt = (OUT / cible).read_text(encoding="utf-8")
+    js = txt[txt.index("<script>"):]
+    for nom, detecte in INTERDITS.items():
+        hits = detecte(js)
+        if hits:
+            raise SystemExit(f"{cible} : {nom} détecté dans le script publié — {hits[:3]}")
+print("contrôles de publication : script valide, aucun contenu retiré ne réapparaît")

@@ -4,7 +4,8 @@
 const BY_ID = {};
 AXES.forEach(a => { BY_ID[a.id] = a; });
 const IDS = AXES.map(a => a.id);
-const MAX = 4;                                    /* cinq crans : 0 → 4 */
+/* cinq crans, indexés de 0 à 4 */
+const MAX = 4;
 
 const S = { mix:{R:2,H:2,E:2,S:2,O:2}, active:'H', exo:null };
 
@@ -357,18 +358,19 @@ function renderFiche(){
 /* ── partage ──────────────────────────────────────────────────────────────── */
 const signature = () => IDS.map(k => k + (S.mix[k] + 1)).join('');
 
+/* Un lien de partage doit porter les cinq curseurs, chacun une seule fois.
+   `R4H3E3S3O2` est valide ; `H3H3H3H3H3` ne l'est pas — il passait la première
+   version du contrôle et laissait la signature en désaccord avec les boutons. */
 function readHash(){
-  const m = /#reglage=([RHESO][1-5]){5}/.exec(location.hash);
-  if (!m) return false;
-  const pairs = location.hash.slice(9).match(/[RHESO][1-5]/g) || [];
-  let ok = false;
-  pairs.forEach(p => {
-    if (!BY_ID[p[0]]) return;
-    S.mix[p[0]] = Number(p[1]) - 1;
-    ok = true;
-  });
-  if (ok) { S.exo = null; S.active = pairs[0][0]; }
-  return ok;
+  const pairs = (/^#reglage=((?:[RHESO][1-5]){5})$/.exec(location.hash) || [])[1];
+  if (!pairs) return false;
+  const lus = pairs.match(/[RHESO][1-5]/g);
+  const vus = new Set(lus.map(p => p[0]));
+  if (vus.size !== IDS.length) return false;
+  lus.forEach(p => { S.mix[p[0]] = Number(p[1]) - 1; });
+  S.exo = null;
+  S.active = lus[0][0];
+  return true;
 }
 
 function share(){

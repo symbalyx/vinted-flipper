@@ -71,7 +71,10 @@ C’est la règle la plus importante de ce dépôt.
   cran central et pose l’exercice. Donner la combinaison d’une crise ou d’un
   recadrage, c’était donner la réponse — et la donner en clair dans le code ;
 - **les seuils d’interaction entre curseurs.** La console ne désigne plus
-  aucune combinaison comme tendue ; elle décrit la forme du réglage, point.
+  aucune combinaison comme tendue. Elle décrit la forme du réglage — et
+  souligne visuellement les écarts d’au moins trois crans, ce qui est de
+  l’arithmétique sur les curseurs affichés, pas une règle RHESO : n’importe
+  quel visiteur fait le même calcul de tête en regardant les boutons.
 
 Tout ce qui part dans `index.html` est lisible par n’importe qui : « voir le
 code source » suffit, aucune obfuscation n’y change rien. **La seule protection
@@ -121,6 +124,14 @@ cd dev && python3 build.py     # réécrit site/index.html et site/favicon.svg
 
 Éditez les fichiers de `dev/`, jamais `site/index.html` directement — il est
 régénéré à chaque exécution.
+
+`build.py` refuse de terminer si la page produite contient un commentaire de
+script, un seuil d’interaction, ou un réglage préchargé (toute combinaison dont
+les cinq valeurs ne sont pas identiques — l’état neutre reste permis). Le
+script est aussi relu par `node --check` après le retrait des commentaires.
+Ces garde-fous existent parce que les notes de maintenance, laissées en
+production, indiquaient à un concurrent ce qui avait été retiré et où le
+chercher.
 
 ## Charte
 

@@ -1240,26 +1240,6 @@ p{text-wrap:pretty}
 
 <script>
 'use strict';
-/* ═══════════════════════════════════════════════════════════════════════════
-   RHESO — données publiées
-   ─────────────────────────────────────────────────────────────────────────
-   PÉRIMÈTRE VOLONTAIREMENT LIMITÉ. Cette page publie la STRUCTURE du
-   référentiel : les cinq curseurs, leur question, et le nom des vingt-cinq
-   réglages avec leur définition en une ligne.
-
-   Elle NE publie PAS le contenu opérationnel des fiches — « ce que je fais »,
-   « ce que je dis », l’intention, la frontière avec le niveau voisin — ni les
-   règles d’interaction complètes de la console. Ce contenu est le cœur du
-   savoir-faire RHESO ; il se transmet en formation et n’a pas à être
-   téléchargeable depuis une page publique.
-
-   Une seule fiche est publiée en entier — H3 — comme démonstration.
-   `full:true` marque cette fiche. N’ajoutez pas de second `full`.
-
-   Ne publiez jamais ici : le réglage attendu d’une situation (quelle
-   combinaison pour une crise, un recadrage…), ni les seuils d’interaction
-   entre curseurs. C’est du savoir-faire appliqué, pas de la structure.
-   ═══════════════════════════════════════════════════════════════════════════ */
 
 const DEMO = 'H3';
 
@@ -1345,12 +1325,6 @@ const AXES = [
   }
 ];
 
-/* Exercices — des situations à régler, sans réglage préchargé.
-   La console posait auparavant sept « prémix » : chaque situation arrivait
-   avec ses cinq valeurs. C'était donner la réponse, et la donner en clair
-   dans le code source. Les situations sont conservées, les valeurs non :
-   la console propose l'exercice, le réglage juste se travaille en formation.
-   N'ajoutez pas de champ `mix` ici. */
 const EXERCICES = [
   {tag:'CRISE',    name:'Situation de crise'},
   {tag:'CADRE',    name:'Recadrer'},
@@ -1395,13 +1369,10 @@ const REFS = ['Air France','Société Générale','Thales','Capgemini','UPS','Pr
   'Fnac Darty','AG2R','Médecins du Monde','Hôpital Franco-Britannique','Michelin',
   'General Electric','Enedis','Easy Cash','goFLUENT'];
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Interface
-   ═══════════════════════════════════════════════════════════════════════════ */
 const BY_ID = {};
 AXES.forEach(a => { BY_ID[a.id] = a; });
 const IDS = AXES.map(a => a.id);
-const MAX = 4;                                    /* cinq crans : 0 → 4 */
+const MAX = 4;
 
 const S = { mix:{R:2,H:2,E:2,S:2,O:2}, active:'H', exo:null };
 
@@ -1409,7 +1380,6 @@ const $ = (id) => document.getElementById(id);
 const REDUCED = matchMedia('(prefers-reduced-motion:reduce)').matches;
 const clamp = (v) => v < 0 ? 0 : v > MAX ? MAX : v;
 
-/* Typographie française : espace insécable avant : ; ! ? et après «. */
 const NB = ' ';
 const fr = (v) => String(v == null ? '' : v)
   .replace(/ ([:;!?»])/g, NB + '$1').replace(/« /g, '«' + NB);
@@ -1419,7 +1389,6 @@ const esc = (v) => fr(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
 const lv = (ax, i) => BY_ID[ax].levels[i];
 const cur = (ax) => lv(ax, S.mix[ax]);
 
-/* ── graduations autour d’un bouton rotatif ───────────────────────────────── */
 function ticks(){
   let d = '';
   for (let i = 0; i <= 24; i++) {
@@ -1433,9 +1402,6 @@ function ticks(){
     stroke-width="1.1" stroke-linecap="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   03 · Les cinq curseurs
-   ═══════════════════════════════════════════════════════════════════════════ */
 function buildAxes(){
   $('axes').innerHTML = AXES.map(a => `
     <article class="axis" style="--c:${a.c};--ct:${a.ct}">
@@ -1453,9 +1419,6 @@ function buildAxes(){
     </article>`).join('');
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   05 · Les 25 réglages
-   ═══════════════════════════════════════════════════════════════════════════ */
 function buildStrata(){
   $('strata').innerHTML = AXES.map(a => `
     <div class="stratum" style="--c:${a.c};--ct:${a.ct}">
@@ -1481,12 +1444,6 @@ function buildStrata(){
   });
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   04 · La console
-   ═══════════════════════════════════════════════════════════════════════════ */
-/* Choisir une situation remet les cinq curseurs au cran central et pose
-   l'exercice. La console ne propose aucun réglage : c'est précisément ce
-   qu'il y a à apprendre. */
 function buildExercices(){
   $('premix').innerHTML = EXERCICES.map(p => `
     <button type="button" data-tag="${esc(p.tag)}" aria-pressed="false">
@@ -1527,9 +1484,6 @@ function buildMods(){
   AXES.forEach(a => {
     const knob = $('knob-' + a.id);
 
-    /* Glisser le bouton : le mouvement vertical et horizontal comptent tous
-       les deux, comme sur un vrai potentiomètre. Un simple appui, sans
-       glissement, avance d’un cran — le réglage reste atteignable au doigt. */
     let drag = null;
     knob.addEventListener('pointerdown', (ev) => {
       knob.setPointerCapture(ev.pointerId);
@@ -1573,8 +1527,6 @@ function buildMods(){
       set(a.id, next);
     });
 
-    /* La molette n’agit que sur un bouton déjà sélectionné : le défilement
-       de la page n’est jamais détourné. */
     knob.addEventListener('wheel', (ev) => {
       if (document.activeElement !== knob) return;
       ev.preventDefault();
@@ -1598,7 +1550,6 @@ function set(ax, i){
   render();
 }
 
-/* ── rendu ────────────────────────────────────────────────────────────────── */
 function render(){
   AXES.forEach(a => {
     const i = S.mix[a.id], l = lv(a.id, i);
@@ -1619,7 +1570,6 @@ function render(){
 
   $('mix-codes').innerHTML = AXES.map(a => {
     const l = cur(a.id);
-    /* fond en variante foncée : le blanc reste lisible sur les cinq couleurs */
     return `<b style="background:${a.ct};color:#fff" title="${esc(l.label)}">${l.code}</b>`;
   }).join('');
 
@@ -1638,11 +1588,6 @@ function render(){
   renderFiche();
 }
 
-/* Lecture du mix — purement descriptive.
-   Elle décrit la FORME du réglage : son amplitude, les curseurs poussés, ceux
-   laissés bas. Aucun seuil propre à RHESO, aucune combinaison désignée comme
-   risquée : ces règles-là appartiennent à la formation. La console montre ce
-   que l'on vient de régler, elle ne le juge pas. */
 function renderRead(){
   const v = IDS.map(k => S.mix[k]);
   const hi = Math.max.apply(null, v), lo = Math.min.apply(null, v);
@@ -1751,21 +1696,18 @@ function renderFiche(){
   });
 }
 
-/* ── partage ──────────────────────────────────────────────────────────────── */
 const signature = () => IDS.map(k => k + (S.mix[k] + 1)).join('');
 
 function readHash(){
-  const m = /#reglage=([RHESO][1-5]){5}/.exec(location.hash);
-  if (!m) return false;
-  const pairs = location.hash.slice(9).match(/[RHESO][1-5]/g) || [];
-  let ok = false;
-  pairs.forEach(p => {
-    if (!BY_ID[p[0]]) return;
-    S.mix[p[0]] = Number(p[1]) - 1;
-    ok = true;
-  });
-  if (ok) { S.exo = null; S.active = pairs[0][0]; }
-  return ok;
+  const pairs = (/^#reglage=((?:[RHESO][1-5]){5})$/.exec(location.hash) || [])[1];
+  if (!pairs) return false;
+  const lus = pairs.match(/[RHESO][1-5]/g);
+  const vus = new Set(lus.map(p => p[0]));
+  if (vus.size !== IDS.length) return false;
+  lus.forEach(p => { S.mix[p[0]] = Number(p[1]) - 1; });
+  S.exo = null;
+  S.active = lus[0][0];
+  return true;
 }
 
 function share(){
@@ -1793,9 +1735,6 @@ function toast(msg){
   toastT = setTimeout(() => el.remove(), 3400);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   06 · Les situations
-   ═══════════════════════════════════════════════════════════════════════════ */
 function buildSituations(){
   $('sit-tabs').innerHTML = SITUATIONS.map((g,i) => `
     <button type="button" role="tab" id="sit-${g.k}" data-k="${g.k}"
@@ -1837,9 +1776,6 @@ function buildRefs(){
   $('refs').innerHTML = REFS.map(r => `<li>${esc(r)}</li>`).join('');
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Chrome — en-tête, menu, sommaire actif
-   ═══════════════════════════════════════════════════════════════════════════ */
 function initChrome(){
   const hdr = $('hdr'), burger = $('burger'), sheet = $('sheet'), label = $('burger-label');
 
@@ -1875,9 +1811,6 @@ function initChrome(){
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Démarrage
-   ═══════════════════════════════════════════════════════════════════════════ */
 buildAxes();
 buildStrata();
 buildExercices();
