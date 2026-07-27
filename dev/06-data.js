@@ -14,6 +14,10 @@
 
    Une seule fiche est publiée en entier — H3 — comme démonstration.
    `full:true` marque cette fiche. N’ajoutez pas de second `full`.
+
+   Ne publiez jamais ici : le réglage attendu d’une situation (quelle
+   combinaison pour une crise, un recadrage…), ni les seuils d’interaction
+   entre curseurs. C’est du savoir-faire appliqué, pas de la structure.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const DEMO = 'H3';
@@ -100,29 +104,20 @@ const AXES = [
   }
 ];
 
-/* Rappels de situation — sept réglages de départ, pas des recommandations. */
-const PREMIX = [
-  {tag:'CRISE',    name:'Situation de crise',      mix:{R:4,H:0,E:4,S:1,O:0}},
-  {tag:'CADRE',    name:'Recadrer',                mix:{R:3,H:2,E:2,S:2,O:1}},
-  {tag:'PROJET',   name:'Lancer un projet',        mix:{R:1,H:3,E:1,S:3,O:2}},
-  {tag:'ÉCOUTE',   name:'Temps d’écoute',          mix:{R:2,H:4,E:0,S:1,O:3}},
-  {tag:'IDÉES',    name:'Brainstorming',           mix:{R:2,H:2,E:1,S:2,O:4}},
-  {tag:'ÉLAN',     name:'Mobiliser',               mix:{R:3,H:3,E:3,S:4,O:2}},
-  {tag:'DÉCISION', name:'Décision déjà prise',     mix:{R:1,H:1,E:2,S:0,O:0}}
-];
-
-/* Lecture du mix. Observations neutres : la console nomme la combinaison
-   visible, elle ne délivre pas la conduite à tenir — c’est l’objet de la
-   formation, pas d’une page publique. */
-const READS = [
-  {t:(m)=>m.E===4&&m.O===0,          v:'Intensité maximale et jeu fermé.'},
-  {t:(m)=>m.R===4&&m.H===0,          v:'Franchise maximale et distance relationnelle.'},
-  {t:(m)=>m.H===4&&m.O===0,          v:'Priorité au lien, sans espace réel de contribution.'},
-  {t:(m)=>m.O===4&&m.S===0,          v:'Exploration large, cap resté implicite.'},
-  {t:(m)=>m.E===0&&m.S===4,          v:'Cap très présent, aucun mouvement engagé.'},
-  {t:(m)=>m.O===0&&m.S===0,          v:'Jeu fermé et cap implicite.'},
-  {t:(m)=>m.E>=3&&m.S>=3&&m.H>=2,    v:'Élan soutenu, cap explicite, présence à l’autre maintenue.'},
-  {t:(m)=>m.H>=3&&m.O>=3&&m.E<=1,    v:'Écoute large et jeu ouvert, à rythme retenu.'}
+/* Exercices — des situations à régler, sans réglage préchargé.
+   La console posait auparavant sept « prémix » : chaque situation arrivait
+   avec ses cinq valeurs. C'était donner la réponse, et la donner en clair
+   dans le code source. Les situations sont conservées, les valeurs non :
+   la console propose l'exercice, le réglage juste se travaille en formation.
+   N'ajoutez pas de champ `mix` ici. */
+const EXERCICES = [
+  {tag:'CRISE',    name:'Situation de crise'},
+  {tag:'CADRE',    name:'Recadrer'},
+  {tag:'PROJET',   name:'Lancer un projet'},
+  {tag:'ÉCOUTE',   name:'Temps d’écoute'},
+  {tag:'IDÉES',    name:'Brainstorming'},
+  {tag:'ÉLAN',     name:'Mobiliser'},
+  {tag:'DÉCISION', name:'Décision déjà prise'}
 ];
 
 const SITUATIONS = [

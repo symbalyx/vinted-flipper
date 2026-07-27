@@ -61,11 +61,20 @@
   --maxw:1300px;
   --tap:44px;
 
-  /* type */
-  --d0:clamp(2.3rem,5.1vw,4.1rem);
-  --d1:clamp(1.85rem,3.4vw,2.75rem);
-  --d2:clamp(1.5rem,2.6vw,2.05rem);
-  --d3:clamp(1.12rem,1.8vw,1.38rem);
+  /* Typographie.
+     Charter (Matthew Carter) porte les titres : une serif de labeur, écrite
+     pour être lue, pas pour crier. Elle remplace le Montserrat 900 qui donnait
+     à la page l'air d'une page d'accueil générée. Montserrat reste la fonte de
+     texte et d'interface, JetBrains Mono les codes et surtitres.
+     Une serif ne veut pas d'interlettrage négatif : le tracking reste à zéro. */
+  --display:'Charter','Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  --sans:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --d0:clamp(1.95rem,3.9vw,3.15rem);
+  --d1:clamp(1.6rem,2.8vw,2.3rem);
+  --d2:clamp(1.32rem,2.1vw,1.72rem);
+  --d3:clamp(1.08rem,1.6vw,1.28rem);
 
   /* débord : distance entre le bord du contenu et le bord réel de la fenêtre */
   --bleed:calc(var(--gut) + max(0px,(100vw - var(--maxw)) / 2));

@@ -90,7 +90,13 @@ def steps():
 
 # ── assemblage ─────────────────────────────────────────────────────────────
 fonts = "\n".join(
-    read(f) for f in ("face-montserrat.css", "face-montserrat-italic.css", "face-jetbrains.css")
+    read(f)
+    for f in (
+        "face-charter.css",
+        "face-montserrat.css",
+        "face-montserrat-italic.css",
+        "face-jetbrains.css",
+    )
 )
 css = "\n".join(
     read(f) for f in ("01-tokens.css", "02-base.css", "03-layout.css", "04-console.css")

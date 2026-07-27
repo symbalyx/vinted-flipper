@@ -6,7 +6,7 @@ AXES.forEach(a => { BY_ID[a.id] = a; });
 const IDS = AXES.map(a => a.id);
 const MAX = 4;                                    /* cinq crans : 0 → 4 */
 
-const S = { mix:{R:3,H:2,E:2,S:2,O:1}, active:'H', premix:'CADRE' };
+const S = { mix:{R:2,H:2,E:2,S:2,O:2}, active:'H', exo:null };
 
 const $ = (id) => document.getElementById(id);
 const REDUCED = matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -87,20 +87,23 @@ function buildStrata(){
 /* ═══════════════════════════════════════════════════════════════════════════
    04 · La console
    ═══════════════════════════════════════════════════════════════════════════ */
-function buildPremix(){
-  $('premix').innerHTML = PREMIX.map(p => `
+/* Choisir une situation remet les cinq curseurs au cran central et pose
+   l'exercice. La console ne propose aucun réglage : c'est précisément ce
+   qu'il y a à apprendre. */
+function buildExercices(){
+  $('premix').innerHTML = EXERCICES.map(p => `
     <button type="button" data-tag="${esc(p.tag)}" aria-pressed="false">
       <b>${esc(p.tag)}</b><span>${esc(p.name)}</span>
     </button>`).join('');
   $('premix').addEventListener('click', (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
-    const p = PREMIX.find(x => x.tag === b.dataset.tag);
+    const p = EXERCICES.find(x => x.tag === b.dataset.tag);
     if (!p) return;
-    S.mix = Object.assign({}, p.mix);
-    S.premix = p.tag;
+    S.exo = S.exo === p.tag ? null : p.tag;
+    if (S.exo) IDS.forEach(k => { S.mix[k] = 2; });
     render();
-    toast('Réglage de départ « ' + p.name + ' » chargé.');
+    if (S.exo) toast('À vous : réglez les cinq curseurs pour « ' + p.name + ' ».');
   });
 }
 
@@ -195,13 +198,7 @@ function set(ax, i){
   if (S.mix[ax] === n && S.active === ax) return;
   S.mix[ax] = n;
   S.active = ax;
-  S.premix = matchPremix();
   render();
-}
-
-function matchPremix(){
-  const p = PREMIX.find(x => IDS.every(k => x.mix[k] === S.mix[k]));
-  return p ? p.tag : null;
 }
 
 /* ── rendu ────────────────────────────────────────────────────────────────── */
@@ -232,7 +229,7 @@ function render(){
   $('mix-sig').textContent = signature();
 
   Array.prototype.forEach.call($('premix').children, (b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.tag === S.premix));
+    b.setAttribute('aria-pressed', String(b.dataset.tag === S.exo));
   });
 
   document.querySelectorAll('.rung').forEach(b => {
@@ -244,14 +241,38 @@ function render(){
   renderFiche();
 }
 
+/* Lecture du mix — purement descriptive.
+   Elle décrit la FORME du réglage : son amplitude, les curseurs poussés, ceux
+   laissés bas. Aucun seuil propre à RHESO, aucune combinaison désignée comme
+   risquée : ces règles-là appartiennent à la formation. La console montre ce
+   que l'on vient de régler, elle ne le juge pas. */
 function renderRead(){
-  const hit = READS.find(r => r.t(S.mix));
-  const el = $('mix-read');
-  const tense = hit && /fermé|distance|implicite|sans espace|aucun mouvement/.test(hit.v);
-  el.className = 'mix-read ' + (tense ? 'watch' : 'calm');
-  $('mix-text').textContent = fr(hit
-    ? hit.v + ' Une lecture, pas un diagnostic : c’est la situation réelle qui tranche.'
-    : 'Aucune combinaison saillante entre ces cinq réglages.');
+  const v = IDS.map(k => S.mix[k]);
+  const hi = Math.max.apply(null, v), lo = Math.min.apply(null, v);
+  const ampl = hi - lo;
+  const names = (lvl) => IDS.filter(k => S.mix[k] === lvl).map(k => BY_ID[k].full);
+  const liste = (a) => a.length > 1
+    ? a.slice(0, -1).join(', ') + ' et ' + a[a.length - 1]
+    : a[0];
+
+  let txt;
+  if (ampl === 0) {
+    txt = 'Les cinq curseurs sont au même cran. Déplacez-en un : le réglage prend'
+        + ' forme, et cette forme se discute.';
+  } else {
+    txt = 'Amplitude de ' + ampl + ' cran' + (ampl > 1 ? 's' : '') + '. '
+        + 'Vous poussez ' + liste(names(hi)) + ' ; '
+        + 'vous laissez en retrait ' + liste(names(lo)) + '.';
+  }
+
+  $('mix-read').className = 'mix-read ' + (ampl >= 3 ? 'watch' : 'calm');
+  $('mix-label').textContent = S.exo
+    ? fr('Exercice · ' + (EXERCICES.find(x => x.tag === S.exo) || {}).name)
+    : 'Lecture du réglage';
+  $('mix-text').textContent = fr(S.exo
+    ? txt + ' Est-ce le réglage que cette situation réclame ? La réponse se'
+          + ' construit en formation — la console ne la donne pas.'
+    : txt);
 }
 
 function renderFiche(){
@@ -346,7 +367,7 @@ function readHash(){
     S.mix[p[0]] = Number(p[1]) - 1;
     ok = true;
   });
-  if (ok) { S.premix = matchPremix(); S.active = pairs[0][0]; }
+  if (ok) { S.exo = null; S.active = pairs[0][0]; }
   return ok;
 }
 
@@ -462,7 +483,7 @@ function initChrome(){
    ═══════════════════════════════════════════════════════════════════════════ */
 buildAxes();
 buildStrata();
-buildPremix();
+buildExercices();
 buildMods();
 buildSituations();
 buildRefs();
@@ -473,7 +494,7 @@ render();
 
 $('reset').addEventListener('click', () => {
   S.mix = {R:2, H:2, E:2, S:2, O:2};
-  S.premix = matchPremix();
+  S.exo = null;
   render();
   toast('Console remise au cran central.');
 });
