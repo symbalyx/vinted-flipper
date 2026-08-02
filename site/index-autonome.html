@@ -103,8 +103,8 @@
   --sans:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 
-  --d0:clamp(1.95rem,3.9vw,3.15rem);
-  --d1:clamp(1.6rem,2.8vw,2.3rem);
+  --d0:clamp(1.72rem,2.95vw,2.5rem);
+  --d1:clamp(1.46rem,2.4vw,2.02rem);
   --d2:clamp(1.32rem,2.1vw,1.72rem);
   --d3:clamp(1.08rem,1.6vw,1.28rem);
 
@@ -289,7 +289,7 @@ p{text-wrap:pretty}
   letter-spacing:.005em}
 /* La signature, telle qu'elle est écrite dans la plaquette : une seule phrase,
    une virgule, un seul poids, une seule couleur. Aucun effet. */
-.hero h1{margin-top:var(--s5);color:var(--ink);max-width:19ch}
+.hero h1{margin-top:var(--s5);color:var(--ink);max-width:27ch}
 .hero-lede{margin-top:var(--s5);font-size:clamp(1.04rem,1.3vw,1.18rem);line-height:1.58;
   color:var(--ink-2);max-width:44ch}
 
@@ -522,11 +522,16 @@ p{text-wrap:pretty}
 .refs{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 .refs-in{display:grid;row-gap:var(--s5);column-gap:clamp(20px,3vw,44px)}
 @media (min-width:760px){.refs-in{grid-template-columns:15ch minmax(0,1fr)}}
-.refs-list{display:flex;flex-wrap:wrap;gap:6px 0;align-items:baseline}
-.refs-list li{list-style:none;font-size:clamp(.94rem,1.25vw,1.1rem);font-weight:600;
-  letter-spacing:-.018em;color:var(--ink-2)}
-.refs-list li:not(:last-child)::after{content:"·";margin:0 .55em;color:var(--line-2);
-  font-weight:400}
+/* Une liste, pas une phrase. En flux continu, les points de separation
+   restaient en fin de ligne et le dernier nom tombait seul en veuve. Chaque
+   nom tient donc sa ligne, dans une grille de colonnes qui s'adapte a la
+   largeur. Aucun defilement, aucune animation : c'est une liste de clients,
+   elle se lit. */
+.refs-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));
+  column-gap:clamp(18px,2.6vw,40px)}
+.refs-list li{list-style:none;font-size:.95rem;font-weight:600;letter-spacing:-.012em;
+  color:var(--ink-2);padding:11px 0 10px;border-top:1px solid var(--line);
+  text-wrap:balance}
 .refs-note{margin-top:var(--s4);font-size:.8rem;color:var(--muted);max-width:62ch}
 
 /* ── équipe ───────────────────────────────────────────────────────────────── */

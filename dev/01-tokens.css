@@ -71,8 +71,8 @@
   --sans:'Montserrat','Helvetica Neue',Helvetica,Arial,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 
-  --d0:clamp(1.95rem,3.9vw,3.15rem);
-  --d1:clamp(1.6rem,2.8vw,2.3rem);
+  --d0:clamp(1.72rem,2.95vw,2.5rem);
+  --d1:clamp(1.46rem,2.4vw,2.02rem);
   --d2:clamp(1.32rem,2.1vw,1.72rem);
   --d3:clamp(1.08rem,1.6vw,1.28rem);
 
