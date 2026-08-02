@@ -258,5 +258,18 @@ for cible in ("index.html", "index-autonome.html"):
     for nom, detecte in INTERDITS.items():
         hits = detecte(js)
         if hits:
-            raise SystemExit(f"{cible} : {nom} détecté dans le script publié — {hits[:3]}")
+            raise SystemExit(f"{cible} : {nom} detecte dans le script publie : {hits[:3]}")
+
+# Le tiret cadratin est le tic d'ecriture le plus reconnaissable des textes
+# generes. Il est proscrit partout ou un visiteur peut le lire : titres,
+# etiquettes, corps, libelles de boutons, textes alternatifs.
+for cible in ("index.html", "index-autonome.html"):
+    txt = (OUT / cible).read_text(encoding="utf-8")
+    rendu = re.sub(r"<script>.*?</script>", "", txt[txt.index("<body>"):], flags=re.S)
+    visible = re.sub(r"<[^>]*>", " ", rendu)
+    attributs = " ".join(re.findall(r'(?:alt|title|aria-label|content)="([^"]*)"', txt))
+    for zone, contenu in (("texte", visible), ("attribut", attributs)):
+        if "\u2014" in contenu or "\u2013" in contenu:
+            extrait = [s for s in contenu.split(".") if "\u2014" in s or "\u2013" in s][:2]
+            raise SystemExit(f"{cible} : tiret cadratin dans un {zone} : {extrait}")
 print("contrôles de publication : script valide, aucun contenu retiré ne réapparaît")

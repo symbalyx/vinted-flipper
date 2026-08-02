@@ -95,7 +95,7 @@ const AXES = [
     key:'Jusqu’où est-il utile d’ouvrir le jeu aux autres ?',
     watch:'Trop fermer peut créer des angles morts. Trop ouvrir peut déstabiliser.',
     levels:[
-      {code:'O1', label:'Je ferme',            line:'Je protège une décision ou un cadre — je ne rouvre pas.'},
+      {code:'O1', label:'Je ferme',            line:'Je protège une décision ou un cadre. Je ne rouvre pas.'},
       {code:'O2', label:'Je limite',           line:'J’accepte certains retours, mais je garde la main.'},
       {code:'O3', label:'J’intègre les idées', line:'J’accueille les points de vue pour enrichir ma réflexion.'},
       {code:'O4', label:'Je co-construis',     line:'Je fais évoluer ma position avec le collectif.'},
@@ -132,7 +132,7 @@ const SITUATIONS = [
    note:'Un entretien réussi n’est pas un entretien agréable : c’est un entretien juste.'},
   {k:'recadrage', label:'Recadrage', title:'Poser une limite sans casser la relation',
    lines:['Je recadre un collaborateur.','Je refuse une demande.','Je traite un comportement inadapté.'],
-   note:'La limite tient si la relation survit — et inversement.'},
+   note:'La limite tient si la relation survit, et inversement.'},
   {k:'conflits', label:'Conflits', title:'Réduire la température, restaurer le dialogue',
    lines:['Je réponds à une personne en colère.','Je gère une réunion tendue.','Je rétablis le dialogue après un conflit.'],
    note:'En conflit, le réglage précède le contenu : personne n’entend un argument avant d’être reconnu.'},

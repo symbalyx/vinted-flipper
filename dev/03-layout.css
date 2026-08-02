@@ -58,11 +58,23 @@
    une virgule, un seul poids, une seule couleur. Aucun effet. */
 .hero h1{margin-top:var(--s5);color:var(--ink);max-width:19ch}
 .hero-lede{margin-top:var(--s5);font-size:clamp(1.04rem,1.3vw,1.18rem);line-height:1.58;
-  color:var(--ink-2);max-width:46ch}
-.hero-cta{display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s6)}
-.hero-note{margin-top:var(--s5);font-family:'JetBrains Mono',monospace;font-size:.7rem;
-  line-height:1.7;letter-spacing:.06em;color:var(--muted)}
-.hero-note b{color:var(--brick);font-weight:600}
+  color:var(--ink-2);max-width:44ch}
+
+/* Une seule entrée, et pas une paire de pastilles sous le paragraphe : c'est
+   la signature des pages d'accueil générées. Ici, une ligne d'index qui tient
+   la largeur d'une colonne, filet au-dessus, flèche à droite. Elle se lit
+   comme une entrée de sommaire, pas comme un bouton de formulaire. */
+.hero-enter{display:flex;align-items:center;justify-content:space-between;gap:var(--s5);
+  margin-top:var(--s7);padding:var(--s4) 0 var(--s3);max-width:32ch;
+  border-top:1.5px solid var(--ink);color:var(--ink);min-height:var(--tap);
+  transition:color var(--dur) var(--ez),border-top-color var(--dur) var(--ez)}
+.hero-enter span{font-family:var(--display);font-size:clamp(1.12rem,1.6vw,1.32rem);
+  font-weight:700;line-height:1.1}
+.hero-enter svg{width:26px;height:26px;stroke-width:1.6;flex:none;
+  transition:transform var(--dur) var(--ez)}
+.hero-enter:hover{color:var(--brick);border-top-color:var(--brick)}
+.hero-enter:hover svg{transform:translateX(5px)}
+@media (prefers-reduced-motion:reduce){.hero-enter svg{transition:none}}
 
 .hero-ph{grid-column:1/-1;position:relative}
 @media (min-width:900px){

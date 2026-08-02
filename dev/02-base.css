@@ -68,11 +68,15 @@ p{text-wrap:pretty}
 /* En-tête de section : numéro suspendu dans la marge. */
 .shead{display:grid;gap:var(--s4);border-top:1.5px solid var(--line);padding-top:var(--s4)}
 .on-forest .shead{border-top-color:var(--forest-line-2)}
-.shead .num{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.2em;
+.shead .num{font-family:var(--mono);font-size:.66rem;letter-spacing:.13em;
   text-transform:uppercase;color:var(--brick);font-weight:600}
+/* Le numéro tient sa propre ligne : pas de tiret pour le raccrocher au titre. */
+.shead .num i{display:block;font-style:normal;font-size:1.28em;letter-spacing:.12em;
+  margin-bottom:.5em;opacity:.65}
 .on-forest .shead .num{color:var(--gold-l)}
 @media (min-width:880px){
-  .shead{grid-template-columns:9ch minmax(0,1fr);column-gap:clamp(24px,4vw,64px);align-items:start}
+  /* 14 caracteres : « LE REFERENTIEL » et « LE DEPLOIEMENT » tiennent sur une ligne */
+  .shead{grid-template-columns:14ch minmax(0,1fr);column-gap:clamp(20px,3vw,52px);align-items:start}
   .shead .num{padding-top:.72em;text-align:right}
 }
 .shead-body{max-width:58ch}

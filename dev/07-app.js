@@ -65,7 +65,7 @@ function buildStrata(){
     <div class="stratum" style="--c:${a.c};--ct:${a.ct}">
       <div class="stratum-h">
         <b aria-hidden="true">${a.id}</b>
-        <span>${esc(a.name)} — ${esc(a.key)}</span>
+        <span>${esc(a.name)}<b>·</b>${esc(a.key)}</span>
       </div>
       <div class="rungs">
         ${a.levels.map((l,i) => `
@@ -115,10 +115,10 @@ function buildMods(){
       <div class="leds" id="leds-${a.id}" aria-hidden="true">
         ${[0,1,2,3,4].map(i => `
           <button class="led" type="button" tabindex="-1" data-ax="${a.id}" data-lv="${i}"
-            title="${a.levels[i].code} — ${esc(a.levels[i].label)}"><i></i></button>`).join('')}
+            title="${a.levels[i].code} ${esc(a.levels[i].label)}"><i></i></button>`).join('')}
       </div>
       <div class="knob" id="knob-${a.id}" role="slider" tabindex="0" data-ax="${a.id}"
-        aria-label="${esc(a.full)} — ${esc(a.key)}"
+        aria-label="${esc(a.full)}. ${esc(a.key)}"
         aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" aria-valuetext="">
         ${ticks()}<span class="knob-ix" id="ix-${a.id}"></span>
       </div>
@@ -272,7 +272,7 @@ function renderRead(){
     : 'Lecture du réglage';
   $('mix-text').textContent = fr(S.exo
     ? txt + ' Est-ce le réglage que cette situation réclame ? La réponse se'
-          + ' construit en formation — la console ne la donne pas.'
+          + ' construit en formation. La console ne la donne pas.'
     : txt);
 }
 
