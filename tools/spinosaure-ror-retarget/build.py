@@ -325,6 +325,34 @@ def ground_clamp(tracks, length, loop, smooth=2):
 TAILB = ['tail_01', 'tail_02', 'tail_03', 'tail_04', 'tail_05']
 
 
+def finger_converge(tracks, length, loop, dmax=12.0):
+    """Borne l'ecart de rotation entre doigts voisins.
+
+    La palmure est un cube rigide : si deux doigts divergent, elle se decolle de
+    l'un des deux. On conserve integralement le mouvement COMMUN des doigts et on
+    ne resserre que leur ecartement relatif.
+    """
+    n = int(round(length * R.FPS))
+    for side in ('left', 'right'):
+        names = ['finger_%s_%d' % (side, i) for i in range(3)]
+        trs = [tracks.get(nm, {}).get('rotation') for nm in names]
+        if not any(trs):
+            continue
+        out = [[], [], []]
+        for i in range(n + 1):
+            t = min(i / R.FPS, length)
+            v = [lerp_track(tr, t, length, loop) if tr else [0.0, 0.0, 0.0] for tr in trs]
+            mean = [sum(v[k][j] for k in range(3)) / 3.0 for j in range(3)]
+            d = max(math.dist(v[a], v[b]) for a, b in ((0, 1), (1, 2), (0, 2)))
+            s = 1.0 if d <= dmax else dmax / d
+            for k in range(3):
+                out[k].append((t, [mean[j] + (v[k][j] - mean[j]) * s for j in range(3)]))
+        for k, nm in enumerate(names):
+            if loop:
+                out[k][-1] = (out[k][-1][0], list(out[k][0][1]))
+            tracks.setdefault(nm, {})['rotation'] = R.compress(out[k], R.TOL['rotation'])
+
+
 def tail_min_y(tracks, length, loop):
     global RIG, FLOOR
     _ensure_rig()
@@ -419,6 +447,7 @@ def add(name, length, loop, layers, post=None, snapping=30, clamp=False):
         ground_clamp(tracks, length, loop)
     tail_layers(tracks, length, loop, guard=clamp)
     tongue_follow(tracks, length, loop)
+    finger_converge(tracks, length, loop)
     NEW.append(R.make_anim('animation.spinosaure.' + name, length, loop, tracks, snapping))
     nk = sum(len(v['keyframes']) for v in NEW[-1]['animators'].values())
     print('  %-34s len=%-7s loop=%-5s os=%-3d keyframes=%d' %

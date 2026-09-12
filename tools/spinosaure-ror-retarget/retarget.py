@@ -117,7 +117,7 @@ GAIN = {
 AXIS = {b: (1.0, 0.15, 0.15) for b in
         ('finger_left_0', 'finger_left_1', 'finger_left_2',
          'finger_right_0', 'finger_right_1', 'finger_right_2')}
-LIMIT = {b: 26.0 for b in AXIS}
+LIMIT = {b: 20.0 for b in AXIS}   # plage maison (grimpe monte a 20)
 
 # L'echelle de la gorge ROR s'applique a un plan plat ; notre gorge est un volume,
 # on amortit donc le gonflement pour qu'elle ne traverse pas le cou.

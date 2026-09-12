@@ -125,3 +125,63 @@ python3 tools/recook.py <bbmodel> scan            # tableau comparatif des regla
 python3 tools/recook.py <bbmodel> F <sortie>      # applique l adaptatif 0.15 u
 python3 tools/verify_recook.py <avant> <apres>    # prouve que rien d autre n a bouge
 ```
+
+## V71 : profil de voile et bras palmes
+
+### Voile reprofilee (voile.py)
+
+La voile est deja construite comme la reference visee : 12 dalles etagees plus un
+liseré de 1 unite au sommet. L'ecart etait le profil — l'ancien etait a deux bosses
+et restait haut a l'arriere. Profil retenu : **dome asymetrique**, sommet avance,
+longue descente vers la queue (38 -> 67.3 -> 34).
+
+Piege evite : **changer la hauteur d'une dalle sans re-mapper son UV etire la
+texture**. L'aspect changerait alors qu'aucun pixel n'aurait bouge. `voile.py`
+re-mappe donc chaque flanc a la densite propre de la dalle (7.450 px/unite),
+en gardant le bas fixe puisque la voile est alignee par le bas. La bande de
+camouflage peinte s'arrete a v=1272, ce qui plafonne les dalles a ~83 unites ;
+le script le verifie par assertion.
+
+Seules les faces east/west portent la texture haute. north, south, up et down
+pointent toutes sur un petit patch generique deja partage par les 12 dalles quelles
+que soient leurs hauteurs (40 a 64) : le modele ne leur demande aucune coherence de
+densite, on n'y touche pas.
+
+### Bras palmes (bras_ror.py)
+
+Ce qui valait la peine d'etre repris de ROR n'etait pas sa geometrie mais deux idees
+anatomiques que le rig RIVIERE n'avait pas : la **palmure interdigitale**
+(plans 19x0x15 chez ROR) et la **membrane d'avant-bras** (plan 0x25x46). Plus des
+griffes nettement plus imposantes (15 u chez ROR contre 6.5 u ici).
+
+Trois choix qui font la difference entre un portage et un copier-coller :
+
+1. **Volumes pleins, pas des plans.** Le modele RIVIERE n'utilise aucun element a
+   epaisseur nulle (0 sur 374) et aucun inflate ; 313 de ses cubes ont leur propre
+   rotation. C'est un modele sculpte en volumes. Les plans de ROR y seraient
+   stylistiquement etrangers, et en jeu ils scintillent et disparaissent en
+   incidence rasante.
+2. **Aucun pixel de texture ajoute.** Les cubes de main et de doigts du modele
+   partagent deja tous un meme rectangle UV, les griffes un autre. La nouvelle
+   geometrie pointe sur ces memes patchs : elle herite de la peau existante.
+3. **La palmure est rattachee a la main, pas a un doigt.** Un cube rigide entre deux
+   doigts se dechire des qu'ils divergent. Mesure avant correction : 26.5 deg
+   d'ecart dans attaque_saut_sol_ror, soit 2.77 u de decollement pour une palmure
+   large de 2.6 u.
+
+`finger_converge()` dans build.py borne l'ecart ENTRE doigts voisins a 12 deg
+(le mouvement commun des doigts est integralement conserve, seul leur ecartement
+relatif est resserre). Resultat mesure : ecart 12.0 deg, jeu 0.63 u au bout de la
+palmure, pour une prise de 1.61 u dans chaque doigt. Les animations d'origine ne
+sont pas concernees : leur divergence etait deja sous le seuil.
+
+### Bilan V71
+
+| | avant | apres |
+|---|---|---|
+| elements | 374 | 384 (10 ajoutes, 0 supprime, 42 modifies) |
+| animations | 63 | 63 |
+| cles | 200 526 | 61 429 |
+| poids | 45 Mo | 21.5 Mo |
+| texture | | identique a l octet pres |
+| ecart sur les 50 animations d origine | | 0.077 unite |
