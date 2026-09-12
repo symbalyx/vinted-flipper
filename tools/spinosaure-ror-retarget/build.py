@@ -458,13 +458,14 @@ def add(name, length, loop, layers, post=None, snapping=30, clamp=False):
 def post_dive(tracks, length, loop):
     add_root_curve(
         tracks, length,
-        keys_pos=[(0.0, [0, 0, 0]), (0.35, [0, 3, 2]), (0.80, [0, 15, -6]),
-                  (1.20, [0, 26, -16]), (1.667, [0, 21, -26]), (1.79, [0, -14, -40]),
-                  (1.95, [0, -18, -43]), (2.20, [0, -11, -37]), (2.45, [0, -5, -22]),
-                  (2.667, [0, 0, 0])],
-        keys_rot=[(0.0, [0, 0, 0]), (0.35, [5, 0, 0]), (0.80, [14, 0, 0]),
-                  (1.20, [19, 0, 0]), (1.667, [11, 0, 0]), (1.79, [-16, 0, 0]),
-                  (1.95, [-10, 0, 0]), (2.25, [-3, 0, 0]), (2.667, [0, 0, 0])])
+        keys_pos=[(0.0, [0, 0, 0]), (0.30, [0, -6, 3]), (0.55, [0, 8, -4]),
+                  (0.85, [0, 34, -14]), (1.20, [0, 52, -26]), (1.45, [0, 55, -36]),
+                  (1.667, [0, 44, -46]), (1.79, [0, -16, -62]), (1.95, [0, -22, -66]),
+                  (2.20, [0, -13, -58]), (2.45, [0, -5, -30]), (2.667, [0, 0, 0])],
+        keys_rot=[(0.0, [0, 0, 0]), (0.30, [-4, 0, 0]), (0.55, [8, 0, 0]),
+                  (0.85, [20, 0, 0]), (1.20, [27, 0, 0]), (1.667, [14, 0, 0]),
+                  (1.79, [-22, 0, 0]), (1.95, [-13, 0, 0]), (2.25, [-4, 0, 0]),
+                  (2.667, [0, 0, 0])])
     sail_rework(tracks, length, loop, gain=0.32, lag=0.11, cap=7.0)
     # la gorge gonflee vibre pendant la tenue, puis s'ecrase a l'impact (donnees ROR)
     throat_vibe(tracks, length, loop, freq=5.0, amp=0.10, rot=2.5,
@@ -533,6 +534,364 @@ add('assis_ror', 4.0, 'loop', [Layer('sit', 0.0, loop_src=True)], post_breath, c
 add('renifle_piste_ror', 10.25, 'once', [Layer('scent', 0.0)], post_calm, clamp=True)
 add('mange_ror', 2.0, 'once', [Layer('eat', 0.0)], post_calm, clamp=True)
 add('nage_rapide_ror', 0.7519, 'loop', [Layer('swim2', 0.0, loop_src=True)], post_calm)
+
+
+# ================================================================== animations maison
+# Ecrites a la main a partir des animations existantes du modele (course, marche,
+# repos), pas portees du jar : elles ne portent donc pas le suffixe _ror.
+
+class Maison:
+    """Lecture d'une animation deja presente dans le bbmodel, comme source."""
+
+    def __init__(self, name):
+        a = [x for x in bb['animations'] if x['name'].endswith(name)][0]
+        self.length = a['length']
+        self.t = {}
+        for uid, an in a['animators'].items():
+            d = {}
+            for kf in an['keyframes']:
+                d.setdefault(kf['channel'], []).append(
+                    (kf['time'], [float(kf['data_points'][0].get(q, 0) or 0) for q in 'xyz']))
+            for c in d:
+                d[c].sort()
+            self.t[an['name']] = d
+
+    def at(self, bone, chan, t, loop=True):
+        d = self.t.get(bone)
+        if not d or chan not in d:
+            return [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+        u = (t % self.length) if loop else max(0.0, min(self.length, t))
+        return lerp_track(d[chan], u, self.length, False)
+
+    def moyenne(self, bone, chan='rotation', n=60):
+        v = [self.at(bone, chan, self.length * i / n) for i in range(n)]
+        return [sum(x[k] for x in v) / n for k in range(3)]
+
+
+def bake_fn(fn, length, loop, bones=None):
+    """Cuit une fonction (os, canal, t) -> valeur, puis compresse."""
+    n = int(round(length * R.FPS))
+    tracks = {}
+    for bone in (bones or R.CORE):
+        chans = {}
+        for chan in ('rotation', 'position', 'scale'):
+            neutral = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+            raw = []
+            for i in range(n + 1):
+                t = min(i / R.FPS, length)
+                v = fn(bone, chan, t)
+                raw.append((t, list(v if v is not None else neutral)))
+            if all(max(abs(v[k] - neutral[k]) for k in range(3)) < 1e-6 for _, v in raw):
+                if chan != 'rotation':
+                    continue
+                raw = [raw[0], raw[-1]]
+            if loop:
+                raw[-1] = (raw[-1][0], list(raw[0][1]))
+            chans[chan] = R.compress(raw, R.TOL[chan])
+        if chans:
+            tracks[bone] = chans
+    return tracks
+
+
+def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None):
+    tracks = bake_fn(fn, length, loop, bones)
+    if post:
+        post(tracks, length, loop)
+    if clamp:
+        ground_clamp(tracks, length, loop)
+    tail_layers(tracks, length, loop, guard=clamp)
+    tongue_follow(tracks, length, loop)
+    finger_converge(tracks, length, loop)
+    NEW.append(R.make_anim('animation.spinosaure.' + name, length, loop, tracks, 30))
+    nk = sum(len(v['keyframes']) for v in NEW[-1]['animators'].values())
+    print('  %-34s len=%-7s loop=%-5s os=%-3d keyframes=%d' %
+          (name, round(length, 3), loop, len(NEW[-1]['animators']), nk))
+
+
+def ease(t, a, b):
+    """Rampe lissee de 0 a 1 entre a et b."""
+    if t <= a:
+        return 0.0
+    if t >= b:
+        return 1.0
+    d = (t - a) / (b - a)
+    return d * d * (3 - 2 * d)
+
+
+def bosse(t, a, b):
+    """Cloche valant 1 au milieu de [a, b] et 0 aux bords."""
+    if t <= a or t >= b:
+        return 0.0
+    return math.sin(math.pi * (t - a) / (b - a)) ** 2
+
+
+print()
+print('Animations maison :')
+
+COURSE = Maison('course')
+MARCHE = Maison('marche')
+REPOS = Maison('repos')
+
+# ---------------------------------------------------------------- 1 et 2. virages serres
+# Convention verifiee sur le modele : rotation Y positive = le museau part vers la
+# DROITE de l animal ; rotation Z negative = il se penche sur sa GAUCHE.
+JAMBES = ('thigh_left', 'shin_left', 'foot_left', 'thigh_right', 'shin_right', 'foot_right')
+MOY = {b: COURSE.moyenne(b) for b in JAMBES}
+
+
+def virage(s):
+    """s = -1 pour un virage a gauche, +1 pour un virage a droite."""
+    def fn(bone, chan, t):
+        v = list(COURSE.at(bone, chan, t))
+        if chan == 'rotation':
+            if bone in JAMBES:
+                # la patte interieure raccourcit sa foulee, l exterieure l allonge
+                interieur = bone.endswith('left') if s < 0 else bone.endswith('right')
+                k = 0.70 if interieur else 1.18
+                m = MOY[bone]
+                v = [m[i] + (v[i] - m[i]) * k for i in range(3)]
+            osc = math.sin(2 * math.pi * t / 1.25)
+            if bone == 'root':
+                v[1] += s * 7.0
+                v[2] += s * -13.0 + osc * 1.5        # roulis dans le virage
+            elif bone == 'body':
+                v[1] += s * 8.0
+                v[2] += s * -5.0
+            elif bone == 'chest':
+                v[1] += s * 6.0
+            elif bone == 'neck':
+                v[1] += s * 17.0
+                v[0] += 3.0
+            elif bone == 'head':
+                v[1] += s * 11.0
+                v[2] += s * -6.0
+            elif bone.startswith('tail_'):
+                # la queue part a l exterieur du virage, en contrepoids, de plus en
+                # plus loin vers le bout
+                i = int(bone[-2:])
+                v[1] += -s * (3.0 + 2.6 * i)
+                v[2] += -s * 1.2 * i
+            elif bone.startswith('upper_arm'):
+                v[1] += s * 6.0
+        if chan == 'position' and bone == 'root':
+            v[1] += -2.0                              # il s abaisse dans l appui
+        return v
+    return fn
+
+
+def post_virage(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.34, lag=0.10, cap=6.0)
+    throat_vibe(tracks, length, loop, freq=6.0, amp=0.14, rot=3.2)
+
+
+add_maison('virage_serre_gauche', 1.25, 'loop', virage(-1), post_virage)
+add_maison('virage_serre_droite', 1.25, 'loop', virage(+1), post_virage)
+
+# ---------------------------------------------------------------- 3. marche en eau peu profonde
+# On part de la marche maison, ralentie, et on ne majore le releve de patte QUE
+# pendant la phase aerienne : la phase d appui reste intacte, donc le pied ne
+# traverse pas le sol et ne flotte pas.
+_rig_m = FK.Rig(bb)
+_rest_m = _rig_m.pose(lambda b, c: [1.0, 1.0, 1.0] if c == 'scale' else [0.0, 0.0, 0.0])
+_sol_m = _rig_m.lowest(_rest_m)
+
+
+def hauteur_pieds(src, n=90):
+    """Hauteur de chaque pied au fil du cycle, pour savoir quand il est en l air."""
+    out = {'foot_left': [], 'foot_right': []}
+    for i in range(n):
+        t = src.length * i / n
+        P = _rig_m.pose(lambda b, c: src.at(b, c, t))
+        for s in out:
+            u = _rig_m.byname[s]
+            M, off, O = P[s]
+            out[s].append(min(sum(M[1][k] * (p[k] - O[k]) for k in range(3)) + off[1]
+                              for p in _rig_m.box[u]) - _sol_m)
+    return out
+
+
+_H = hauteur_pieds(MARCHE)
+ETIRE = 2.4 / MARCHE.length
+
+
+def en_lair(side, t):
+    n = len(_H['foot_' + side])
+    u = (t / ETIRE) % MARCHE.length
+    h = _H['foot_' + side][int(u / MARCHE.length * n) % n]
+    return max(0.0, min(1.0, h / 5.0))
+
+
+def marche_eau(bone, chan, t):
+    v = list(MARCHE.at(bone, chan, t / ETIRE))
+    if chan == 'rotation':
+        if bone.startswith(('thigh', 'shin', 'foot')):
+            side = 'left' if bone.endswith('left') else 'right'
+            w = en_lair(side, t)
+            m = MOY_M.get(bone, [0, 0, 0])
+            k = 1.0 + 0.42 * w                   # patte relevee plus haut hors de l eau
+            v = [m[i] + (v[i] - m[i]) * k for i in range(3)]
+            if bone.startswith('thigh'):
+                v[0] -= 7.0 * w
+            if bone.startswith('shin'):
+                v[0] -= 11.0 * w
+            if bone.startswith('foot'):
+                v[0] += 9.0 * w
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= 1.4 + 0.48 * i               # queue relevee hors de l eau
+        elif bone == 'neck':
+            v[0] -= 4.0
+            v[1] += 5.0 * math.sin(2 * math.pi * t / 4.8)
+        elif bone == 'head':
+            v[0] -= 3.0
+            v[1] += 3.0 * math.sin(2 * math.pi * t / 4.8 + 0.8)
+        elif bone == 'body':
+            v[0] -= 2.0
+    if chan == 'position' and bone == 'root':
+        v[1] += 2.5 + 0.8 * math.sin(2 * math.pi * t / 2.4)
+    return v
+
+
+MOY_M = {b: MARCHE.moyenne(b) for b in JAMBES}
+
+
+def post_eau(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.26, lag=0.12, cap=4.5)
+    throat_vibe(tracks, length, loop, freq=1.3, amp=0.09, rot=1.8)
+
+
+add_maison('marche_eau_peu_profonde', 2.4, 'loop', marche_eau, post_eau)
+
+# ---------------------------------------------------------------- 4. peche a la gueule
+# Debout en eau peu profonde : il scrute, frappe une premiere fois a vide, se
+# secoue, recommence, attrape, puis avale.
+T_SCAN1, T_FRAPPE1, T_RATE, T_SCAN2, T_FRAPPE2, T_PRISE = 1.15, 1.45, 1.75, 2.95, 3.30, 3.70
+
+
+def peche(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.55))
+    if chan == 'scale':
+        return v
+    guet = (1 - ease(t, T_SCAN1, T_FRAPPE1)) + ease(t, T_RATE + 0.5, T_SCAN2)
+    guet = max(0.0, min(1.0, guet))
+    p1 = bosse(t, T_SCAN1, T_RATE)          # premiere frappe, a vide
+    p2 = bosse(t, T_SCAN2, T_PRISE)         # seconde frappe, reussie
+    plonge = max(p1, p2)
+    releve = ease(t, T_PRISE, 4.15) * (1 - ease(t, 4.75, 5.2))
+    secousse = bosse(t, T_RATE, T_RATE + 0.55)
+    avale = ease(t, 4.15, 4.45) * (1 - ease(t, 4.85, 5.2))
+    balayage = math.sin(2 * math.pi * t / 2.3)
+    if chan == 'rotation':
+        if bone == 'root':
+            v[0] += -7.0 * plonge + 3.0 * releve
+        elif bone == 'body':
+            v[0] += -13.0 * plonge + 4.0 * releve
+            v[2] += 3.0 * balayage * guet
+        elif bone == 'chest':
+            v[0] += -7.0 * plonge
+        elif bone == 'neck':
+            v[0] += -14.0 * guet - 26.0 * plonge + 24.0 * releve
+            v[1] += 13.0 * balayage * guet + 9.0 * secousse * math.sin(2 * math.pi * 7.0 * t)
+        elif bone == 'head':
+            v[0] += -10.0 * guet - 13.0 * plonge + 19.0 * releve + 16.0 * avale
+            v[1] += 8.0 * balayage * guet + 14.0 * secousse * math.sin(2 * math.pi * 7.0 * t + 0.7)
+        elif bone == 'jaw':
+            ouvre = 0.0
+            for a, b in ((T_SCAN1, T_FRAPPE1), (T_SCAN2, T_FRAPPE2)):
+                ouvre = max(ouvre, ease(t, a, b) * (1 - ease(t, b, b + 0.10)))
+            v[0] += -34.0 * ouvre - 8.0 * guet - 26.0 * avale * bosse(t, 4.15, 4.85)
+        elif bone.startswith('thigh'):
+            v[0] += 5.0 * plonge
+        elif bone.startswith('shin'):
+            v[0] += -6.0 * plonge
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= (1.6 + 0.55 * i) * plonge - (0.5 + 0.22 * i) * releve
+            v[1] += -6.0 * balayage * guet * (0.4 + 0.12 * i)
+        elif bone.startswith('upper_arm'):
+            v[0] += -8.0 * plonge
+    elif chan == 'position':
+        if bone == 'root':
+            v[1] += -4.5 * plonge
+            # il avance franchement dans la frappe : sans cela la tete s enroule
+            # vers l arriere et rentre dans le torse
+            v[2] += -21.0 * plonge
+    return v
+
+
+def post_peche(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.30, lag=0.11, cap=6.0)
+    # la gorge se gonfle puis se vide a la deglutition
+    throat_vibe(tracks, length, loop, freq=4.5, amp=0.22, rot=5.0,
+                env=lambda t: ease(t, 3.75, 4.15) * (1 - ease(t, 4.95, 5.25)))
+
+
+add_maison('peche_gueule_eau', 5.4, 'once', peche, post_peche)
+
+# ---------------------------------------------------------------- 5. ralentissement
+# Une seule phase de foulee partagee entre course et marche : les appuis restent
+# coherents pendant le fondu. La cadence decroit jusqu a l arret.
+def cadence(t):
+    if t < 0.45:
+        return 1.25
+    if t < 1.75:
+        return 1.25 + (0.556 - 1.25) * ease(t, 0.45, 1.75)
+    if t < 2.75:
+        return 0.556 * (1 - ease(t, 1.75, 2.75))
+    return 0.0
+
+
+_PH = [0.0]
+_TAB = []
+_dt = 1.0 / R.FPS
+_p = 0.0
+for _i in range(int(3.4 * R.FPS) + 2):
+    _TAB.append(_p)
+    _p += _dt * cadence(_i * _dt)
+
+
+def phase(t):
+    i = min(len(_TAB) - 1, int(t * R.FPS))
+    return _TAB[i]
+
+
+def ralentir(bone, chan, t):
+    wc = 1 - ease(t, 0.70, 1.75)
+    wm = ease(t, 0.70, 1.75) * (1 - ease(t, 2.45, 3.05))
+    wr = ease(t, 2.45, 3.05)
+    tot = wc + wm + wr or 1.0
+    ph = phase(t)
+    c = COURSE.at(bone, chan, ph * COURSE.length)
+    m = MARCHE.at(bone, chan, ph * MARCHE.length)
+    r = REPOS.at(bone, chan, t * 0.5)
+    v = [(c[k] * wc + m[k] * wm + r[k] * wr) / tot for k in range(3)]
+    frein = bosse(t, 0.45, 2.20)
+    if chan == 'rotation':
+        if bone == 'root':
+            v[0] += 9.0 * frein
+        elif bone == 'body':
+            v[0] += 7.0 * frein
+        elif bone == 'neck':
+            v[0] += 8.0 * frein
+        elif bone == 'head':
+            v[0] += 5.0 * frein
+        elif bone.startswith('tail_'):
+            v[0] -= (1.0 + 0.40 * int(bone[-2:])) * frein
+        elif bone.startswith(('thigh', 'shin')):
+            v[0] += -4.0 * frein
+    elif chan == 'position' and bone == 'root':
+        v[1] += -3.5 * frein
+        v[2] += -5.0 * frein          # il glisse encore vers l avant en freinant
+    return v
+
+
+def post_ralentir(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.32, lag=0.11, cap=7.0)
+    throat_vibe(tracks, length, loop, freq=5.5, amp=0.15, rot=3.5,
+                env=lambda t: 1 - ease(t, 1.8, 3.0))
+
+
+add_maison('ralentissement_course_arret', 3.4, 'once', ralentir, post_ralentir)
 
 
 # ================================================================== ecriture

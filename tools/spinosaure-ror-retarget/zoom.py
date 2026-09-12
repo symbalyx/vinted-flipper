@@ -29,7 +29,7 @@ def collect(path, bones):
                              f[2] if k == 0 else t[2]]
                         pts.append([sum(M[r][c] * (p[c] - O[c]) for c in range(3)) + off[r]
                                     for r in range(3)])
-            kind = 'neuf' if e['name'].startswith('V71_') else (
+            kind = 'neuf' if e['name'][:4] in ('V71_', 'V72_') else (
                 'griffe' if 'griffe' in e['name'] else 'base')
             out.append((kind, pts))
     return out
@@ -40,10 +40,11 @@ WID = {'neuf': 2, 'griffe': 2, 'base': 1}
 
 
 def draw(sets, vue, W, H, titles, path, note):
-    ax = 2 if vue == 'profil' else 0
+    # profil : (z, y) | face : (x, y) | dessus : (x, z)
+    ax, vx = (2, 1) if vue == 'profil' else ((0, 1) if vue == 'face' else (0, 2))
     allp = [p for s in sets for _, pts in s for p in pts]
     a0 = min(p[ax] for p in allp); a1 = max(p[ax] for p in allp)
-    b0 = min(p[1] for p in allp); b1 = max(p[1] for p in allp)
+    b0 = min(p[vx] for p in allp); b1 = max(p[vx] for p in allp)
     m = 26
     sc = min((W - 2 * m) / max(1e-6, a1 - a0), (H - 2 * m) / max(1e-6, b1 - b0))
     ca, cb = (a0 + a1) / 2, (b0 + b1) / 2
@@ -52,7 +53,7 @@ def draw(sets, vue, W, H, titles, path, note):
         img = Image.new('RGB', (W, H), (18, 18, 24) if k % 2 == 0 else (26, 26, 34))
         d = ImageDraw.Draw(img)
         for kind, pts in sorted(s, key=lambda t: t[0] == 'neuf'):
-            pr = [((p[ax] - ca) * sc + W / 2, H / 2 - (p[1] - cb) * sc) for p in pts]
+            pr = [((p[ax] - ca) * sc + W / 2, H / 2 - (p[vx] - cb) * sc) for p in pts]
             for i, j in EDGES:
                 d.line([pr[i], pr[j]], fill=COL[kind], width=WID[kind])
         d.text((8, 8), titles[k], fill=(225, 225, 235))

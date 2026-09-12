@@ -65,41 +65,39 @@ def avg_angle(a, b):
 
 
 def add(bb, palmure=True, membrane=True, griffes=1.40,
-        web_ep=0.7, memb_ep=0.8, memb_larg=10.0, memb_long=20.0, memb_sens=-1,
-        web_prise=0.15):
+        web_ep=1.1, memb_ep=0.8, memb_larg=10.0, memb_long=20.0, memb_sens=-1,
+        web_deb=2.5, web_avant=2.0):
     gm, em, nodes = index(bb)
     added = []
 
     for side, sgn in (('left', +1), ('right', -1)):
-        # ---------------------------------------------------- 1. palmure
+        # ---------------------------------------------------- 1. palmure (pagaie)
+        # Chez ROR le plan de palmure fait 19 de large pour une main de 6 : c'est
+        # une pagaie qui deborde largement des doigts, pas un bouche-trou entre eux.
+        # Une feuille qui ne remplirait que l'interstice (1.23 u pour des doigts
+        # epais de 2.5) serait invisible.
         if palmure:
             fing = [nodes['finger_%s_%d' % (side, i)] for i in range(3)]
             phal = [[e for e in cubes(f, em) if 'doigt' in e['name']] for f in fing]
-            for gap, (a_i, b_i) in enumerate(((0, 1), (1, 2))):
-                for p in range(2):
-                    if p >= len(phal[a_i]) or p >= len(phal[b_i]):
-                        continue
-                    A, B = phal[a_i][p], phal[b_i][p]
-                    # x : d un doigt a l autre, en mordant legerement dans chacun
-                    xa, xb = sorted((A['origin'][0], B['origin'][0]))
-                    # mordre profondement dans chaque doigt : la palmure doit tenir
-                    # malgre le jeu residuel entre doigts (12 deg -> environ 0.6 u)
-                    x0, x1 = xa - web_prise, xb + web_prise
-                    if x1 <= x0:
-                        continue
-                    oy = (A['origin'][1] + B['origin'][1]) / 2.0
-                    oz = (A['origin'][2] + B['origin'][2]) / 2.0
-                    zl = min(abs(A['to'][2] - A['from'][2]), abs(B['to'][2] - B['from'][2]))
-                    rot = [avg_angle(A['rotation'][0], B['rotation'][0]),
-                           avg_angle(A['rotation'][1], B['rotation'][1]), 0.0]
-                    origin = [(x0 + x1) / 2.0, oy, oz]
-                    # rattachee a la main et non a un doigt : le jeu se repartit
-                    # sur les deux bords au lieu de s accumuler sur un seul
-                    added.append((nodes['hand_%s' % side], mk_cube(
-                        'V71_palmure_%s_%d%d_%d' % (side, a_i, b_i, p),
-                        [x0, oy - web_ep / 2, oz - zl / 2],
-                        [x1, oy + web_ep / 2, oz + zl / 2],
-                        origin, rot, A['faces']['west']['uv'])))
+            for p in range(2):
+                lot = [ph[p] for ph in phal if p < len(ph)]
+                if len(lot) < 2:
+                    continue
+                x0 = min(min(e['from'][0], e['to'][0]) for e in lot) - web_deb
+                x1 = max(max(e['from'][0], e['to'][0]) for e in lot) + web_deb
+                oy = sum(e['origin'][1] for e in lot) / len(lot)
+                oz = sum(e['origin'][2] for e in lot) / len(lot)
+                zl = max(abs(e['to'][2] - e['from'][2]) for e in lot) + web_avant
+                rx = lot[0]['rotation'][0]
+                ry = 0.0
+                for e in lot[1:]:
+                    rx = avg_angle(rx, e['rotation'][0])
+                added.append((nodes['hand_%s' % side], mk_cube(
+                    'V72_palmure_%s_%d' % (side, p),
+                    [x0, oy - web_ep / 2, oz - zl / 2],
+                    [x1, oy + web_ep / 2, oz + zl / 2],
+                    [(x0 + x1) / 2.0, oy, oz], [rx, ry, 0.0],
+                    lot[0]['faces']['west']['uv'])))
 
         # ---------------------------------------------------- 2. membrane d avant-bras
         if membrane:

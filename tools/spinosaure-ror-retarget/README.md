@@ -185,3 +185,48 @@ sont pas concernees : leur divergence etait deja sous le seuil.
 | poids | 45 Mo | 21.5 Mo |
 | texture | | identique a l octet pres |
 | ecart sur les 50 animations d origine | | 0.077 unite |
+
+## V72 : pagaie, saut amplifie, 5 animations maison
+
+### La palmure etait invisible
+
+Premiere version : une feuille de 0.7 d'epaisseur logee dans l'interstice entre
+deux doigts. Or cet interstice fait 1.23 u pour des doigts epais de 2.5 : la
+feuille etait noyee dedans. Retour a la source : chez ROR le plan de palmure fait
+**19 u de large pour une main de 6** — c'est une pagaie qui deborde des doigts,
+pas un bouche-trou. Corrige en deux feuilles pleine largeur (15.6 u pour une main
+de 9.7), une par rangee de phalanges, debordant de 2.5 u de chaque cote.
+
+### Le saut ne se lisait pas
+
+Mesure : les pieds ne decollaient que de 28 u, contre 46 pour `bond_joueur`. Arc
+du root repris : creuse a -6 pour l'elan, apex a +55, plongee a -22. Les pieds
+montent maintenant a 81 u.
+
+### 5 animations ecrites a la main
+
+Pas portees du jar : composees a partir des animations existantes du modele
+(`course`, `marche`, `repos`), donc sans suffixe `_ror`.
+
+| animation | duree | construction |
+|---|---|---|
+| `virage_serre_gauche` / `_droite` | 1.25 s | `course` avec foulee interieure raccourcie (0.70) et exterieure allongee (1.18), roulis dans le virage, queue en contrepoids exterieur |
+| `marche_eau_peu_profonde` | 2.4 s | `marche` ralentie ; le releve de patte n'est majore que pendant la phase aerienne, mesuree par FK, donc l'appui reste intact |
+| `peche_gueule_eau` | 5.4 s | ecrite de zero : guet, frappe a vide, secousse, second guet, prise, deglutition (gorge qui se vide) |
+| `ralentissement_course_arret` | 3.4 s | une seule phase de foulee partagee entre `course` et `marche`, cadence decroissante de 1.25 a 0 Hz : les appuis restent coherents pendant le fondu |
+
+### Deux pieges rencontres
+
+**Le signe de la queue.** Mesure directe : un offset X positif fait tomber le bout
+de la queue de -42 a -80, un offset negatif le monte a -9.6. C'est donc le X
+**negatif** qui releve la queue. Le raisonnement inverse (a partir de `course`,
+dont la queue haute vient des segments profonds et non de `tail_01`) menait au
+mauvais signe et enfoncait la queue dans le sol.
+
+**Boite englobante contre geometrie reelle.** La pêche affichait 26 u de
+penetration tete/torse en boites englobantes. Le test reel cube par cube (points
+echantillonnes transformes dans le repere de chaque cube du torse) donne **zero**
+penetration, comme pour les animations d'origine : la tete est allongee, sa boite
+alignee aux axes deborde sans que la geometrie se touche. Le correctif applique
+(moins d'enroulement du cou, pas en avant de 21 u) reste anatomiquement meilleur,
+mais il ne corrigeait pas un vrai defaut.
