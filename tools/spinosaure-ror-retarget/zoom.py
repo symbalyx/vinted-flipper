@@ -29,7 +29,7 @@ def collect(path, bones):
                              f[2] if k == 0 else t[2]]
                         pts.append([sum(M[r][c] * (p[c] - O[c]) for c in range(3)) + off[r]
                                     for r in range(3)])
-            kind = 'neuf' if e['name'][:4] in ('V71_', 'V72_') else (
+            kind = 'neuf' if e['name'][:4] in ('V71_', 'V72_', 'V74_') else (
                 'griffe' if 'griffe' in e['name'] else 'base')
             out.append((kind, pts))
     return out

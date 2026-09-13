@@ -64,7 +64,7 @@ def avg_angle(a, b):
     return a + d / 2.0
 
 
-def add(bb, palmure=True, membrane=True, griffes=1.40,
+def add(bb, palmure=False, membrane=False, griffes=1.40,
         web_ep=1.1, memb_ep=0.8, memb_larg=10.0, memb_long=20.0, memb_sens=-1,
         web_deb=2.5, web_avant=2.0):
     gm, em, nodes = index(bb)
