@@ -230,3 +230,70 @@ penetration, comme pour les animations d'origine : la tete est allongee, sa boit
 alignee aux axes deborde sans que la geometrie se touche. Le correctif applique
 (moins d'enroulement du cou, pas en avant de 21 u) reste anatomiquement meilleur,
 mais il ne corrigeait pas un vrai defaut.
+
+## V73 : verification du bond, bras grossis, 8 animations de plus
+
+### Le bond ROR verifie contre sa source
+
+Deux controles sur `attaque_saut_eau_ror`, le portage de `mace` + `mace_air` :
+
+1. **Continuite a la jonction** des deux clips (t = 1.6667 s) : discontinuite
+   maximale de 2.37 deg sur la machoire, le reste sous 1.3 deg. Les deux clips
+   ROR s'enchainent bien a l'identique.
+2. **Evenements signature** retrouves aux valeurs attendues apres transformation :
+   gueule ouverte a -40.8, gueule qui claque a l'impact, gorge gonflee a 1.34 puis
+   ecrasee a 0.70, bras leves a 67.5. Les cinq passent.
+
+**Mais ROR n'a pas de bond hors de l'eau.** Son clip est un plongeon DANS l'eau :
+l'evenement sonore est `entity.spino.dive_attack` -> `spino_hit_water`. Profil
+vertical mesure (0 = surface) :
+
+    attaque_saut_eau_ror   +0 -5 +13 +11 +12 +25 -21 -9 -0     (plongeon depuis la surface)
+    saut_attaque_hors_eau  -46 -95 -88 -40 +8 +53 +16 -95 -48  (bond hors de l eau, maison)
+
+D'ou `bond_hors_eau_ror` : memes poses ROR, mais arc de root partant immerge.
+Profil obtenu : `-72 -87 -66 -51 -18 +21 -49 -73 -72`. Il perce la surface.
+
+### Bras grossis (grossir_bras.py)
+
+Mesure prealable, contre-intuitive : **notre bras porte deja plus loin que celui
+de ROR**, 77.5 u contre 62.4 de l'epaule au bout de la griffe. Ce n'est donc pas
+la longueur qui manque mais la masse de la main et des doigts.
+
+| piece | avant | apres | ROR |
+|---|---|---|---|
+| doigt | 2.65 x 2.50 x 6.01 | 4.77 x 4.50 x 6.91 | 5 x 4 x 15 |
+| main | 9.70 x 4.60 x 11.03 | 10.28 x 7.82 x 12.13 | 6 x 11 x 8 |
+| bras | 9.00 x 9.30 x 17.43 | 10.44 x 10.79 x 17.78 | 10 x 31 x 13 |
+
+Les `from`/`to` decrivent la boite AVANT rotation : les mettre a l'echelle autour
+de l'origine du cube agit donc bien sur ses axes locaux (section contre longueur).
+
+### Piege : un test de penetration qui signale tout
+
+Premier test de collision main/corps : **3533 images en defaut**. Verification sur
+le modele d'origine : **100 % des images**, y compris en pose de repos. Le test
+incluait l'epaule, qui est encastree dans le torse par construction — c'est
+anatomiquement correct, pas un defaut.
+
+Test refait sur la main et les phalanges seules (`clip.py`) :
+
+    V70 d origine, tes bras      133 / 1589 images  (8.4%)
+    V73, bras grossis            143 / 2380 images  (6.0%)
+
+Les animations fautives sont les memes avec les memes comptes exacts
+(`saut_attaque_hors_eau` 33, `plongeon_hauteur` 29, `plonge` 24,
+`remonte_surface` 23) : ce sont les animations de plongee d'origine, le defaut
+preexiste. **L'agrandissement n'introduit aucune regression.**
+
+### 7 comportements pour l'immersion
+
+| animation | duree | contenu |
+|---|---|---|
+| `secoue_eau` | 2.4 s | secouage lateral amorti de 7 Hz a 5 Hz, propage du cou a la queue |
+| `affut_eau` | 6.0 s (loop) | immerge a -34, seuls tete et voile depassent, respiration lente, balayage du regard |
+| `secoue_proie` | 3.0 s | gueule fermee, secousses laterales a 5.5 Hz, puis releve et deglutition |
+| `menace_laterale` | 3.8 s | se met de profil a 34 deg pour presenter la voile, cou arque, pas lateral |
+| `baille_etire` | 4.4 s | baillement a -46 deg puis etirement du dos et d une patte |
+| `frappe_queue_eau` | 1.9 s | armement de la queue puis frappe, recul du corps |
+| `marche_boiteuse` | 2.4 s (loop) | appui droit ecourte a 0.62, affaissement du corps sur ce cote |

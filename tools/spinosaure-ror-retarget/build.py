@@ -894,6 +894,302 @@ def post_ralentir(tracks, length, loop):
 add_maison('ralentissement_course_arret', 3.4, 'once', ralentir, post_ralentir)
 
 
+# ---------------------------------------------------------------- bond hors de l eau
+# ROR n'a pas de bond hors de l eau : son clip mace/mace_air est un PLONGEON dans
+# l eau (son entity.spino.dive_attack -> spino_hit_water). On reprend donc ses poses
+# mais avec un arc de root qui part immerge et jaillit, comme le saut maison.
+def post_bond(tracks, length, loop):
+    add_root_curve(
+        tracks, length,
+        keys_pos=[(0.0, [0, -72, 0]), (0.30, [0, -88, 6]), (0.62, [0, -64, -4]),
+                  (0.95, [0, -12, -16]), (1.25, [0, 34, -28]), (1.50, [0, 56, -38]),
+                  (1.667, [0, 48, -46]), (1.85, [0, -26, -64]), (2.10, [0, -62, -68]),
+                  (2.40, [0, -74, -46]), (2.667, [0, -72, 0])],
+        keys_rot=[(0.0, [0, 0, 0]), (0.30, [-10, 0, 0]), (0.62, [12, 0, 0]),
+                  (0.95, [28, 0, 0]), (1.25, [34, 0, 0]), (1.667, [16, 0, 0]),
+                  (1.85, [-26, 0, 0]), (2.10, [-16, 0, 0]), (2.667, [0, 0, 0])])
+    sail_rework(tracks, length, loop, gain=0.32, lag=0.11, cap=7.0)
+    throat_vibe(tracks, length, loop, freq=5.0, amp=0.10, rot=2.5,
+                env=lambda t: max(0.0, min(1.0, (t - 0.55) / 0.35)) * max(0.0, min(1.0, (1.70 - t) / 0.15)))
+
+
+add('bond_hors_eau_ror', 2.6667, 'once',
+    [Layer('mace', 0.0), Layer('mace_air', 1.6667)], post_bond)
+
+
+# ---------------------------------------------------------------- comportements immersifs
+def _osc(t, f, ph=0.0):
+    return math.sin(2 * math.pi * f * t + ph)
+
+
+# 1. secouer l eau : oscillation laterale rapide qui s amortit, du cou a la queue
+def secoue_eau(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.4))
+    env = bosse(t, 0.25, 2.05)
+    f = 7.0 - 2.0 * ease(t, 0.25, 2.05)
+    if chan == 'rotation':
+        r = {'body': (9, 0.0), 'chest': (11, 0.1), 'neck': (17, 0.25), 'head': (21, 0.4),
+             'jaw': (0, 0), 'root': (5, -0.1)}.get(bone)
+        if r:
+            v[1] += r[0] * env * _osc(t, f, r[1])
+            v[2] += 0.45 * r[0] * env * _osc(t, f, r[1] + 1.5)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += (7 + 2.4 * i) * env * _osc(t, f, 0.5 + 0.22 * i)
+        elif bone.startswith('upper_arm'):
+            v[1] += 9 * env * _osc(t, f, 0.3)
+            v[0] += -7 * env
+        elif bone.startswith(('thigh', 'shin')):
+            v[2] += 4 * env * _osc(t, f, 0.15)
+        if bone == 'jaw':
+            v[0] += -11 * env
+    elif chan == 'position' and bone == 'root':
+        v[1] += 2.5 * env * abs(_osc(t, f * 2))
+    return v
+
+
+def post_secoue(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.40, lag=0.07, cap=11.0)
+    throat_vibe(tracks, length, loop, freq=7.0, amp=0.20, rot=5.0,
+                env=lambda t: bosse(t, 0.25, 2.05))
+
+
+add_maison('secoue_eau', 2.4, 'once', secoue_eau, post_secoue)
+
+
+# 2. affut : immerge, immobile, seuls la tete et la voile depassent
+def affut(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.42))
+    souffle = _osc(t, 1 / 6.0)
+    guet = _osc(t, 1 / 3.0)
+    if chan == 'rotation':
+        if bone == 'root':
+            v[0] += 5.0 + 1.2 * souffle
+        elif bone == 'body':
+            v[0] += 4.0
+        elif bone == 'neck':
+            v[0] += 13.0 + 1.5 * souffle
+            v[1] += 7.0 * guet
+        elif bone == 'head':
+            v[0] += -9.0
+            v[1] += 5.0 * guet + 1.6 * _osc(t, 1 / 1.7)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += (2.0 + 0.9 * i) * _osc(t, 1 / 4.0, -0.3 * i)
+            v[0] -= 0.8 * i
+        elif bone.startswith(('thigh', 'shin')):
+            v[0] += 6.0 if bone.startswith('thigh') else -9.0
+    elif chan == 'position' and bone == 'root':
+        v[1] += -34.0 + 1.1 * souffle
+    return v
+
+
+def post_affut(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.20, lag=0.16, cap=3.0)
+    throat_vibe(tracks, length, loop, freq=0.85, amp=0.13, rot=2.2)
+
+
+add_maison('affut_eau', 6.0, 'loop', affut, post_affut, clamp=False)
+
+
+# 3. secouer la proie : gueule fermee, secousses laterales violentes, puis avalee
+def secoue_proie(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.4))
+    env = bosse(t, 0.20, 1.95)
+    f = 5.5
+    leve = ease(t, 1.95, 2.35) * (1 - ease(t, 2.55, 2.8))
+    if chan == 'rotation':
+        if bone == 'root':
+            v[2] += 6 * env * _osc(t, f, 0.2)
+        elif bone == 'body':
+            v[1] += -8 * env * _osc(t, f)
+            v[0] += -6 * env
+        elif bone == 'chest':
+            v[1] += -6 * env * _osc(t, f, 0.15)
+        elif bone == 'neck':
+            v[1] += 24 * env * _osc(t, f, 0.35)
+            v[0] += -14 * env + 22 * leve
+        elif bone == 'head':
+            v[1] += 29 * env * _osc(t, f, 0.55)
+            v[2] += 16 * env * _osc(t, f, 1.1)
+            v[0] += -9 * env + 18 * leve
+        elif bone == 'jaw':
+            v[0] += -3.0 - 2.0 * env - 20.0 * bosse(t, 2.35, 2.75)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += -(5 + 2.0 * i) * env * _osc(t, f, 0.3 + 0.18 * i)
+        elif bone.startswith(('thigh', 'shin')):
+            v[0] += (7 if bone.startswith('thigh') else -8) * env
+    elif chan == 'position' and bone == 'root':
+        v[2] += -3.0 * env
+    return v
+
+
+def post_proie(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.38, lag=0.08, cap=9.0)
+    throat_vibe(tracks, length, loop, freq=5.0, amp=0.24, rot=5.5,
+                env=lambda t: ease(t, 2.30, 2.55) * (1 - ease(t, 2.75, 3.0)))
+
+
+add_maison('secoue_proie', 3.0, 'once', secoue_proie, post_proie)
+
+
+# 4. menace laterale : il se met de profil pour montrer sa voile
+def menace(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.45))
+    pose = ease(t, 0.3, 1.2) * (1 - ease(t, 2.9, 3.6))
+    pas = _osc(t, 1 / 1.9)
+    if chan == 'rotation':
+        if bone == 'root':
+            v[1] += 34.0 * pose
+            v[2] += -5.0 * pose
+        elif bone == 'body':
+            v[1] += 9.0 * pose
+            v[0] += -3.0 * pose
+        elif bone == 'chest':
+            v[1] += 7.0 * pose
+        elif bone == 'neck':
+            v[1] += -26.0 * pose            # le cou revient vers la cible
+            v[0] += 9.0 * pose
+        elif bone == 'head':
+            v[1] += -20.0 * pose
+            v[0] += -13.0 * pose
+            v[2] += 7.0 * pose * pas
+        elif bone == 'jaw':
+            v[0] += -13.0 * pose
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += (4.0 + 2.2 * i) * pose
+            v[0] -= (1.0 + 0.5 * i) * pose
+        elif bone.startswith('thigh'):
+            v[0] += 5.0 * pose * (pas if bone.endswith('left') else -pas)
+        elif bone.startswith('upper_arm'):
+            v[0] += -12.0 * pose
+            v[2] += (10.0 if bone.endswith('left') else -10.0) * pose
+    return v
+
+
+def post_menace(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.30, lag=0.13, cap=6.0)
+    throat_vibe(tracks, length, loop, freq=3.2, amp=0.20, rot=4.5,
+                env=lambda t: ease(t, 0.9, 1.5) * (1 - ease(t, 3.0, 3.6)))
+
+
+add_maison('menace_laterale', 3.8, 'once', menace, post_menace)
+
+
+# 5. baillement et etirement
+def baille(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.4))
+    b = bosse(t, 0.35, 2.10)
+    etire = bosse(t, 2.20, 3.95)
+    if chan == 'rotation':
+        if bone == 'jaw':
+            v[0] += -46.0 * b
+        elif bone == 'neck':
+            v[0] += 17.0 * b + 13.0 * etire
+        elif bone == 'head':
+            v[0] += 13.0 * b - 9.0 * etire
+        elif bone == 'body':
+            v[0] += 4.0 * b - 6.0 * etire
+        elif bone == 'chest':
+            v[0] += 3.0 * b
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= (1.6 + 0.7 * i) * (b + etire)
+        elif bone.startswith('upper_arm'):
+            v[0] += -22.0 * etire
+            v[2] += (7.0 if bone.endswith('left') else -7.0) * etire
+        elif bone.startswith('forearm'):
+            v[0] += 16.0 * etire
+        elif bone.startswith('thigh'):
+            v[0] += -9.0 * etire if bone.endswith('right') else 0.0
+        elif bone.startswith('shin'):
+            v[0] += 12.0 * etire if bone.endswith('right') else 0.0
+    elif chan == 'position' and bone == 'root':
+        v[1] += 2.0 * etire - 1.0 * b
+        v[2] += 3.0 * etire
+    return v
+
+
+def post_baille(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.26, lag=0.13, cap=4.5)
+    throat_vibe(tracks, length, loop, freq=1.6, amp=0.26, rot=5.0,
+                env=lambda t: bosse(t, 0.35, 2.10))
+
+
+add_maison('baille_etire', 4.4, 'once', baille, post_baille)
+
+
+# 6. coup de queue sur l eau
+def frappe_queue(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.4))
+    arme = ease(t, 0.10, 0.70) * (1 - ease(t, 0.70, 0.88))
+    frappe = ease(t, 0.72, 0.92) * (1 - ease(t, 1.05, 1.75))
+    if chan == 'rotation':
+        if bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] += -(3.0 + 2.8 * i) * arme + (2.6 + 2.4 * i) * frappe
+            v[1] += (2.0 + 1.8 * i) * arme - (1.6 + 1.4 * i) * frappe
+        elif bone == 'root':
+            v[0] += 4.0 * arme - 3.0 * frappe
+            v[2] += -3.0 * arme + 2.5 * frappe
+        elif bone == 'body':
+            v[0] += 5.0 * arme - 4.0 * frappe
+        elif bone == 'neck':
+            v[0] += -6.0 * arme + 5.0 * frappe
+        elif bone == 'head':
+            v[1] += 9.0 * arme
+        elif bone.startswith(('thigh', 'shin')):
+            v[0] += (5.0 if bone.startswith('thigh') else -6.0) * (arme + frappe) * 0.5
+    elif chan == 'position' and bone == 'root':
+        v[1] += -2.0 * frappe
+    return v
+
+
+def post_frappe(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.36, lag=0.09, cap=8.0)
+
+
+add_maison('frappe_queue_eau', 1.9, 'once', frappe_queue, post_frappe)
+
+
+# 7. marche en boitant : l appui droit est ecourte et le corps s affaisse dessus
+def boite(bone, chan, t):
+    k = 2.4 / MARCHE.length
+    v = list(MARCHE.at(bone, chan, t / k))
+    ph = (t / 2.4) % 1.0
+    douleur = max(0.0, math.sin(2 * math.pi * ph))     # phase d appui du cote droit
+    if chan == 'rotation':
+        if bone.endswith('right') and bone.startswith(('thigh', 'shin', 'foot')):
+            m = MOY_M[bone]
+            v = [m[i] + (v[i] - m[i]) * 0.62 for i in range(3)]
+            if bone.startswith('shin'):
+                v[0] += -9.0 * douleur
+        elif bone == 'root':
+            v[2] += 5.5 * douleur
+            v[0] += 2.0 * douleur
+        elif bone == 'body':
+            v[2] += 3.5 * douleur
+        elif bone == 'neck':
+            v[0] += 6.0 * douleur - 3.0
+            v[2] += -2.5 * douleur
+        elif bone == 'head':
+            v[0] += 4.0 * douleur
+        elif bone.startswith('tail_'):
+            v[0] -= 0.8 * int(bone[-2:]) * douleur
+    elif chan == 'position' and bone == 'root':
+        v[1] += -3.0 * douleur
+    return v
+
+
+def post_boite(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.28, lag=0.12, cap=5.0)
+    throat_vibe(tracks, length, loop, freq=1.6, amp=0.11, rot=2.0)
+
+
+add_maison('marche_boiteuse', 2.4, 'loop', boite, post_boite)
+
 # ================================================================== ecriture
 existing = {a['name'] for a in bb['animations']}
 for a in NEW:
