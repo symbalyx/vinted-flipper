@@ -1218,6 +1218,407 @@ def post_mange(tracks, length, loop):
 add_maison('mange_carcasse', 5.8, 'once', mange, post_mange)
 
 
+
+# ================================================================== traque et horreur
+# Principe commun, et c est l inverse de ce que j avais fait sur secoue_eau : ce qui
+# fait peur n est pas le mouvement, c est sa RETENUE. Une tenue longue et parfaitement
+# immobile suivie d une transition breve se lit comme une intention ; une oscillation
+# continue se lit comme un tic. Toutes les bascules rapides ici durent au moins
+# 3 images a 30 fps, et aucune frequence ne depasse 4.5 Hz (limite de Nyquist utile).
+
+
+def marches(t, keys, duree=0.10):
+    """Suite de PALIERS : chaque (temps, valeur) est tenue immobile jusqu a ce que la
+    bascule vers la suivante s amorce, `duree` seconde avant son temps."""
+    if t <= keys[0][0]:
+        return keys[0][1]
+    for i in range(len(keys) - 1):
+        t1, v1 = keys[i + 1]
+        if t < t1:
+            d = max(duree, 3.0 / R.FPS)
+            return keys[i][1] + (v1 - keys[i][1]) * ease(t, t1 - d, t1)
+    return keys[-1][1]
+
+
+# Calibration mesuree sur le rig : replier la jambe de (a, -1.36a, 0.35a) degres
+# remonte le pied de 0.46a unites. Pour s accroupir sans decoller du sol il faut donc
+# replier ET descendre le root d autant, car ground_clamp ne sait que remonter.
+def pli(c):
+    a = c / 0.46
+    return a, -1.36 * a, 0.35 * a
+
+
+def accroupi(bone, chan, v, c, garde=1.0):
+    """Applique un accroupissement de c unites a une valeur deja calculee."""
+    a, b, f = pli(c)
+    if chan == 'rotation':
+        if bone.startswith('thigh'):
+            v[0] += a
+        elif bone.startswith('shin'):
+            v[0] += b
+        elif bone.startswith('foot'):
+            v[0] += f
+    elif chan == 'position' and bone == 'root':
+        v[1] -= c * garde
+    return v
+
+
+# ---------------------------------------------------------------- 1. traque au sol
+# Foulee courte et basse, centre de gravite abaisse, queue tendue a l horizontale
+# (le balancier lateral de la marche est coupe : un predateur en approche ne se
+# signale pas), tete ramenee a l horizontale malgre le cou baisse -> regard verrouille.
+def traque(bone, chan, t):
+    L = 3.6
+    v = list(MARCHE.at(bone, chan, t * MARCHE.length / L))
+    if chan == 'rotation':
+        if bone.startswith(('thigh', 'shin', 'foot')):
+            m = MOY_M.get(bone, [0.0, 0.0, 0.0])
+            v = [m[i] + (v[i] - m[i]) * 0.62 for i in range(3)]
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= 1.1 + 0.32 * i
+            v[1] = v[1] * 0.40 + (1.4 + 0.5 * i) * _osc(t, 1 / L, -0.30 * i)
+        elif bone == 'neck':
+            v[0] += -16.0
+            v[1] += 3.4 * _osc(t, 1 / 7.2)
+        elif bone == 'head':
+            v[0] += 12.0
+            v[1] += 2.6 * _osc(t, 1 / 7.2, 0.9)
+        elif bone.startswith('upper_arm'):
+            v[0] += -11.0
+        elif bone.startswith('forearm'):
+            v[0] += -14.0
+    return accroupi(bone, chan, v, 9.0)
+
+
+def post_traque(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.18, lag=0.16, cap=3.5)
+    throat_vibe(tracks, length, loop, freq=0.55, amp=0.07, rot=1.2)
+
+
+add_maison('traque_lente', 3.6, 'loop', traque, post_traque)
+
+
+# ---------------------------------------------------------------- 2. traque a la surface
+# Le corps derive, la TETE ne bouge pas. C est le contraste qui inquiete : une masse
+# qui avance sans que le regard ne devie. Seuls le dessus du crane et la voile percent.
+def traque_eau(bone, chan, t):
+    L = 5.0
+    v = list(REPOS.at(bone, chan, t * 0.30))
+    lent = _osc(t, 1 / L)
+    if chan == 'rotation':
+        if bone == 'root':
+            v[1] += 2.6 * lent
+            v[0] += 4.0
+        elif bone == 'body':
+            v[1] += 1.8 * _osc(t, 1 / L, -0.7)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += (4.0 + 2.1 * i) * _osc(t, 1 / L, -0.42 * i)
+            v[0] -= 0.5 * i
+        elif bone == 'neck':
+            v[0] += -5.0 - 2.2 * lent          # contre le lacet du corps : le cap tient
+            v[1] += -2.4 * lent
+        elif bone == 'head':
+            v[0] += 7.0
+            v[1] += -1.4 * lent + 1.2 * _osc(t, 1 / 12.0)
+        elif bone.startswith('thigh'):
+            v[0] += 12.0
+        elif bone.startswith('shin'):
+            v[0] += -18.0
+        elif bone.startswith('foot'):
+            v[0] += 7.0
+        elif bone.startswith('upper_arm'):
+            v[0] += -14.0
+    elif chan == 'position' and bone == 'root':
+        v[1] += -38.0 + 0.7 * _osc(t, 1 / (L / 2.0))
+    return v
+
+
+def post_traque_eau(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.22, lag=0.18, cap=3.5)
+    throat_vibe(tracks, length, loop, freq=0.5, amp=0.09, rot=1.4)
+
+
+add_maison('traque_eau_affleurante', 5.0, 'loop', traque_eau, post_traque_eau, clamp=False)
+
+
+# ---------------------------------------------------------------- 3. immobilisation
+# Le pied reste EN L AIR, pris au milieu du pas : c est la posture de l animal qui
+# vient de reperer sa proie. Tremblement de tension a 3.5 Hz et 0.6 degre seulement,
+# assez pour que la pose ne soit pas morte, trop peu pour se lire comme un tic.
+_i_fige = max(range(len(_H['foot_left'])), key=lambda i: _H['foot_left'][i])
+_PH_FIGE = _i_fige / len(_H['foot_left']) * MARCHE.length
+
+
+def fige(bone, chan, t):
+    v = list(MARCHE.at(bone, chan, _PH_FIGE))
+    souffle = _osc(t, 1 / 4.2)
+    if chan == 'rotation':
+        if bone.startswith(('shin_left', 'foot_left')):
+            v[0] += 0.6 * _osc(t, 3.5)
+        elif bone == 'neck':
+            v[0] += -13.0 + 0.7 * souffle
+        elif bone == 'head':
+            v[0] += 10.0
+            v[1] += 0.8 * _osc(t, 1 / 8.4)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= 0.9 + 0.30 * i
+            v[1] = v[1] * 0.30 + 0.9 * _osc(t, 1 / 8.4, -0.25 * i)
+        elif bone.startswith('upper_arm'):
+            v[0] += -12.0
+        elif bone.startswith('forearm'):
+            v[0] += -16.0
+    elif chan == 'position' and bone == 'root':
+        v[1] += 0.5 * souffle
+    return accroupi(bone, chan, v, 12.0)
+
+
+def post_fige(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.12, lag=0.20, cap=2.0)
+    throat_vibe(tracks, length, loop, freq=0.48, amp=0.06, rot=1.0)
+
+
+add_maison('fige_en_traque', 4.2, 'loop', fige, post_fige)
+
+
+# ---------------------------------------------------------------- 4. embuscade
+# Sortie de traque : ramasse, detente, extension en l air, reception encaissee.
+T_RAM, T_DET, T_AIR, T_REC = 0.38, 0.72, 1.10, 1.62
+
+
+def embuscade(bone, chan, t):
+    v = list(MARCHE.at(bone, chan, _PH_FIGE))
+    ram = ease(t, 0.0, T_RAM) * (1 - ease(t, T_RAM, T_DET))
+    det = ease(t, T_RAM, T_DET) * (1 - ease(t, T_AIR, T_REC))
+    rec = ease(t, T_AIR, T_REC)
+    c = 11.0 + 7.0 * ram - 11.0 * det + 5.0 * rec
+    if chan == 'rotation':
+        if bone == 'neck':
+            v[0] += -14.0 - 9.0 * ram + 30.0 * det - 6.0 * rec
+        elif bone == 'head':
+            v[0] += 11.0 + 5.0 * ram - 16.0 * det + 4.0 * rec
+        elif bone == 'jaw':
+            v[0] += -42.0 * bosse(t, T_RAM, T_AIR + 0.25) - 10.0 * rec
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            # positif = la pointe DESCEND (mesure faite sur le rig) : on leve donc
+            # la queue au ramasse et on la tend en l air, sinon elle traverse le sol
+            v[0] -= 1.2 * i * ram + 0.8 * i * det
+            v[1] *= 0.3
+        elif bone.startswith('upper_arm'):
+            v[0] += -13.0 + 6.0 * ram - 34.0 * det
+        elif bone.startswith('forearm'):
+            v[0] += -16.0 - 26.0 * det
+    return accroupi(bone, chan, v, c)
+
+
+def post_embuscade(tracks, length, loop):
+    add_root_curve(
+        tracks, length,
+        keys_pos=[(0.0, [0, 0, 0]), (T_RAM, [0, -2, 5]), (T_DET, [0, 9, -12]),
+                  (T_AIR, [0, 16, -30]), (1.34, [0, 2, -42]), (T_REC, [0, -3, -46])],
+        keys_rot=[(0.0, [0, 0, 0]), (T_RAM, [-5, 0, 0]), (T_DET, [10, 0, 0]),
+                  (T_AIR, [7, 0, 0]), (T_REC, [-4, 0, 0])])
+    sail_rework(tracks, length, loop, gain=0.38, lag=0.08, cap=9.0)
+    throat_vibe(tracks, length, loop, freq=4.0, amp=0.20, rot=4.5,
+                env=lambda t: bosse(t, T_RAM, T_REC))
+
+
+add_maison('embuscade_jaillissement', 1.62, 'once', embuscade, post_embuscade)
+
+
+# ---------------------------------------------------------------- 5. tete inclinee
+# L inclinaison n est pas le sujet : la TENUE l est. 2.2 s de fixite absolue apres
+# une bascule de 3 images. C est ce silence de mouvement qui met mal a l aise.
+def tete_inclinee(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.22))
+    roul = marches(t, [(0.0, 0.0), (1.00, 38.0), (3.45, -31.0), (5.20, 0.0), (5.5, 0.0)])
+    lacet = marches(t, [(0.0, 0.0), (1.00, -9.0), (3.45, 7.0), (5.20, 0.0), (5.5, 0.0)])
+    if chan == 'rotation':
+        if bone == 'head':
+            v[2] += roul
+            v[1] += lacet
+            v[0] += 9.0
+        elif bone == 'neck':
+            v[2] += roul * 0.22
+            v[1] += lacet * 0.35
+            v[0] += -12.0
+        elif bone == 'jaw':
+            v[0] += -8.0
+        elif bone == 'chest':
+            v[2] += roul * 0.06
+        elif bone.startswith('tail_'):
+            v[1] *= 0.25
+    return v
+
+
+def post_inclinee(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.14, lag=0.20, cap=2.5)
+    throat_vibe(tracks, length, loop, freq=0.42, amp=0.08, rot=1.2)
+
+
+add_maison('tete_inclinee_fixe', 5.5, 'once', tete_inclinee, post_inclinee)
+
+
+# ---------------------------------------------------------------- 6. spasmes du cou
+# Quatre repositionnements SECS separes par des tenues immobiles. Pas d oscillation :
+# une sinusoide rapide donne la crise d epilepsie qu on a deja corrigee ailleurs,
+# alors qu un escalier donne le mouvement reptilien anormal recherche.
+SPASME_Y = [(0.0, 0.0), (0.62, 34.0), (1.34, -27.0), (2.10, 13.0), (2.92, 0.0), (3.4, 0.0)]
+SPASME_Z = [(0.0, 0.0), (0.62, 17.0), (1.34, -23.0), (2.10, 29.0), (2.92, 0.0), (3.4, 0.0)]
+SPASME_X = [(0.0, 0.0), (0.62, -6.0), (1.34, 9.0), (2.10, -11.0), (2.92, 0.0), (3.4, 0.0)]
+
+
+def spasmes(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.25))
+    y = marches(t, SPASME_Y, 0.10)
+    z = marches(t, SPASME_Z, 0.10)
+    x = marches(t, SPASME_X, 0.10)
+    if chan == 'rotation':
+        if bone == 'head':
+            v[0] += 6.0 + x
+            v[1] += y
+            v[2] += z
+        elif bone == 'neck':
+            v[0] += -10.0 + x * 0.4
+            v[1] += y * 0.32
+            v[2] += z * 0.25
+        elif bone == 'chest':
+            v[1] += y * 0.10
+        elif bone == 'jaw':
+            v[0] += -5.0 - 9.0 * bosse(t, 2.00, 2.40)
+        elif bone.startswith('tail_'):
+            v[1] *= 0.2
+    return v
+
+
+def post_spasmes(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.20, lag=0.10, cap=4.0)
+    throat_vibe(tracks, length, loop, freq=0.5, amp=0.09, rot=1.4)
+
+
+add_maison('spasmes_cou', 3.4, 'once', spasmes, post_spasmes)
+
+
+# ---------------------------------------------------------------- 7. emergence lente
+# Il sort de l eau sans un bruit et sans rugir. La tete perce en premier et reste a
+# l horizontale pendant toute la montee : rien ne detourne le regard.
+def emergence(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.20))
+    mont = ease(t, 0.60, 6.10)
+    cou = ease(t, 0.35, 1.60) * (1 - ease(t, 3.40, 5.60))
+    debout = ease(t, 4.60, 6.20)
+    if chan == 'rotation':
+        if bone == 'neck':
+            v[0] += 27.0 * cou - 7.0 * debout - 4.0
+        elif bone == 'head':
+            v[0] += -23.0 * cou + 9.0 * debout + 3.0
+            v[1] += 1.6 * _osc(t, 1 / 9.0)
+        elif bone == 'jaw':
+            v[0] += -11.0 * ease(t, 4.50, 5.60)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += (3.0 + 1.6 * i) * (1 - mont) * _osc(t, 0.30, -0.4 * i)
+            v[0] -= 0.7 * i * (1 - debout)
+        elif bone.startswith('thigh'):
+            v[0] += 14.0 * (1 - debout)
+        elif bone.startswith('shin'):
+            v[0] += -19.0 * (1 - debout)
+        elif bone.startswith('foot'):
+            v[0] += 8.0 * (1 - debout)
+        elif bone.startswith('upper_arm'):
+            v[0] += -16.0 * (1 - debout) - 6.0 * debout
+    elif chan == 'position' and bone == 'root':
+        v[1] += -70.0 * (1 - mont) - 3.0 * debout
+    return v
+
+
+def post_emergence(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.24, lag=0.20, cap=4.0)
+    throat_vibe(tracks, length, loop, freq=0.45, amp=0.14, rot=2.0,
+                env=lambda t: ease(t, 2.6, 4.4))
+
+
+add_maison('emergence_lente', 6.5, 'once', emergence, post_emergence, clamp=False)
+
+
+# ---------------------------------------------------------------- 8. respiration lourde
+# Boucle d ambiance : rien ne se passe, et c est le propos. Flancs qui travaillent,
+# gueule entrouverte, tete basse. A jouer en fond quand le joueur est traque.
+def respiration(bone, chan, t):
+    L = 5.0
+    v = list(REPOS.at(bone, chan, t * 0.28))
+    b = _osc(t, 2.0 / L)                       # deux cycles par boucle
+    ins = max(0.0, b)
+    if chan == 'rotation':
+        if bone == 'neck':
+            v[0] += -11.0 + 2.6 * b
+        elif bone == 'head':
+            v[0] += 8.0 - 1.9 * b
+        elif bone == 'jaw':
+            v[0] += -6.0 - 5.0 * ins
+        elif bone == 'chest':
+            v[0] += 1.4 * b
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += 1.2 * _osc(t, 1.0 / L, -0.3 * i)
+        elif bone.startswith('upper_arm'):
+            v[0] += -8.0
+    elif chan == 'scale' and bone == 'chest':
+        v = [v[0] * (1 + 0.040 * ins), v[1] * (1 + 0.028 * ins), v[2] * (1 + 0.048 * ins)]
+    elif chan == 'position' and bone == 'root':
+        v[1] += 0.9 * b
+    return accroupi(bone, chan, v, 4.0)
+
+
+def post_respiration(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.16, lag=0.18, cap=2.5)
+    throat_vibe(tracks, length, loop, freq=0.4, amp=0.26, rot=3.2)
+
+
+add_maison('respiration_lourde', 5.0, 'loop', respiration, post_respiration)
+
+
+# ---------------------------------------------------------------- 9. avance menacante
+# Contrairement a la traque, ici il veut etre vu : gueule entrouverte, epaules hautes,
+# queue qui fouette lentement, grondement dans la gorge a 4 Hz.
+def menace(bone, chan, t):
+    L = 3.2
+    v = list(MARCHE.at(bone, chan, t * MARCHE.length / L))
+    if chan == 'rotation':
+        if bone.startswith(('thigh', 'shin', 'foot')):
+            m = MOY_M.get(bone, [0.0, 0.0, 0.0])
+            v = [m[i] + (v[i] - m[i]) * 0.78 for i in range(3)]
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= 0.8 + 0.28 * i
+            v[1] = v[1] * 0.5 + (5.0 + 2.4 * i) * _osc(t, 1 / L, -0.34 * i)
+        elif bone == 'neck':
+            v[0] += -19.0
+            v[1] += 4.2 * _osc(t, 1 / (L * 2))
+        elif bone == 'head':
+            v[0] += 17.0
+            v[1] += 3.0 * _osc(t, 1 / (L * 2), 0.8)
+        elif bone == 'jaw':
+            v[0] += -15.0 - 4.0 * _osc(t, 1 / L)
+        elif bone.startswith('upper_arm'):
+            v[0] += -20.0
+            v[1] += 7.0 if bone.endswith('left') else -7.0
+        elif bone.startswith('forearm'):
+            v[0] += -30.0
+    return accroupi(bone, chan, v, 6.0)
+
+
+def post_menace(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.24, lag=0.13, cap=5.0)
+    throat_vibe(tracks, length, loop, freq=4.0, amp=0.17, rot=3.8)
+
+
+add_maison('avance_menacante', 3.2, 'loop', menace, post_menace)
+
+
 # ================================================================== ecriture
 existing = {a['name'] for a in bb['animations']}
 for a in NEW:
@@ -1227,7 +1628,10 @@ bb['name'] = 'RIVIERE_70_ADAPTATION_ROR_UPDATED'
 bb['credit'] = ('V41 - texture et yeux JP3 affines; animation grimpe reconstruite; squelette et '
                 'autres animations preserves | V70u - 13 animations portees depuis Raxio ROR '
                 '(spino_basic/more/mace, avec accord de l auteur) et retargetees sur le rig RIVIERE : '
-                'attaque plongeante, ruee griffes, voile reajustee, vibration de la gorge')
+                'attaque plongeante, ruee griffes, voile reajustee, vibration de la gorge '
+                '| V76 - 9 animations de traque et d ambiance horrifique ecrites main '
+                '(traque au sol et a la surface, immobilisation, embuscade, tete inclinee, '
+                'spasmes du cou, emergence lente, respiration lourde, avance menacante)')
 out = os.path.join(W, 'RIVIERE_70_ADAPTATION_ROR_UPDATED.bbmodel')
 json.dump(bb, open(out, 'w'), separators=(',', ':'))
 print('\nEcrit :', out, round(os.path.getsize(out) / 1e6, 1), 'Mo',
