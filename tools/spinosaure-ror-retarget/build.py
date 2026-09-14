@@ -1118,46 +1118,74 @@ add_maison('frappe_queue_eau', 1.9, 'once', frappe_queue, post_frappe)
 
 
 # 7. marche en boitant : l appui droit est ecourte et le corps s affaisse dessus
+# Version precedente : un roulis pilote par une sinusoide arbitraire, qui montait a
+# +22 degres, ne revenait jamais (moyenne +6.3) et culminait pendant que la patte
+# DROITE portait - il se jetait donc sur la jambe blessee. D ou le penchement permanent.
+#
+# Ici tout est pilote par l appui REEL de la patte droite (mesure au FK sur le cycle de
+# marche), et on reproduit la signature d une boiterie de membre posterieur :
+#   - hanche qui MONTE du cote blesse pendant son appui (le "hip hike")
+#   - buste qui s incline du cote SAIN pour decharger, et qui revient
+#   - tete et cou qui se relevent a l appui douloureux
+#   - appui droit ecourte, jambe posee avec precaution, jambe gauche qui compense
+# moyennes d appui sur le cycle : on les retranche du roulis pour que la boiterie se
+# lise dans la FORME de la courbe et non dans une inclinaison permanente. La jambe
+# saine portant plus longtemps, sans ce recentrage l animal reste couche sur le cote.
+_N_BOI = 72
+_MAPD = sum(1.0 - en_lair('right', 2.4 * i / _N_BOI) for i in range(_N_BOI)) / _N_BOI
+_MAPG = sum(1.0 - en_lair('left', 2.4 * i / _N_BOI) for i in range(_N_BOI)) / _N_BOI
+
+
 def boite(bone, chan, t):
     k = 2.4 / MARCHE.length
     v = list(MARCHE.at(bone, chan, t / k))
-    ph = (t / 2.4) % 1.0
-    douleur = max(0.0, math.sin(2 * math.pi * ph))     # phase d appui du cote droit
+    air_d = en_lair('right', t)            # 1 quand la patte blessee est en l air
+    appui_d = 1.0 - air_d                  # 1 quand elle porte
+    appui_g = 1.0 - en_lair('left', t)
+    charge = appui_d - appui_g             # -1 (appui sain) .. +1 (appui blesse)
     if chan == 'rotation':
         if bone.endswith('right') and bone.startswith(('thigh', 'shin', 'foot')):
             m = MOY_M[bone]
-            v = [m[i] + (v[i] - m[i]) * 0.38 for i in range(3)]
-            if bone.startswith('shin'):
-                v[0] += -17.0 * douleur
+            v = [m[i] + (v[i] - m[i]) * 0.74 for i in range(3)]   # foulee ecourtee
             if bone.startswith('thigh'):
-                v[0] += 9.0 * douleur
-        elif bone.endswith('left') and bone.startswith(('thigh', 'shin')):
+                v[0] += 6.0 * appui_d
+            if bone.startswith('shin'):
+                v[0] += -8.0 * air_d                               # genou flechi en vol
+            if bone.startswith('foot'):
+                v[0] += 4.5 * air_d
+        elif bone.endswith('left') and bone.startswith(('thigh', 'shin', 'foot')):
             m = MOY_M[bone]
-            v = [m[i] + (v[i] - m[i]) * 1.20 for i in range(3)]
+            v = [m[i] + (v[i] - m[i]) * 1.14 for i in range(3)]   # la saine compense
         elif bone == 'root':
-            v[2] += 12.0 * douleur
-            v[0] += 5.0 * douleur
+            # Mesure du repere : pied gauche a X=+21, droit a X=-21, et un roulis Z
+            # NEGATIF porte la tete vers le +X, donc vers la GAUCHE. Le corps doit
+            # passer au-dessus du pied qui porte ; la boiterie, c est de s y engager
+            # franchement du cote sain et a peine du cote blesse.
+            v[2] += 2.6 * (appui_d - _MAPD) - 6.0 * (appui_g - _MAPG)
+            v[0] += 2.0 * appui_d
         elif bone == 'body':
-            v[2] += 8.0 * douleur
-            v[0] += 3.0 * douleur
+            v[2] += 1.2 * (appui_d - _MAPD) - 2.8 * (appui_g - _MAPG)
+            v[0] += 1.5 * appui_d
         elif bone == 'neck':
-            v[0] += 13.0 * douleur - 4.0
-            v[2] += -6.0 * douleur
+            v[0] += 7.5 * appui_d - 2.5 * appui_g - 3.0
+            v[2] += -0.45 * (3.8 * (appui_d - _MAPD) - 8.8 * (appui_g - _MAPG))   # tete d aplomb
         elif bone == 'head':
-            v[0] += 9.0 * douleur
+            v[0] += 4.5 * appui_d - 1.5 * appui_g
         elif bone.startswith('tail_'):
-            v[0] -= 0.8 * int(bone[-2:]) * douleur
+            i = int(bone[-2:])
+            v[1] += 1.4 * i * 0.35 * charge     # la queue contrebalance
+            v[0] -= 0.5 * i * appui_d
     elif chan == 'position' and bone == 'root':
-        v[1] += -7.5 * douleur
+        v[1] += 2.6 * appui_d - 1.0 * appui_g                      # hanche qui monte du cote blesse
     return v
 
 
 def post_boite(tracks, length, loop):
-    sail_rework(tracks, length, loop, gain=0.28, lag=0.12, cap=5.0)
-    throat_vibe(tracks, length, loop, freq=1.6, amp=0.11, rot=2.0)
+    sail_rework(tracks, length, loop, gain=0.24, lag=0.13, cap=4.5)
+    throat_vibe(tracks, length, loop, freq=1.4, amp=0.10, rot=1.8)
 
 
-add_maison('marche_boiteuse', 2.4, 'loop', boite, post_boite)
+add_maison('marche_boiteuse', 2.4, 'loop', boite, post_boite, sol=True)
 
 
 # ---------------------------------------------------------------- corrections aquatiques
@@ -1775,11 +1803,135 @@ def post_feutree(tracks, length, loop):
 add_maison('marche_feutree', FEUTRE_L, 'loop', feutree, post_feutree, sol=True)
 
 
+
+# ================================================================== ecoute et flair
+# Mesure des deux animations d origine : elles n animent QUE le cou et la tete, tous
+# les autres os restent a zero.
+#   ecoute_joueur : lacet de tete 15.6 deg, rien d autre, machoire et gorge mortes.
+#   renifle_air   : le crane DESCEND de 76 a 67 et la tete se met a l horizontale,
+#                   soit l inverse d un flairage d air, puis tenue 3.5 s sans rien.
+# Les deux sont reecrites ici, memes noms et memes durees.
+
+def ecoute(bone, chan, t):
+    # Ce qui se lit comme "il ecoute" : l animal se FIGE, puis reoriente la tete par
+    # paliers secs pour croiser les directions, en inclinant le crane (le cocking).
+    # Le corps s immobilise : on ralentit la respiration de fond au lieu de la couper,
+    # sinon la pose parait morte.
+    fige = ease(t, 0.55, 0.95) * (1 - ease(t, 4.55, 5.20))
+    v = list(REPOS.at(bone, chan, t * (0.42 - 0.34 * fige)))
+    lacet = marches(t, [(0.0, 0.0), (1.10, 29.0), (2.45, -23.0), (3.70, 9.0),
+                        (4.90, 0.0), (5.30, 0.0)], 0.16)
+    roul = marches(t, [(0.0, 0.0), (1.10, 15.0), (2.45, -12.0), (3.70, 7.0),
+                       (4.90, 0.0), (5.30, 0.0)], 0.16)
+    if chan == 'rotation':
+        if bone == 'head':
+            v[1] += lacet
+            v[2] += roul
+            v[0] += 7.0 * fige                    # museau releve, il tend l oreille
+        elif bone == 'neck':
+            v[1] += lacet * 0.38
+            v[2] += roul * 0.25
+            v[0] += 5.0 * fige
+        elif bone == 'chest':
+            v[1] += lacet * 0.12
+        elif bone == 'body':
+            v[1] += lacet * 0.07
+        elif bone == 'jaw':
+            v[0] += -3.0 * fige                   # gueule juste entrouverte
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] = v[1] * (1 - 0.75 * fige) + 0.8 * i * 0.3 * fige * _osc(t, 1 / 9.0, -0.3 * i)
+            v[0] -= 0.35 * i * fige
+        elif bone.startswith(('thigh', 'shin')):
+            v[0] += (2.5 if bone.startswith('thigh') else -3.5) * fige
+    elif chan == 'position' and bone == 'root':
+        v[1] += -1.2 * fige
+    return v
+
+
+def post_ecoute(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.16, lag=0.18, cap=3.0)
+    # souffle suspendu pendant les tenues, puis reprise
+    throat_vibe(tracks, length, loop, freq=0.55, amp=0.10, rot=1.6,
+                env=lambda t: 1.0 - 0.75 * ease(t, 0.7, 1.1) * (1 - ease(t, 3.9, 4.4)))
+
+
+add_maison('ecoute_joueur', 5.30, 'once', ecoute, post_ecoute)
+
+
+F_HAUT, F_FIN = 1.05, 3.65
+
+
+def renifle(bone, chan, t):
+    # Flairer l AIR, c est lever le museau au-dessus de l horizontale et faire travailler
+    # les narines. L original faisait descendre le crane de 9 unites : on inverse.
+    haut = ease(t, 0.25, F_HAUT) * (1 - ease(t, F_FIN, 4.75))
+    # bouffees de flair : 2.5 Hz (12 images par cycle a 30 fps), par salves
+    salve = (ease(t, F_HAUT, 1.35) * (1 - ease(t, 2.05, 2.30))
+             + ease(t, 2.55, 2.80) * (1 - ease(t, 3.40, F_FIN)))
+    bouffee = max(0.0, math.sin(2 * math.pi * 2.5 * t)) * salve
+    vent = _osc(t, 0.25) * haut                    # balayage lent pour prendre le vent
+    if chan == 'rotation':
+        if bone == 'neck':
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += 32.0 * haut
+            v[1] += 11.0 * vent
+        elif bone == 'head':
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += 14.0 * haut + 2.5 * bouffee
+            v[1] += 6.0 * vent
+            v[2] += 3.0 * vent
+        elif bone == 'jaw':
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += -5.5 * bouffee - 2.0 * haut
+        elif bone == 'chest':
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += 3.0 * haut
+        elif bone == 'body':
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += 2.5 * haut
+        elif bone.startswith('tail_'):
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            i = int(bone[-2:])
+            v[0] += 0.45 * i * haut                # contrepoids : la queue descend
+            v[1] += 0.7 * i * 0.3 * vent
+        elif bone.startswith('thigh'):
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += 4.0 * haut                     # appui reporte en arriere
+        elif bone.startswith('shin'):
+            v = list(REPOS.at(bone, chan, t * 0.3))
+            v[0] += -5.0 * haut
+        else:
+            v = list(REPOS.at(bone, chan, t * 0.3))
+    else:
+        v = list(REPOS.at(bone, chan, t * 0.3))
+        if chan == 'position' and bone == 'root':
+            v[1] += 1.5 * haut
+    return v
+
+
+def post_renifle(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.18, lag=0.16, cap=3.5)
+    # la gorge travaille a chaque bouffee
+    throat_vibe(tracks, length, loop, freq=2.5, amp=0.20, rot=3.0,
+                env=lambda t: (ease(t, F_HAUT, 1.35) * (1 - ease(t, 2.05, 2.30))
+                               + ease(t, 2.55, 2.80) * (1 - ease(t, 3.40, F_FIN))))
+
+
+add_maison('renifle_air', 5.00, 'once', renifle, post_renifle)
+
+
 # ================================================================== ecriture
-existing = {a['name'] for a in bb['animations']}
+par_nom = {a['name']: i for i, a in enumerate(bb['animations'])}
+remplacees = []
 for a in NEW:
-    assert a['name'] not in existing, a['name']
-bb['animations'].extend(NEW)
+    if a['name'] in par_nom:
+        bb['animations'][par_nom[a['name']]] = a
+        remplacees.append(a['name'].split('.')[-1])
+    else:
+        bb['animations'].append(a)
+if remplacees:
+    print('animations d origine remplacees :', ', '.join(remplacees))
 bb['name'] = 'RIVIERE_70_ADAPTATION_ROR_UPDATED'
 bb['credit'] = ('V41 - texture et yeux JP3 affines; animation grimpe reconstruite; squelette et '
                 'autres animations preserves | V70u - 13 animations portees depuis Raxio ROR '
