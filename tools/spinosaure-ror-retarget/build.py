@@ -11,6 +11,18 @@ ror = json.load(open(os.path.join(W, 'ror_anims.json')))
 R.GROUP_UUID = {g['name']: g['uuid'] for g in bb['groups']}
 
 
+def boucle(loop):
+    """Vrai seulement pour une VRAIE boucle.
+
+    Piege corrige ici : `loop` est une chaine ('once', 'hold', 'loop'), et toute
+    chaine non vide est vraie en Python. Un simple `if loop:` refermait donc la
+    derniere cle sur la premiere y compris pour les animations jouees une seule
+    fois, ce qui produisait un saut d une image en fin d animation (jusqu a 58.8
+    degres mesures sur la main de se_couche_ror).
+    """
+    return loop == 'loop'
+
+
 class Layer:
     """Une source ROR posee sur la timeline de l'animation cible."""
     def __init__(self, name, offset=0.0, scale=1.0, mul=1.0, only=None,
@@ -125,7 +137,7 @@ def bake(layers, length, loop, bones=None, extra=None):
                 if chan != 'rotation':
                     continue
                 raw = [raw[0], raw[-1]]
-            if loop:
+            if boucle(loop):
                 raw[-1] = (raw[-1][0], list(raw[0][1]))
             chans[chan] = R.compress(raw, R.TOL[chan])
         if chans:
@@ -160,7 +172,7 @@ def sail_rework(tracks, length, loop, gain=0.55, lag=0.10, cap=13.0):
         # la voile ne roule pas en x autant qu'elle ne balance en y/z
         w[0] *= 0.8
         out.append((t, w))
-    if loop:
+    if boucle(loop):
         out[-1] = (out[-1][0], list(out[0][1]))
     tracks['sail']['rotation'] = R.compress(out, R.TOL['rotation'])
 
@@ -168,7 +180,7 @@ def sail_rework(tracks, length, loop, gain=0.55, lag=0.10, cap=13.0):
 def lerp_track(tr, t, length, loop):
     if not tr:
         return [0.0, 0.0, 0.0]
-    if loop:
+    if boucle(loop):
         t = t % length if length > 1e-9 else 0.0
     if t <= tr[0][0]:
         return list(tr[0][1])
@@ -204,7 +216,7 @@ def throat_vibe(tracks, length, loop, freq=6.0, amp=0.16, rot=3.5, env=None):
                        bs[2] * (1 + 0.5 * amp * e * s2)]))
         rt.append((t, [br[0] + rot * e * math.sin(2 * math.pi * freq * t + 1.2), br[1], br[2]]))
         ps.append((t, [bp[0], bp[1] - 0.55 * e * s, bp[2] + 0.35 * e * s2]))
-    if loop:
+    if boucle(loop):
         for arr in (sc, rt, ps):
             arr[-1] = (arr[-1][0], list(arr[0][1]))
     ch['scale'] = R.compress(sc, R.TOL['scale'])
@@ -223,7 +235,7 @@ def tongue_follow(tracks, length, loop, gain=0.28, lag=0.066):
         t = min(i / R.FPS, length)
         v = lerp_track(jaw, t - lag, length, loop)
         out.append((t, [v[0] * gain, v[1] * gain * 0.5, v[2] * gain * 0.5]))
-    if loop:
+    if boucle(loop):
         out[-1] = (out[-1][0], list(out[0][1]))
     tr = R.compress(out, R.TOL['rotation'])
     if any(max(abs(x) for x in v) > 0.5 for _, v in tr):
@@ -241,7 +253,7 @@ def tail_six(tracks, length, loop, gain=0.72, lag=0.066):
         t = min(i / R.FPS, length)
         v = lerp_track(t5, t - lag, length, loop)
         out.append((t, [x * gain for x in v]))
-    if loop:
+    if boucle(loop):
         out[-1] = (out[-1][0], list(out[0][1]))
     tracks.setdefault('tail_06', {})['rotation'] = R.compress(out, R.TOL['rotation'])
 
@@ -271,7 +283,7 @@ def tail_follow(tracks, length, loop, amp=0.55, base_lag=0.055, cap=11.0, factor
             now, past = chain(t), chain(t - lag)
             b = lerp_track(base, t, length, loop) if base else [0.0, 0.0, 0.0]
             out.append((t, [b[j] + max(-cap, min(cap, (past[j] - now[j]) * k * 2.2)) for j in range(3)]))
-        if loop:
+        if boucle(loop):
             out[-1] = (out[-1][0], list(out[0][1]))
         tracks.setdefault(bone, {})['rotation'] = R.compress(out, R.TOL['rotation'])
 
@@ -280,10 +292,28 @@ RIG = None
 FLOOR = None
 
 
+def _geometrie_finale():
+    """Copie du modele avec la geometrie que le livrable aura REELLEMENT.
+
+    build.py tourne AVANT le pipeline (voile, bras grossis, griffes allongees,
+    nageoires). Caler les animations sur le rig d avant, c est les caler sur des
+    bras plus courts que ceux livres : mesure faite sur embuscade_jaillissement,
+    la griffe gauche frolait le sol a -62.7 avant le pipeline et le traversait de
+    3.8 unites apres. On applique donc ici les memes transformations, en memoire,
+    pour que ground_clamp et le garde-fou de queue voient la bonne geometrie.
+    """
+    import copy, grossir_bras, bras_ror, nageoires
+    g = copy.deepcopy(bb)
+    grossir_bras.grossir(g)
+    bras_ror.add(g)
+    nageoires.ajoute(g)
+    return g
+
+
 def _ensure_rig():
     global RIG, FLOOR
     if RIG is None:
-        RIG = FK.Rig(bb)
+        RIG = FK.Rig(_geometrie_finale())
         rest = RIG.pose(lambda b, c: [1.0, 1.0, 1.0] if c == 'scale' else [0.0, 0.0, 0.0])
         FLOOR = RIG.lowest(rest)
 
@@ -306,7 +336,7 @@ def ground_clamp(tracks, length, loop, smooth=2):
             a = max(0, i - smooth); b = min(len(off), i + smooth + 1)
             sm.append(max(off[i], sum(off[a:b]) / (b - a)))
         off = sm
-    if loop:
+    if boucle(loop):
         off[-1] = off[0]
     if max(off) < 0.2:
         return
@@ -316,7 +346,7 @@ def ground_clamp(tracks, length, loop, smooth=2):
         t = min(i / R.FPS, length)
         b = lerp_track(base, t, length, loop) if base else [0.0, 0.0, 0.0]
         out.append((t, [b[0], b[1] + off[i], b[2]]))
-    if loop:
+    if boucle(loop):
         out[-1] = (out[-1][0], list(out[0][1]))
     tracks['root']['position'] = R.compress(out, R.TOL['position'])
     print('      calage sol : +%.1f max' % max(off))
@@ -348,7 +378,7 @@ def finger_converge(tracks, length, loop, dmax=12.0):
             for k in range(3):
                 out[k].append((t, [mean[j] + (v[k][j] - mean[j]) * s for j in range(3)]))
         for k, nm in enumerate(names):
-            if loop:
+            if boucle(loop):
                 out[k][-1] = (out[k][-1][0], list(out[k][0][1]))
             tracks.setdefault(nm, {})['rotation'] = R.compress(out[k], R.TOL['rotation'])
 
@@ -364,7 +394,7 @@ def tail_min_y(tracks, length, loop):
             tr = tracks.get(bone, {}).get(chan)
             neutral = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
             return lerp_track(tr, t, length, loop) if tr else neutral
-        lo = min(lo, RIG.lowest(RIG.pose(get), only=('tail_04', 'tail_05', 'tail_06')))
+        lo = min(lo, RIG.lowest(RIG.pose(get), only=tuple(TAILB + ['tail_06'])))
     return lo
 
 
@@ -396,6 +426,71 @@ def tail_layers(tracks, length, loop, guard=True):
     apply_f(lo)
     y = tail_min_y(tracks, length, loop)
     print('      queue : inertie a %.0f%% (bas de queue y=%.1f, sol %.1f)' % (lo * 100, y, FLOOR))
+    if y < FLOOR + 1.0:
+        queue_hors_sol(tracks, length, loop)
+
+
+def queue_hors_sol(tracks, length, loop, pas=0.6, maxi=40):
+    """Redresse la queue jusqu a ce qu elle ne traverse plus le sol.
+
+    tail_layers ne sait que doser l INERTIE ; quand c est la pose de base qui plonge
+    (mange_carcasse : le root descend de 5 pour mordre au sol, la queue suit), ramener
+    l inertie a zero ne suffit pas. On ajoute donc un redressement progressif reparti
+    le long de la queue, dose par increments jusqu au degagement. Mesure : positif en
+    X fait DESCENDRE la pointe, on retranche donc.
+    """
+    _ensure_rig()
+    n = int(round(length * R.FPS))
+    base = {b: list(tracks.get(b, {}).get('rotation') or []) for b in TAILB + ['tail_06']}
+    for k in range(1, maxi + 1):
+        for idx, b in enumerate(TAILB + ['tail_06'], start=1):
+            src = base[b]
+            out = []
+            for i in range(n + 1):
+                t = min(i / R.FPS, length)
+                v = lerp_track(src, t, length, loop) if src else [0.0, 0.0, 0.0]
+                out.append((t, [v[0] - pas * k * (0.35 + 0.14 * idx), v[1], v[2]]))
+            if boucle(loop):
+                out[-1] = (out[-1][0], list(out[0][1]))
+            tracks.setdefault(b, {})['rotation'] = R.compress(out, R.TOL['rotation'])
+        if tail_min_y(tracks, length, loop) >= FLOOR + 1.0:
+            print('      queue redressee de %.1f deg a la pointe' % (pas * k * (0.35 + 0.14 * 6)))
+            return
+    print('      queue : degagement incomplet apres %d paliers' % maxi)
+
+
+def pose_au_sol(tracks, length, loop, marge=0.15):
+    """Descend le root pour que le pied touche REELLEMENT le sol.
+
+    ground_clamp ne sait que remonter : il empeche de traverser mais laisse flotter.
+    Le repliement d accroupissement etant calibre sur la pose de repos, il ne rend pas
+    exactement la meme hauteur sur une jambe deja flechie par le cycle de marche
+    (1.5 unite de flottement mesuree sur marche_feutree). On mesure donc le jeu reel
+    et on le retranche, d un decalage CONSTANT qui preserve le mouvement vertical.
+    """
+    _ensure_rig()
+    n = int(round(length * R.FPS))
+    jeu = 1e9
+    for i in range(n + 1):
+        t = min(i / R.FPS, length)
+
+        def get(bone, chan, t=t):
+            tr = tracks.get(bone, {}).get(chan)
+            neutral = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+            return lerp_track(tr, t, length, loop) if tr else neutral
+        jeu = min(jeu, RIG.lowest(RIG.pose(get), only=('foot_left', 'foot_right')) - FLOOR)
+    if jeu <= marge:
+        return
+    base = tracks.setdefault('root', {}).get('position')
+    out = []
+    for i in range(n + 1):
+        t = min(i / R.FPS, length)
+        b = lerp_track(base, t, length, loop) if base else [0.0, 0.0, 0.0]
+        out.append((t, [b[0], b[1] - jeu, b[2]]))
+    if boucle(loop):
+        out[-1] = (out[-1][0], list(out[0][1]))
+    tracks['root']['position'] = R.compress(out, R.TOL['position'])
+    print('      pose au sol : -%.1f (le pied flottait)' % jeu)
 
 
 def add_root_curve(tracks, length, keys_pos=None, keys_rot=None):
@@ -584,7 +679,7 @@ def bake_fn(fn, length, loop, bones=None):
                 if chan != 'rotation':
                     continue
                 raw = [raw[0], raw[-1]]
-            if loop:
+            if boucle(loop):
                 raw[-1] = (raw[-1][0], list(raw[0][1]))
             chans[chan] = R.compress(raw, R.TOL[chan])
         if chans:
@@ -592,12 +687,15 @@ def bake_fn(fn, length, loop, bones=None):
     return tracks
 
 
-def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None):
+def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None, sol=False):
     tracks = bake_fn(fn, length, loop, bones)
     if post:
         post(tracks, length, loop)
     if clamp:
         ground_clamp(tracks, length, loop)
+    if sol:
+        # apres ground_clamp : c est lui qui peut laisser le pied en l air
+        pose_au_sol(tracks, length, loop)
     tail_layers(tracks, length, loop, guard=clamp)
     finger_converge(tracks, length, loop)
     NEW.append(R.make_anim('animation.spinosaure.' + name, length, loop, tracks, 30))
@@ -731,7 +829,7 @@ def marche_eau(bone, chan, t):
             if bone.startswith('thigh'):
                 v[0] -= 14.0 * w
             if bone.startswith('shin'):
-                v[0] -= 20.0 * w
+                v[0] -= 3.5 * w
             if bone.startswith('foot'):
                 v[0] += 16.0 * w
         elif bone.startswith('tail_'):
@@ -1285,9 +1383,9 @@ def traque(bone, chan, t):
             v[0] += 12.0
             v[1] += 2.6 * _osc(t, 1 / 7.2, 0.9)
         elif bone.startswith('upper_arm'):
-            v[0] += -11.0
+            v[0] += 14.0
         elif bone.startswith('forearm'):
-            v[0] += -14.0
+            v[0] += 18.0
     return accroupi(bone, chan, v, 9.0)
 
 
@@ -1296,7 +1394,7 @@ def post_traque(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=0.55, amp=0.07, rot=1.2)
 
 
-add_maison('traque_lente', 3.6, 'loop', traque, post_traque)
+add_maison('traque_lente', 3.6, 'loop', traque, post_traque, sol=True)
 
 
 # ---------------------------------------------------------------- 2. traque a la surface
@@ -1329,7 +1427,7 @@ def traque_eau(bone, chan, t):
         elif bone.startswith('foot'):
             v[0] += 7.0
         elif bone.startswith('upper_arm'):
-            v[0] += -14.0
+            v[0] += 12.0
     elif chan == 'position' and bone == 'root':
         v[1] += -38.0 + 0.7 * _osc(t, 1 / (L / 2.0))
     return v
@@ -1367,9 +1465,9 @@ def fige(bone, chan, t):
             v[0] -= 0.9 + 0.30 * i
             v[1] = v[1] * 0.30 + 0.9 * _osc(t, 1 / 8.4, -0.25 * i)
         elif bone.startswith('upper_arm'):
-            v[0] += -12.0
+            v[0] += 15.0
         elif bone.startswith('forearm'):
-            v[0] += -16.0
+            v[0] += 19.0
     elif chan == 'position' and bone == 'root':
         v[1] += 0.5 * souffle
     return accroupi(bone, chan, v, 12.0)
@@ -1380,7 +1478,7 @@ def post_fige(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=0.48, amp=0.06, rot=1.0)
 
 
-add_maison('fige_en_traque', 4.2, 'loop', fige, post_fige)
+add_maison('fige_en_traque', 4.2, 'loop', fige, post_fige, sol=True)
 
 
 # ---------------------------------------------------------------- 4. embuscade
@@ -1408,9 +1506,9 @@ def embuscade(bone, chan, t):
             v[0] -= 1.2 * i * ram + 0.8 * i * det
             v[1] *= 0.3
         elif bone.startswith('upper_arm'):
-            v[0] += -13.0 + 6.0 * ram - 34.0 * det
+            v[0] += 12.0 + 6.0 * ram - 34.0 * det
         elif bone.startswith('forearm'):
-            v[0] += -16.0 - 26.0 * det
+            v[0] += 15.0 - 26.0 * det
     return accroupi(bone, chan, v, c)
 
 
@@ -1529,7 +1627,7 @@ def emergence(bone, chan, t):
         elif bone.startswith('foot'):
             v[0] += 8.0 * (1 - debout)
         elif bone.startswith('upper_arm'):
-            v[0] += -16.0 * (1 - debout) - 6.0 * debout
+            v[0] += 14.0 * (1 - debout) + 4.0 * debout
     elif chan == 'position' and bone == 'root':
         v[1] += -70.0 * (1 - mont) - 3.0 * debout
     return v
@@ -1565,7 +1663,7 @@ def respiration(bone, chan, t):
             i = int(bone[-2:])
             v[1] += 1.2 * _osc(t, 1.0 / L, -0.3 * i)
         elif bone.startswith('upper_arm'):
-            v[0] += -8.0
+            v[0] += 9.0
     elif chan == 'scale' and bone == 'chest':
         v = [v[0] * (1 + 0.040 * ins), v[1] * (1 + 0.028 * ins), v[2] * (1 + 0.048 * ins)]
     elif chan == 'position' and bone == 'root':
@@ -1604,10 +1702,10 @@ def menace(bone, chan, t):
         elif bone == 'jaw':
             v[0] += -15.0 - 4.0 * _osc(t, 1 / L)
         elif bone.startswith('upper_arm'):
-            v[0] += -20.0
+            v[0] += 18.0
             v[1] += 7.0 if bone.endswith('left') else -7.0
         elif bone.startswith('forearm'):
-            v[0] += -30.0
+            v[0] += 26.0
     return accroupi(bone, chan, v, 6.0)
 
 
@@ -1616,7 +1714,65 @@ def post_menace(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=4.0, amp=0.17, rot=3.8)
 
 
-add_maison('avance_menacante', 3.2, 'loop', menace, post_menace)
+add_maison('avance_menacante', 3.2, 'loop', menace, post_menace, sol=True)
+
+
+
+# ---------------------------------------------------------------- 10. marche feutree
+# Ce qui rend un pas silencieux, c est la VITESSE D ARRIVEE du pied en appui : dans
+# marche elle vaut -30 unites par seconde, en course -128.
+#
+# J ai d abord ecrit un reprofilage du temps (ralentir l horloge au moment du contact,
+# rattraper pendant le vol). Mesure : il FAIT EMPIRER l impact, -11.0 contre -7.6 sans
+# lui. La duree totale etant conservee, ralentir l approche accelere tout le reste, et
+# a 30 images par seconde la descente ne dure de toute facon que quelques images : il
+# n y a pas la resolution temporelle pour etaler un poser. Mecanisme supprime.
+#
+# Ce qui marche, et qui survit a 30 images par seconde : un cycle long (4.4 s), un
+# degagement franc mais maitrise (8.7 unites contre 5.3 en marche), le corps plus bas
+# que toutes les autres marches (hanche -13.4) et la queue tenue immobile.
+
+FEUTRE_L = 4.4
+
+
+def feutree(bone, chan, t):
+    u = t / FEUTRE_L
+    v = list(MARCHE.at(bone, chan, u * MARCHE.length))
+    if chan == 'rotation':
+        if bone.startswith(('thigh', 'shin', 'foot')):
+            side = 'left' if bone.endswith('left') else 'right'
+            w = en_lair(side, u * ETIRE * MARCHE.length)      # 1 quand la patte est en vol
+            m = MOY_M.get(bone, [0.0, 0.0, 0.0])
+            v = [m[i] + (v[i] - m[i]) * (0.66 + 0.18 * w) for i in range(3)]
+            if bone.startswith('thigh'):
+                v[0] -= 2.2 * w                                # patte degagee plus haut
+            if bone.startswith('shin'):
+                v[0] -= 3.5 * w
+            if bone.startswith('foot'):
+                v[0] += 3.0 * w                                # et reposee a plat
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] += -0.9 + 0.22 * i                            # base degagee, pointe basse
+            v[1] = v[1] * 0.22 + 1.0 * _osc(t, 1 / FEUTRE_L, -0.28 * i)
+        elif bone == 'neck':
+            v[0] += -17.0
+            v[1] += 2.6 * _osc(t, 1 / (FEUTRE_L * 2))
+        elif bone == 'head':
+            v[0] += 13.0
+            v[1] += 1.8 * _osc(t, 1 / (FEUTRE_L * 2), 0.9)
+        elif bone.startswith('upper_arm'):
+            v[0] += 16.0
+        elif bone.startswith('forearm'):
+            v[0] += 20.0
+    return accroupi(bone, chan, v, 12.0)
+
+
+def post_feutree(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.14, lag=0.18, cap=2.5)
+    throat_vibe(tracks, length, loop, freq=0.5, amp=0.06, rot=1.0)
+
+
+add_maison('marche_feutree', FEUTRE_L, 'loop', feutree, post_feutree, sol=True)
 
 
 # ================================================================== ecriture
@@ -1631,7 +1787,9 @@ bb['credit'] = ('V41 - texture et yeux JP3 affines; animation grimpe reconstruit
                 'attaque plongeante, ruee griffes, voile reajustee, vibration de la gorge '
                 '| V76 - 9 animations de traque et d ambiance horrifique ecrites main '
                 '(traque au sol et a la surface, immobilisation, embuscade, tete inclinee, '
-                'spasmes du cou, emergence lente, respiration lourde, avance menacante)')
+                'spasmes du cou, emergence lente, respiration lourde, avance menacante) '
+                '| V77 - marche feutree ; correction du saut de derniere image sur les '
+                'animations non bouclees ; calage sol sur la geometrie reelle du livrable')
 out = os.path.join(W, 'RIVIERE_70_ADAPTATION_ROR_UPDATED.bbmodel')
 json.dump(bb, open(out, 'w'), separators=(',', ':'))
 print('\nEcrit :', out, round(os.path.getsize(out) / 1e6, 1), 'Mo',
