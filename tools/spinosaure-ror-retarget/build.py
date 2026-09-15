@@ -318,7 +318,7 @@ def _ensure_rig():
         FLOOR = RIG.lowest(rest)
 
 
-def ground_clamp(tracks, length, loop, smooth=2):
+def ground_clamp(tracks, length, loop, smooth=2, skip=('tail_04', 'tail_05', 'tail_06')):
     """Remonte le root pour qu'aucune piece ne passe sous le sol (jamais vers le bas)."""
     _ensure_rig()
     n = int(round(length * R.FPS))
@@ -329,7 +329,7 @@ def ground_clamp(tracks, length, loop, smooth=2):
             tr = tracks.get(bone, {}).get(chan)
             neutral = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
             return lerp_track(tr, t, length, loop) if tr else neutral
-        off.append(max(0.0, FLOOR - RIG.lowest(RIG.pose(get), skip=('tail_04', 'tail_05', 'tail_06'))))
+        off.append(max(0.0, FLOOR - RIG.lowest(RIG.pose(get), skip=skip)))
     if smooth:
         sm = []
         for i in range(len(off)):
@@ -687,12 +687,13 @@ def bake_fn(fn, length, loop, bones=None):
     return tracks
 
 
-def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None, sol=False):
+def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None, sol=False,
+               clamp_skip=('tail_04', 'tail_05', 'tail_06')):
     tracks = bake_fn(fn, length, loop, bones)
     if post:
         post(tracks, length, loop)
     if clamp:
-        ground_clamp(tracks, length, loop)
+        ground_clamp(tracks, length, loop, skip=clamp_skip)
     if sol:
         # apres ground_clamp : c est lui qui peut laisser le pied en l air
         pose_au_sol(tracks, length, loop)
@@ -1919,6 +1920,90 @@ def post_renifle(tracks, length, loop):
 
 
 add_maison('renifle_air', 5.00, 'once', renifle, post_renifle)
+
+
+
+# ---------------------------------------------------------------- flairage de piste au sol
+# renifle_piste_ror (le clip ROR) monte le crane a 104 : c est du flair AERIEN malgre son
+# nom, et renifle_air en fait autant. Il manquait donc le seul qui compte pour pister :
+# museau a terre.
+#
+# Cale par mesure, pas par estimation : cou -50 / tete -28 / tronc -13 amene la pointe
+# du museau a 1.3 unite du sol (104.1 au repos) sans que rien ne traverse et sans
+# decoller les pieds. Un premier essai a -58/-32/-15 enfoncait le museau de 5.9 sous
+# le sol ; le laisser dans le calage sol n arrangeait rien, le calage ne sachant que
+# remonter, il souleva l animal de 9.6 et le posa sur le nez, pattes en l air.
+PISTE_L = 7.0
+P_BAS, P_PAUSE, P_REPRISE, P_TROUVE, P_FIN = 1.05, 2.45, 3.05, 4.95, 6.25
+
+
+def piste(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.28))
+    # museau au sol, sauf pendant la pause d evaluation et le redressement final
+    bas = (ease(t, 0.25, P_BAS)
+           * (1 - 0.72 * bosse(t, P_PAUSE, P_REPRISE))
+           * (1 - 0.55 * bosse(t, P_TROUVE, 5.45))
+           * (1 - ease(t, P_FIN, 6.95)))
+    alerte = ease(t, P_FIN, 6.95)                      # il releve la tete vers la piste
+    # balayage : le museau traverse la trace de gauche a droite
+    cast = _osc(t, 0.45) * bas
+    # bouffees courtes a 3 Hz (10 images par cycle a 30 fps), par salves
+    salve = (ease(t, P_BAS, 1.25) * (1 - ease(t, P_PAUSE - 0.2, P_PAUSE))
+             + ease(t, P_REPRISE, 3.25) * (1 - ease(t, 4.55, P_TROUVE))
+             + ease(t, 5.45, 5.65) * (1 - ease(t, 6.05, P_FIN)))
+    bouffee = max(0.0, math.sin(2 * math.pi * 3.0 * t)) * salve
+    if chan == 'rotation':
+        if bone == 'neck':
+            v[0] += -50.0 * bas + 16.0 * alerte
+            v[1] += 14.0 * cast
+        elif bone == 'head':
+            v[0] += -28.0 * bas + 9.0 * alerte - 1.8 * bouffee
+            v[1] += 9.0 * cast
+            v[2] += 5.0 * cast
+        elif bone == 'jaw':
+            v[0] += -4.5 * bouffee - 2.5 * bas
+        elif bone == 'body':
+            v[0] += -13.0 * bas + 3.0 * alerte
+            v[1] += 3.5 * cast
+        elif bone == 'chest':
+            v[0] += -5.0 * bas
+            v[1] += 2.5 * cast
+        elif bone == 'root':
+            v[0] += -4.0 * bas
+            v[1] += 2.0 * cast
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= 1.5 * i * bas                      # queue relevee en contrepoids
+            v[1] += 0.9 * i * 0.35 * cast
+        elif bone.startswith('upper_arm'):
+            v[0] += 13.0 * bas                         # bras replies contre le poitrail
+        elif bone.startswith('forearm'):
+            v[0] += 17.0 * bas
+        elif bone.startswith(('thigh', 'shin', 'foot')):
+            # pas de repliement : il decollerait les pieds, et le calage sol, ne
+            # pouvant que remonter l animal, le laisserait pose sur le museau
+            pass
+    return v
+
+
+def post_piste(tracks, length, loop):
+    # il avance le long de la trace pendant les deux phases de suivi
+    add_root_curve(
+        tracks, length,
+        keys_pos=[(0.0, [0, 0, 0]), (P_BAS, [0, 0, -3]), (P_PAUSE, [0, 0, -17]),
+                  (P_REPRISE, [0, 0, -19]), (4.55, [0, 0, -38]), (P_TROUVE, [0, 0, -41]),
+                  (P_FIN, [0, 0, -44]), (PISTE_L, [0, 0, -45])])
+    sail_rework(tracks, length, loop, gain=0.20, lag=0.15, cap=4.0)
+    throat_vibe(tracks, length, loop, freq=3.0, amp=0.18, rot=2.8,
+                env=lambda t: (ease(t, P_BAS, 1.25) * (1 - ease(t, P_PAUSE - 0.2, P_PAUSE))
+                               + ease(t, P_REPRISE, 3.25) * (1 - ease(t, 4.55, P_TROUVE))
+                               + ease(t, 5.45, 5.65) * (1 - ease(t, 6.05, P_FIN))))
+
+
+# le museau touche le sol par construction : il est donc exclu du calage, sinon
+# celui-ci souleve tout l animal et lui fait porter son poids sur le nez
+add_maison('renifle_piste_sol', PISTE_L, 'once', piste, post_piste, sol=True,
+           clamp_skip=('tail_04', 'tail_05', 'tail_06', 'head', 'jaw', 'tongue'))
 
 
 # ================================================================== ecriture
