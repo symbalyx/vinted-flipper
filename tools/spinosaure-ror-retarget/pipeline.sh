@@ -11,7 +11,9 @@ echo "--- griffes allongees ---"
 python3 tools/bras_ror.py E1b.bbmodel E1c.bbmodel
 echo "--- nageoires (main, avant-bras, orteils, tibia) ---"
 python3 tools/nageoires.py E1c.bbmodel E2.bbmodel
+echo "--- z-fighting ---"
+python3 tools/zfight.py E2.bbmodel E3.bbmodel
 echo "--- recuit ---"
-python3 tools/recook.py E2.bbmodel F FINAL4.bbmodel
+python3 tools/recook.py E3.bbmodel F FINAL4.bbmodel
 echo "--- verification ---"
-python3 tools/verify_recook.py E2.bbmodel FINAL4.bbmodel
+python3 tools/verify_recook.py E3.bbmodel FINAL4.bbmodel

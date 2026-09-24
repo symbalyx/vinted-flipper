@@ -11,6 +11,10 @@ ror = json.load(open(os.path.join(W, 'ror_anims.json')))
 R.GROUP_UUID = {g['name']: g['uuid'] for g in bb['groups']}
 
 
+# (lissage des animations d origine retire : leur valeur est continue a la couture,
+#  l a-coup de cheville de `course` est un geste en V, pas un raccord casse)
+
+
 def boucle(loop):
     """Vrai seulement pour une VRAIE boucle.
 
@@ -196,6 +200,10 @@ def lerp_track(tr, t, length, loop):
 
 def throat_vibe(tracks, length, loop, freq=6.0, amp=0.16, rot=3.5, env=None):
     """Flottement de la gorge : la poche gulaire vibre (grondement / halETement)."""
+    if boucle(loop):
+        # nombre ENTIER de cycles par boucle (y compris la composante lente freq/4),
+        # sinon la vibration casse a chaque tour
+        freq = max(4, int(round(freq * length / 4.0)) * 4) / length
     n = int(round(length * R.FPS))
     ch = tracks.setdefault('throat', {})
     b_s = ch.get('scale')
@@ -493,6 +501,65 @@ def pose_au_sol(tracks, length, loop, marge=0.15):
     print('      pose au sol : -%.1f (le pied flottait)' % jeu)
 
 
+def pieds_plantes(tracks, length, loop, seuil=0.6):
+    """Empeche le pied POSE de glisser lateralement.
+
+    Un roulis ou un lacet du bassin pivote tout le corps autour de lui, et les pieds
+    posés balaient le sol : 11 unites de glissement lateral par cycle mesurees sur les
+    virages, 10.4 sur la boiterie. On deplace donc le bassin en X pour ramener chaque
+    pied posé a sa position moyenne d appui : le corps se balance AU-DESSUS du pied qui
+    porte, comme il le doit. Correction lissee et rendue periodique.
+    """
+    _ensure_rig()
+    n = int(round(length * R.FPS))
+    ts = [min(i / R.FPS, length) for i in range(n + 1)]
+
+    def pose(t):
+        def g(bone, chan):
+            tr = tracks.get(bone, {}).get(chan)
+            neutral = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+            return lerp_track(tr, t, length, loop) if tr else neutral
+        return RIG.pose(g)
+    donnees = []
+    for t in ts:
+        P = pose(t)
+        donnees.append({s: (RIG.lowest(P, only=(s,)) - FLOOR, P[s][1][0]) for s in ('foot_left', 'foot_right')})
+    moy = {}
+    for s in ('foot_left', 'foot_right'):
+        xs = [d[s][1] for d in donnees if d[s][0] < seuil]
+        moy[s] = sum(xs) / len(xs) if xs else None
+    c = []
+    for d in donnees:
+        ecarts = [d[s][1] - moy[s] for s in d if d[s][0] < seuil and moy[s] is not None]
+        c.append(-sum(ecarts) / len(ecarts) if ecarts else None)
+    if all(x is None for x in c):
+        return
+    # trous (phases de vol) : interpolation lineaire, cyclique pour une boucle
+    idx = [i for i, x in enumerate(c) if x is not None]
+    for i in range(len(c)):
+        if c[i] is None:
+            a = max([j for j in idx if j < i], default=idx[-1] - len(c))
+            b = min([j for j in idx if j > i], default=idx[0] + len(c))
+            ca, cb = c[a % len(c)], c[b % len(c)]
+            f = (i - a) / (b - a) if b != a else 0
+            c[i] = ca + (cb - ca) * f
+    if boucle(loop):
+        c[-1] = c[0]
+    lisse = []
+    for i in range(len(c)):
+        fen = [c[(i + k) % (len(c) - 1)] if boucle(loop) else c[min(max(i + k, 0), len(c) - 1)] for k in range(-1, 2)]
+        lisse.append(sum(fen) / len(fen))
+    if boucle(loop):
+        lisse[-1] = lisse[0]
+    base = tracks.setdefault('root', {}).get('position')
+    out = []
+    for i, t in enumerate(ts):
+        v = lerp_track(base, t, length, loop) if base else [0.0, 0.0, 0.0]
+        out.append((t, [v[0] + lisse[i], v[1], v[2]]))
+    tracks['root']['position'] = R.compress(out, R.TOL['position'])
+    print('      pieds plantes : bassin deplace de %.1f a %+.1f en X' % (min(lisse), max(lisse)))
+
+
 def add_root_curve(tracks, length, keys_pos=None, keys_rot=None):
     """Ajoute une courbe de deplacement au root (liste de (t,[x,y,z]), interpolation douce)."""
     def smooth(keys, t):
@@ -575,6 +642,11 @@ def post_slam(tracks, length, loop):
     sail_rework(tracks, length, loop, gain=0.32, lag=0.11, cap=7.0)
     throat_vibe(tracks, length, loop, freq=5.5, amp=0.09, rot=2.2,
                 env=lambda t: max(0.0, min(1.0, (0.9 - t) / 0.3)))
+    # le clip ROR ecrase la poche gulaire au decollage : meme attenuee, elle tombait a
+    # 36 % de sa taille pendant 3 images, soit une gorge qui disparait. Bornee a 60 %.
+    sc = tracks.get('throat', {}).get('scale')
+    if sc:
+        tracks['throat']['scale'] = [(t, [max(0.6, min(1.6, x)) for x in v]) for t, v in sc]
 
 add('attaque_saut_sol_ror', 1.75, 'once', [Layer('mace_ground', 0.0)], post_slam, clamp=True)
 
@@ -583,25 +655,16 @@ def post_run(tracks, length, loop):
     sail_rework(tracks, length, loop, gain=0.28, lag=0.09, cap=5.0)
     throat_vibe(tracks, length, loop, freq=6.0, amp=0.09, rot=2.0)
 
-add('course_ror', 1.25, 'loop', [Layer('run', 0.0, loop_src=True)], post_run, clamp=True)
+# course_ror : ajoutee plus bas, apres COURSE, pour lui greffer des jambes saines
+
 
 # --- 4. ruee griffes : deux foulees, coup de griffes gauche puis droit, gorge qui vibre
 def post_rush(tracks, length, loop):
     sail_rework(tracks, length, loop, gain=0.34, lag=0.10, cap=6.0)
     throat_vibe(tracks, length, loop, freq=6.0, amp=0.20, rot=4.5)
 
-add('ruee_griffes_ror', 2.5, 'loop',
-    [Layer('run', 0.0, scale=1.0, loop_src=True),
-     # bras gauche : slash_left compresse sur la premiere foulee (remplace la course)
-     Layer('slash_left', 0.05, scale=0.62, only=ARMS_L, mode='replace',
-           window=(0.05, 1.29), fade=0.14),
-     # bras droit : slash_right sur la seconde foulee
-     Layer('slash_right', 1.30, scale=0.62, only=ARMS_R, mode='replace',
-           window=(1.30, 2.54), fade=0.14),
-     # torse et cou accompagnent le geste, en appui leger
-     Layer('slash_left', 0.05, scale=0.62, mul=0.30, only=TORSO),
-     Layer('slash_right', 1.30, scale=0.62, mul=0.30, only=TORSO)],
-    post_rush, clamp=True)
+# ruee_griffes_ror : ajoutee plus bas, meme raison
+
 
 # --- 5/6/7. coups de griffes
 def post_slash(tracks, length, loop):
@@ -622,9 +685,7 @@ def post_breath(tracks, length, loop):
     sail_rework(tracks, length, loop, gain=0.26, lag=0.12, cap=4.5)
     throat_vibe(tracks, length, loop, freq=1.1, amp=0.10, rot=1.6)
 
-add('se_couche_ror', 1.5, 'once', [Layer('down', 0.0)], post_calm, clamp=True)
-add('se_releve_ror', 2.0, 'once', [Layer('raise', 0.0)], post_calm, clamp=True)
-add('assis_ror', 4.0, 'loop', [Layer('sit', 0.0, loop_src=True)], post_breath, clamp=True)
+# se_couche_ror, se_releve_ror, assis_ror : reconstruites plus bas (voir 'postures ROR')
 add('renifle_piste_ror', 10.25, 'once', [Layer('scent', 0.0)], post_calm, clamp=True)
 add('mange_ror', 2.0, 'once', [Layer('eat', 0.0)], post_calm, clamp=True)
 add('nage_rapide_ror', 0.7519, 'loop', [Layer('swim2', 0.0, loop_src=True)], post_calm)
@@ -662,8 +723,32 @@ class Maison:
         return [sum(x[k] for x in v) / n for k in range(3)]
 
 
+def periodique(fn, length, fondu):
+    """Rend une boucle reellement periodique.
+
+    Sur les `fondu` dernieres secondes, la fonction se fond dans sa propre continuation
+    depuis le debut, f(t - length). Le poids suit une courbe en S (pente nulle aux deux
+    bouts) : valeur ET vitesse se raccordent a la couture. Sans cela, tout oscillateur
+    dont la periode ne divise pas la duree de la boucle laissait un saut que bake_fn
+    cachait en forcant la derniere cle egale a la premiere : 57 degres en une demi-image
+    sur la patte de virage_serre_droite, 15 sur la queue d affut_eau.
+    """
+    def g(bone, chan, t):
+        w = ease(t, length - fondu, length)
+        a = fn(bone, chan, t)
+        if w <= 0.0 or a is None:
+            return a
+        b = fn(bone, chan, t - length)
+        if b is None:
+            return a
+        return [a[k] * (1 - w) + b[k] * w for k in range(3)]
+    return g
+
+
 def bake_fn(fn, length, loop, bones=None):
     """Cuit une fonction (os, canal, t) -> valeur, puis compresse."""
+    if boucle(loop):
+        fn = periodique(fn, length, min(0.45, length / 4.0))
     n = int(round(length * R.FPS))
     tracks = {}
     for bone in (bones or R.CORE):
@@ -688,7 +773,7 @@ def bake_fn(fn, length, loop, bones=None):
 
 
 def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None, sol=False,
-               clamp_skip=('tail_04', 'tail_05', 'tail_06')):
+               clamp_skip=('tail_04', 'tail_05', 'tail_06'), plante=False):
     tracks = bake_fn(fn, length, loop, bones)
     if post:
         post(tracks, length, loop)
@@ -697,6 +782,9 @@ def add_maison(name, length, loop, fn, post=None, clamp=True, bones=None, sol=Fa
     if sol:
         # apres ground_clamp : c est lui qui peut laisser le pied en l air
         pose_au_sol(tracks, length, loop)
+    if plante:
+        # une seule passe : une seconde a ete essayee, elle degrade la boiterie (5.1 -> 6.5)
+        pieds_plantes(tracks, length, loop)
     tail_layers(tracks, length, loop, guard=clamp)
     finger_converge(tracks, length, loop)
     NEW.append(R.make_anim('animation.spinosaure.' + name, length, loop, tracks, 30))
@@ -729,11 +817,140 @@ COURSE = Maison('course')
 MARCHE = Maison('marche')
 REPOS = Maison('repos')
 
+# ---------------------------------------------------------------- jambes des courses ROR
+# Mesure qui a fait tomber le portage d origine : sur course_ror, le pied posé AVANCAIT
+# de 4.4 unites par image (moonwalk) et reculait en l air, et le genou ne pliait plus
+# (tibia a -1 degre en vol, contre -35 sur la course du modele). Cause : la patte ROR
+# est digitigrade a 4 segments, Leg5 et Leg6 plient en sens OPPOSES ; additionnes sur
+# notre tibia unique, ils s annulent. Aucune inversion de signe ne rattrape ca (essaye :
+# inverser la cuisse remet le sens mais le genou reste raide).
+# Donc : tout le haut du corps reste ROR, les jambes sont celles de notre course,
+# etirees au cycle ROR et calees en phase sur son rebond vertical.
+JAMBES_OS = ('thigh_left', 'shin_left', 'foot_left', 'thigh_right', 'shin_right', 'foot_right')
+
+
+def greffe_jambes(tracks, length, loop, source=COURSE, cycles=1, n=120):
+    ry = tracks.get('root', {}).get('position')
+    r = [lerp_track(ry, length * i / n, length, loop)[1] if ry else 0.0 for i in range(n)]
+
+    def c(phase):
+        return source.at('root', 'position', (phase % 1.0) * source.length)[1]
+
+    def norm(v):
+        m = sum(v) / len(v); e = (sum((x - m) ** 2 for x in v) / len(v)) ** 0.5 or 1.0
+        return [(x - m) / e for x in v]
+    rn = norm(r)
+    best = None
+    for k in range(200):
+        o = k / 200.0
+        sn = norm([c(i / n * cycles + o) for i in range(n)])
+        err = sum((a - b) ** 2 for a, b in zip(rn, sn))
+        if best is None or err < best[0]:
+            best = (err, o)
+    o = best[1]
+    N = int(round(length * R.FPS))
+    for b in JAMBES_OS:
+        out = []
+        for i in range(N + 1):
+            t = min(i / R.FPS, length)
+            ph = (t / length * cycles + o) % 1.0
+            out.append((t, list(source.at(b, 'rotation', ph * source.length))))
+        if boucle(loop):
+            out[-1] = (out[-1][0], list(out[0][1]))
+        tracks.setdefault(b, {})['rotation'] = R.compress(out, R.TOL['rotation'])
+        tracks[b].pop('position', None)
+    # la hauteur du bassin suit les appuis : on prend celle de la meme source, sinon le
+    # rebond ROR (cale sur SES appuis) fait decoller nos pieds (7 images d appui sur 75)
+    base = tracks.setdefault('root', {}).get('position')
+    out = []
+    for i in range(N + 1):
+        t = min(i / R.FPS, length)
+        ph = (t / length * cycles + o) % 1.0
+        v = lerp_track(base, t, length, loop) if base else [0.0, 0.0, 0.0]
+        out.append((t, [v[0], source.at('root', 'position', ph * source.length)[1], v[2]]))
+    if boucle(loop):
+        out[-1] = (out[-1][0], list(out[0][1]))
+    tracks['root']['position'] = R.compress(out, R.TOL['position'])
+    print('      jambes et hauteur de bassin greffees depuis course, %d cycle(s), phase %.2f' % (cycles, o))
+
+
+def post_run_greffe(tracks, length, loop):
+    greffe_jambes(tracks, length, loop, cycles=1)
+    post_run(tracks, length, loop)
+
+
+def post_rush_greffe(tracks, length, loop):
+    greffe_jambes(tracks, length, loop, cycles=2)
+    post_rush(tracks, length, loop)
+
+
+add('course_ror', 1.25, 'loop', [Layer('run', 0.0, loop_src=True)], post_run_greffe, clamp=True)
+
+# ---------------------------------------------------------------- postures ROR
+# Rendu de controle, qui a fait tomber le portage d origine : se_couche_ror se terminait
+# DEBOUT, assis_ror etait debout, se_releve_ror commencait debout. Meme cause que la
+# course : les deux segments de patte ROR plient en sens opposes et s annulent sur notre
+# tibia, les pattes restaient raides et s enfoncaient de 35 unites ; le calage au sol
+# avait alors releve tout le corps, ce qui annulait le geste. On avait verifie le sol,
+# pas ce que faisait l animal.
+# Le bas du corps (bassin, tronc, pattes, queue) vient donc des animations du MODELE qui
+# font deja ce geste correctement ; le haut du corps (poitrail, cou, tete, gueule, gorge,
+# bras, voile) reste celui de ROR.
+# les bras aussi : couche, les bras ROR descendent vers le sol, et avec nos griffes
+# allongees ils le traversaient ; le calage relevait alors l animal de 20 unites, pose
+# sur le bout des griffes. Le modele avait deja resolu ou poser les bras couche.
+BAS = ('root', 'body', 'thigh_left', 'shin_left', 'foot_left', 'thigh_right', 'shin_right',
+       'foot_right', 'tail_01', 'tail_02', 'tail_03', 'tail_04', 'tail_05', 'tail_06',
+       'upper_arm_left', 'forearm_left', 'hand_left', 'finger_left_0', 'finger_left_1',
+       'finger_left_2', 'upper_arm_right', 'forearm_right', 'hand_right', 'finger_right_0',
+       'finger_right_1', 'finger_right_2')
+ENDORT = Maison('endormissement')
+REVEIL = Maison('reveil')
+DORT = Maison('dort')
+
+
+def posture(source, duree_src, couches, longueur, boucle_src=False):
+    def fn(bone, chan, t):
+        if bone in BAS:
+            u = t / longueur * duree_src
+            return list(source.at(bone, chan, u, loop=boucle_src))
+        v = evaluate(couches, bone, chan, t)
+        if v is None:
+            return [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+        return v
+    return fn
+
+
+add_maison('se_couche_ror', 1.5, 'once',
+           posture(ENDORT, ENDORT.length, [Layer('down', 0.0)], 1.5), post_calm)
+add_maison('se_releve_ror', 2.0, 'once',
+           posture(REVEIL, REVEIL.length, [Layer('raise', 0.0)], 2.0), post_calm)
+add_maison('assis_ror', 4.0, 'loop',
+           posture(DORT, DORT.length, [Layer('sit', 0.0, loop_src=True)], 4.0, boucle_src=True),
+           post_breath)
+add('ruee_griffes_ror', 2.5, 'loop',
+    [Layer('run', 0.0, scale=1.0, loop_src=True),
+     # bras gauche : slash_left compresse sur la premiere foulee (remplace la course)
+     Layer('slash_left', 0.05, scale=0.62, only=ARMS_L, mode='replace',
+           window=(0.05, 1.29), fade=0.14),
+     # bras droit : slash_right sur la seconde foulee
+     Layer('slash_right', 1.30, scale=0.62, only=ARMS_R, mode='replace',
+           window=(1.30, 2.54), fade=0.14),
+     # torse et cou accompagnent le geste, en appui leger
+     Layer('slash_left', 0.05, scale=0.62, mul=0.30, only=TORSO),
+     Layer('slash_right', 1.30, scale=0.62, mul=0.30, only=TORSO)],
+    post_rush_greffe, clamp=True)
+
 # ---------------------------------------------------------------- 1 et 2. virages serres
 # Convention verifiee sur le modele : rotation Y positive = le museau part vers la
 # DROITE de l animal ; rotation Z negative = il se penche sur sa GAUCHE.
 JAMBES = ('thigh_left', 'shin_left', 'foot_left', 'thigh_right', 'shin_right', 'foot_right')
 MOY = {b: COURSE.moyenne(b) for b in JAMBES}
+
+
+# deux foulees de course pile (2 x 0.8 s) : sur 1.25 s la boucle coupait la course a
+# 1.56 foulee, et la patte sautait de 57 degres au raccord
+VIRAGE_L = 2 * COURSE.length
 
 
 def virage(s):
@@ -747,7 +964,7 @@ def virage(s):
                 k = 0.70 if interieur else 1.18
                 m = MOY[bone]
                 v = [m[i] + (v[i] - m[i]) * k for i in range(3)]
-            osc = math.sin(2 * math.pi * t / 1.25)
+            osc = math.sin(2 * math.pi * t / VIRAGE_L)
             if bone == 'root':
                 v[1] += s * 7.0
                 v[2] += s * -13.0 + osc * 1.5        # roulis dans le virage
@@ -781,8 +998,8 @@ def post_virage(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=6.0, amp=0.14, rot=3.2)
 
 
-add_maison('virage_serre_gauche', 1.25, 'loop', virage(-1), post_virage)
-add_maison('virage_serre_droite', 1.25, 'loop', virage(+1), post_virage)
+add_maison('virage_serre_gauche', VIRAGE_L, 'loop', virage(-1), post_virage, plante=True)
+add_maison('virage_serre_droite', VIRAGE_L, 'loop', virage(+1), post_virage, plante=True)
 
 # ---------------------------------------------------------------- 3. marche en eau peu profonde
 # On part de la marche maison, ralentie, et on ne majore le releve de patte QUE
@@ -857,7 +1074,8 @@ def post_eau(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=1.3, amp=0.09, rot=1.8)
 
 
-add_maison('marche_eau_peu_profonde', 2.4, 'loop', marche_eau, post_eau)
+# sol=True : le bassin etait sureleve de 2.5, les pieds ne touchaient jamais le fond
+add_maison('marche_eau_peu_profonde', 2.4, 'loop', marche_eau, post_eau, sol=True)
 
 # ---------------------------------------------------------------- 5. ralentissement
 # Une seule phase de foulee partagee entre course et marche : les appuis restent
@@ -1186,7 +1404,7 @@ def post_boite(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=1.4, amp=0.10, rot=1.8)
 
 
-add_maison('marche_boiteuse', 2.4, 'loop', boite, post_boite, sol=True)
+add_maison('marche_boiteuse', 2.4, 'loop', boite, post_boite, sol=True, plante=True)
 
 
 # ---------------------------------------------------------------- corrections aquatiques
@@ -2006,6 +2224,185 @@ add_maison('renifle_piste_sol', PISTE_L, 'once', piste, post_piste, sol=True,
            clamp_skip=('tail_04', 'tail_05', 'tail_06', 'head', 'jaw', 'tongue'))
 
 
+
+# ================================================================== etats moteur
+# Les seuls etats que Minecraft declenche TOUT SEUL, sans code du mod : coup recu, saut
+# d un bloc, chute, mort. Jusqu ici : aucune animation pour les trois premiers, et une
+# mort terrestre (le root descend a -24, l animal s effondre au sol) jouee aussi sous
+# l eau. Le saut n affiche que la POSE : c est le moteur qui deplace l entite, une
+# translation du root ici se cumulerait avec la sienne.
+_HC = hauteur_pieds(COURSE)
+_PH_VOL = (max(range(len(_HC['foot_left'])), key=lambda i: _HC['foot_left'][i])
+           / len(_HC['foot_left']) * COURSE.length)
+
+
+def patte_repliee(bone):
+    """Patte en plein vol de course (pied au plus haut), la meme pour les deux cotes."""
+    return list(COURSE.at(bone.replace('right', 'left'), 'rotation', _PH_VOL))
+
+
+def _choc(t, a=0.0, monte=0.07, tient=0.12, fin=0.55):
+    # front de 2 images : un coup recu est un evenement sec, pas une oscillation
+    return ease(t, a, a + monte) * (1 - ease(t, a + tient, fin))
+
+
+def degats_sur(base_fn, jambes=True):
+    def fn(bone, chan, t):
+        v = list(base_fn(bone, chan, t))
+        c = _choc(t)
+        if chan == 'rotation':
+            if bone == 'root':
+                v[0] += 4.0 * c
+            elif bone == 'body':
+                v[0] += 5.0 * c
+            elif bone == 'chest':
+                v[0] += 4.0 * c
+            elif bone == 'neck':
+                v[0] += 16.0 * c; v[1] += 9.0 * c
+            elif bone == 'head':
+                v[0] += 12.0 * c; v[1] += 6.0 * c; v[2] += 8.0 * c
+            elif bone == 'jaw':
+                v[0] += -30.0 * c                           # cri de douleur
+            elif bone.startswith('upper_arm'):
+                v[0] += 18.0 * c                            # les bras se replient
+            elif bone.startswith('forearm'):
+                v[0] += 22.0 * c
+            elif bone.startswith('tail_'):
+                i = int(bone[-2:])
+                v[0] -= 1.2 * i * c
+                v[1] += (1.5 + 0.9 * i) * c * math.sin(2 * math.pi * 3.0 * t)
+        elif chan == 'position' and bone == 'root':
+            v[2] += 4.0 * c                                 # repousse en arriere
+            v[1] += -1.5 * c
+        return accroupi(bone, chan, v, 3.0 * c) if jambes else v
+    return fn
+
+
+def post_degats(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.45, lag=0.07, cap=10.0)
+    throat_vibe(tracks, length, loop, freq=4.0, amp=0.22, rot=5.0, env=lambda t: _choc(t))
+
+
+add_maison('degats', 0.6, 'once', degats_sur(lambda b, c, t: REPOS.at(b, c, t * 0.3)), post_degats)
+add_maison('degats_eau', 0.6, 'once',
+           degats_sur(lambda b, c, t: NAGE.at(b, c, t), jambes=False), post_degats, clamp=False)
+
+
+S_RAM, S_POUSSE, S_VOL, S_RECEP, S_FIN = 0.18, 0.28, 0.62, 0.78, 0.9
+
+
+def saut(bone, chan, t):
+    v = list(REPOS.at(bone, chan, t * 0.3))
+    ram = ease(t, 0.0, S_RAM) * (1 - ease(t, S_RAM, S_POUSSE))
+    # repli des pattes etale sur 0.16 s : sur 0.10 s il montait a 26 degres par image
+    vol = ease(t, S_RAM, S_POUSSE + 0.06) * (1 - ease(t, S_VOL - 0.10, S_VOL + 0.04))
+    rec = ease(t, S_VOL, S_VOL + 0.06) * (1 - ease(t, S_RECEP, S_FIN))
+    if chan == 'rotation':
+        if bone.startswith(('thigh', 'shin', 'foot')):
+            r = patte_repliee(bone)
+            v = [v[k] * (1 - vol) + r[k] * vol for k in range(3)]
+        elif bone == 'root':
+            v[0] += -5.0 * ram + 7.0 * vol - 6.0 * rec      # nez haut au depart, bas a la reception
+        elif bone == 'neck':
+            v[0] += -6.0 * ram + 8.0 * vol + 5.0 * rec      # le cou compense a la reception
+        elif bone == 'head':
+            v[0] += 3.0 * rec
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= (0.9 * vol + 0.6 * rec) * i             # queue en balancier
+        elif bone.startswith('upper_arm'):
+            v[0] += 14.0 * vol
+        elif bone.startswith('forearm'):
+            v[0] += 18.0 * vol
+    elif chan == 'position' and bone == 'root':
+        v[1] += -2.0 * ram + 3.0 * vol - 3.0 * rec
+    return accroupi(bone, chan, v, 9.0 * ram + 11.0 * rec)
+
+
+def post_saut(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.40, lag=0.08, cap=9.0)
+
+
+# calage au sol actif : a la reception les pattes, encore a demi repliees, passaient
+# 4.2 sous le sol. Il ne remonte que ce qui traverse, le vol n est pas touche.
+add_maison('saut', S_FIN, 'once', saut, post_saut)
+
+
+def chute(bone, chan, t):
+    L = 0.8
+    v = list(REPOS.at(bone, chan, t * 0.3))
+    ag = math.sin(2 * math.pi * t / L)                    # 1.25 Hz : il bat des membres
+    if chan == 'rotation':
+        if bone.startswith(('thigh', 'shin', 'foot')):
+            r = patte_repliee(bone)
+            v = [v[k] * 0.4 + r[k] * 0.6 for k in range(3)]  # pattes en avant pour amortir
+            if bone.startswith('thigh'):
+                v[0] += 3.0 * ag * (1 if bone.endswith('left') else -1)
+        elif bone == 'neck':
+            v[0] += 10.0 + 2.0 * ag
+        elif bone == 'head':
+            v[0] += 6.0
+        elif bone == 'jaw':
+            v[0] += -9.0 - 3.0 * max(0.0, ag)
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] -= 1.4 * i
+            v[1] += (1.5 + 1.0 * i) * math.sin(2 * math.pi * t / L - 0.35 * i)
+        elif bone.startswith('upper_arm'):
+            v[0] += 10.0
+            v[2] += (9.0 + 4.0 * ag) * (1 if bone.endswith('left') else -1)   # bras ecartes
+        elif bone.startswith('forearm'):
+            v[0] += 12.0
+    return v
+
+
+def post_chute(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.30, lag=0.10, cap=6.0)
+    throat_vibe(tracks, length, loop, freq=2.5, amp=0.12, rot=2.4)
+
+
+add_maison('chute', 0.8, 'loop', chute, post_chute, clamp=False)
+
+
+def mort_eau(bone, chan, t):
+    nage = list(NAGE.at(bone, chan, t * 0.6))
+    repos = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+    mou = ease(t, 0.2, 1.6)                               # le tonus s en va
+    v = [nage[k] * (1 - mou) + repos[k] * mou for k in range(3)]
+    roule = ease(t, 0.3, 2.6)                             # bascule sur le flanc
+    coule = ease(t, 0.8, 4.0)                             # et descend lentement
+    spasme = _choc(t, a=0.32, monte=0.07, tient=0.10, fin=0.60)
+    if chan == 'rotation':
+        if bone == 'root':
+            v[2] += 78.0 * roule
+            v[0] += 6.0 * coule
+        elif bone == 'neck':
+            v[0] += -14.0 * mou + 9.0 * spasme
+        elif bone == 'head':
+            v[0] += -10.0 * mou + 6.0 * spasme
+        elif bone == 'jaw':
+            v[0] += -18.0 * mou                           # machoire relachee
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[1] += (1.2 + 0.7 * i) * math.sin(2 * math.pi * t / 3.0 - 0.3 * i) * (1 - 0.7 * coule)
+        elif bone.startswith('upper_arm'):
+            v[0] += 6.0 * mou
+    elif chan == 'position' and bone == 'root':
+        # la profondeur de nage est GARDEE (la melanger vers le repos ferait remonter le
+        # corps a hauteur debout), puis il coule
+        v = list(nage)
+        v[1] += -48.0 * coule
+    return v
+
+
+def post_mort_eau(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.25, lag=0.20, cap=5.0)
+    throat_vibe(tracks, length, loop, freq=0.6, amp=0.10, rot=1.5, env=lambda t: 1 - ease(t, 0.4, 1.8))
+
+
+add_maison('mort_eau', 4.0, 'hold', mort_eau, post_mort_eau, clamp=False)
+
+
 # ================================================================== ecriture
 par_nom = {a['name']: i for i, a in enumerate(bb['animations'])}
 remplacees = []
@@ -2026,7 +2423,12 @@ bb['credit'] = ('V41 - texture et yeux JP3 affines; animation grimpe reconstruit
                 '(traque au sol et a la surface, immobilisation, embuscade, tete inclinee, '
                 'spasmes du cou, emergence lente, respiration lourde, avance menacante) '
                 '| V77 - marche feutree ; correction du saut de derniere image sur les '
-                'animations non bouclees ; calage sol sur la geometrie reelle du livrable')
+                'animations non bouclees ; calage sol sur la geometrie reelle du livrable '
+                '| V78 - boiterie reecrite, ecoute_joueur et renifle_air refaits '
+                '| V79 - renifle_piste_sol, museau a terre '
+                '| V80 - revision complete : z-fighting supprime, courses ROR sans moonwalk, '
+                'postures ROR reellement couchees, boucles periodiques, pieds plantes, '
+                'etats moteur (degats, degats_eau, saut, chute, mort_eau)')
 out = os.path.join(W, 'RIVIERE_70_ADAPTATION_ROR_UPDATED.bbmodel')
 json.dump(bb, open(out, 'w'), separators=(',', ':'))
 print('\nEcrit :', out, round(os.path.getsize(out) / 1e6, 1), 'Mo',

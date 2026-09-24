@@ -7,23 +7,11 @@ orthographique, orientable, pour comparer deux versions cote a cote.
 import json, math, os, sys, base64, io
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fk as FK
+from boite import coins, FACES
 from PIL import Image, ImageDraw, ImageFont
 
-FACES = {
-    'north':  ([0, 2, 6, 4], (0, 0, -1)),
-    'south':  ([1, 5, 7, 3], (0, 0, 1)),
-    'west':   ([0, 4, 5, 1], (-1, 0, 0)),
-    'east':   ([2, 3, 7, 6], (1, 0, 0)),
-    'up':     ([4, 6, 7, 5], (0, 1, 0)),
-    'down':   ([0, 1, 3, 2], (0, -1, 0)),
-}
 LUM = (-0.40, 0.72, -0.57)
 AMBIANT, DIFFUS = 0.52, 0.62
-
-
-def coins(f, t):
-    return [[f[0] if i == 0 else t[0], f[1] if j == 0 else t[1], f[2] if k == 0 else t[2]]
-            for i in (0, 1) for k in (0, 1) for j in (0, 1)]
 
 
 def charge_atlas(bb):
@@ -95,7 +83,7 @@ def cadre(rig, poses, taille, az, el, marge=0.90, bas=0.0):
     return sc, cx, cy
 
 
-def rendu(rig, im, res, P, taille, sc, cx, cy, az, el, fond=(20, 21, 27)):
+def rendu(rig, im, res, P, taille, sc, cx, cy, az, el, fond=(20, 21, 27), surligne=None):
     V = mat_vue(az, el)
     img = Image.new('RGB', taille, fond)
     d = ImageDraw.Draw(img)
@@ -120,7 +108,7 @@ def rendu(rig, im, res, P, taille, sc, cx, cy, az, el, fond=(20, 21, 27)):
                 q = [q[x] + eo[x] for x in range(3)]
                 w = FK.apply(M, [q[x] - O[x] for x in range(3)])
                 monde.append([w[x] + off[x] for x in range(3)])
-            for nomf, (idx, nloc) in FACES.items():
+            for nomf, (idx, nloc, _axes) in FACES.items():
                 fd = e.get('faces', {}).get(nomf)
                 if not fd or fd.get('texture') is None or not fd.get('uv'):
                     continue
@@ -136,6 +124,8 @@ def rendu(rig, im, res, P, taille, sc, cx, cy, az, el, fond=(20, 21, 27)):
                 lam = max(0.0, sum(n[k] * LUM[k] for k in range(3)))
                 k = AMBIANT + DIFFUS * lam
                 c = couleur(im, res, fd['uv'], (id(e), nomf))
+                if surligne and (e['uuid'], nomf) in surligne:
+                    c = (255, 40, 40)
                 quads.append((prof, [(cx + p[0] * sc, cy - p[1] * sc) for p in vue],
                               tuple(min(255, int(x * k)) for x in c)))
     quads.sort(key=lambda q: q[0])

@@ -29,18 +29,34 @@ class Rig:
         self._walk(bb['outliner'][0], None)
         self.root = bb['outliner'][0]['uuid']
         # une boite englobante par os, en coordonnees du modele
+        # Coins EXACTS de chaque cube dans le repere de son os : rotation propre du cube
+        # autour de son origine, et inflate. L ancienne version prenait la boite
+        # englobante des from/to sans rotation : sur les tibias, dont les cubes sont
+        # inclines, elle descendait 15 unites plus bas que la geometrie reelle, d ou de
+        # fausses penetrations du sol (dort a -13.9 alors que le tibia est a +1.2) et des
+        # calages au sol faits sur une forme qui n existe pas.
+        import numpy as _np
+        self._np = _np
         self.box = {}
+        self._pts = {}
         for u, cl in self.cubes.items():
             pts = []
             for cu in cl:
                 e = self.elems[cu]
-                pts.append(e['from'])
-                pts.append(e['to'])
+                g = e.get('inflate', 0) or 0
+                f = [e['from'][k] - g for k in range(3)]
+                t = [e['to'][k] + g for k in range(3)]
+                R = mat_rot(*e.get('rotation', [0, 0, 0]))
+                eo = e.get('origin', [0, 0, 0])
+                for i in (0, 1):
+                    for j in (0, 1):
+                        for k in (0, 1):
+                            p = [f[0] if i == 0 else t[0], f[1] if j == 0 else t[1], f[2] if k == 0 else t[2]]
+                            q = apply(R, [p[x] - eo[x] for x in range(3)])
+                            pts.append([q[x] + eo[x] for x in range(3)])
             if pts:
-                lo = [min(p[k] for p in pts) for k in range(3)]
-                hi = [max(p[k] for p in pts) for k in range(3)]
-                self.box[u] = [[lo[0] if i else hi[0], lo[1] if j else hi[1], lo[2] if k else hi[2]]
-                               for i in (0, 1) for j in (0, 1) for k in (0, 1)]
+                self.box[u] = pts
+                self._pts[u] = _np.array(pts, dtype=float)
 
     def _walk(self, node, par):
         if isinstance(node, str):
@@ -76,13 +92,13 @@ class Rig:
 
     def lowest(self, P, skip=(), only=None):
         lo = 1e9
-        for u, corners in self.box.items():
+        for u, arr in self._pts.items():
             nm = self.groups[u]['name']
             if nm not in P or nm in skip or (only is not None and nm not in only):
                 continue
             M, off, O = P[nm]
-            for p in corners:
-                y = sum(M[1][k] * (p[k] - O[k]) for k in range(3)) + off[1]
-                if y < lo:
-                    lo = y
+            ligne = self._np.array(M[1], dtype=float)
+            y = float((arr @ ligne).min() - ligne @ self._np.array(O, dtype=float)) + off[1]
+            if y < lo:
+                lo = y
         return lo

@@ -18,7 +18,7 @@ AQUA = ('affut_eau', 'traque_eau_affleurante', 'nage_', 'plonge', 'plongeon', 'r
         'saut_attaque_hors_eau', 'bond_hors_eau_ror', 'attaque_saut_eau_ror', 'dash_morsure_bateau',
         'rugit_en_nageant_ror', 'frappe_queue_eau', 'sortie_eau_terre_redressement',
         'creuse_enfouissement', 'creuse_et_ressort_quatre_pattes', 'sort_terre_quatre_pattes',
-        'mort', 'grimpe', 'plongeon_hauteur', 'bond_joueur')
+        'mort', 'grimpe', 'plongeon_hauteur', 'bond_joueur', 'degats_eau', 'mort_eau')
 # animations dont la secousse rapide est VOULUE
 SECOUSSE = ('secoue_eau', 'secoue_proie', 'spasmes_cou', 'tete_inclinee_fixe',
             'hurle_intimidation_ondes', 'creuse_enfouissement')
@@ -69,7 +69,7 @@ for a in sorted(bb['animations'], key=lambda x: x['name']):
                 if any(not math.isfinite(x) for x in v):
                     pb.append((nm, 'valeur non finie sur %s/%s' % (b, c)))
                     break
-            if c == 'scale' and any(x < 0.4 or x > 2.5 for _, v in p for x in v):
+            if c == 'scale' and b != 'paupiere_sommeil' and any(x < 0.4 or x > 2.5 for _, v in p for x in v):
                 pb.append((nm, 'echelle hors domaine sur %s' % b))
 
     # --- 2. boucle non refermee

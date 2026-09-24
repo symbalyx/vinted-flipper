@@ -45,11 +45,11 @@ def prepare(path):
 
 
 def bande(cote, anim, rig, im, res, nom, sous, u, sc, cx, cy, az, el, fond,
-          reperes=False, sol=None):
+          reperes=False, sol=None, surligne=None):
     T = pistes(anim)
     P = rig.pose(lambda b, c: (lp(T[b][c], u) if b in T and c in T.get(b, {})
                                else ([1., 1., 1.] if c == 'scale' else [0., 0., 0.])))
-    img = gif.rendu(rig, im, res, P, cote, sc, cx, cy, az, el, fond)
+    img = gif.rendu(rig, im, res, P, cote, sc, cx, cy, az, el, fond, surligne)
     d = ImageDraw.Draw(img)
     if reperes:
         # aplomb et ligne de sol : sans eux, un roulis de quelques degres ne se voit pas
@@ -82,18 +82,20 @@ def sol_de(rig):
 
 def fabrique(sortie, gauche, droite, nom_anim, titre_g, titre_d, sous_g='', sous_d='',
              n=48, cote=(430, 400), az=26, el=11, fond=(20, 21, 27), duree=70,
-             anim_d=None, reperes=False):
+             anim_d=None, reperes=False, boucle=False, L=None):
     A = prepare(gauche)
     B = prepare(droite) if droite != gauche else A
     ag, ad = A[4][nom_anim], B[4][anim_d or nom_anim]
-    L = max(ag['length'], ad['length'])
+    L = L or max(ag['length'], ad['length'])
     sc, cx, cy = gif.cadre(A[1], poses_de(ag, A[1]) + poses_de(ad, B[1]), cote, az, el)
+    tg = (lambda u: u % ag['length']) if boucle else (lambda u: min(u, ag['length']))
+    td = (lambda u: u % ad['length']) if boucle else (lambda u: min(u, ad['length']))
     frames = []
     for i in range(n):
         u = L * i / n
-        g = bande(cote, ag, A[1], A[2], A[3], titre_g, sous_g, min(u, ag['length']),
+        g = bande(cote, ag, A[1], A[2], A[3], titre_g, sous_g, tg(u),
                   sc, cx, cy, az, el, fond, reperes, sol_de(A[1]) if reperes else None)
-        dr = bande(cote, ad, B[1], B[2], B[3], titre_d, sous_d, min(u, ad['length']),
+        dr = bande(cote, ad, B[1], B[2], B[3], titre_d, sous_d, td(u),
                    sc, cx, cy, az, el, fond, reperes, sol_de(B[1]) if reperes else None)
         img = Image.new('RGB', (cote[0] * 2 + 4, cote[1]), (60, 62, 72))
         img.paste(g, (0, 0))
@@ -120,7 +122,7 @@ def solo(sortie, modele, nom_anim, titre, sous='', n=54, cote=(560, 440),
 
 
 def tourne(sortie, gauche, droite, titre_g, titre_d, sous_g='', sous_d='',
-           n=48, cote=(430, 400), el=12, duree=75, pose='pose_reference'):
+           n=48, cote=(430, 400), el=12, duree=75, pose='pose_reference', surl_g=None, surl_d=None):
     """Table tournante comparative : meme pose, deux geometries, 360 degres."""
     A = prepare(gauche)
     B = prepare(droite) if droite != gauche else A
@@ -132,9 +134,9 @@ def tourne(sortie, gauche, droite, titre_g, titre_d, sous_g='', sous_d='',
     for i in range(n):
         az = 360.0 * i / n
         g = bande(cote, ag, A[1], A[2], A[3], titre_g, sous_g, 0.0, sc, cx, cy, az, el,
-                  (20, 21, 27))
+                  (20, 21, 27), surligne=surl_g)
         dr = bande(cote, ad, B[1], B[2], B[3], titre_d, sous_d, 0.0, sc, cx, cy, az, el,
-                   (20, 21, 27))
+                   (20, 21, 27), surligne=surl_d)
         img = Image.new('RGB', (cote[0] * 2 + 4, cote[1]), (60, 62, 72))
         img.paste(g, (0, 0)); img.paste(dr, (cote[0] + 4, 0))
         frames.append(img.convert('P', palette=Image.ADAPTIVE, colors=200))
