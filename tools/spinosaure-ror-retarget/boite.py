@@ -35,3 +35,25 @@ def _autotest():
 
 
 _autotest()
+
+
+# Coins de chaque face dans l ordre du rectangle UV [u1, v1, u2, v2] :
+# haut-gauche (u1, v1), haut-droit (u2, v1), bas-droit (u2, v2), bas-gauche (u1, v2),
+# face vue de l exterieur (convention Minecraft Java / Blockbench, faces par face).
+COINS_UV = {
+    'north': [6, 2, 0, 4],     # vue depuis -Z : +X a gauche
+    'south': [3, 7, 5, 1],     # vue depuis +Z : -X a gauche
+    'east':  [7, 6, 4, 5],     # vue depuis +X : +Z a gauche
+    'west':  [2, 3, 1, 0],     # vue depuis -X : -Z a gauche
+    'up':    [2, 6, 7, 3],     # vue de dessus : nord en haut, ouest a gauche
+    'down':  [1, 5, 4, 0],     # vue de dessous
+}
+
+
+def _autotest_uv():
+    C = coins([0, 0, 0], [1, 1, 1])
+    for nom, idx in COINS_UV.items():
+        assert sorted(idx) == sorted(FACES[nom][0]), nom
+
+
+_autotest_uv()

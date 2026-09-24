@@ -310,10 +310,11 @@ def _geometrie_finale():
     3.8 unites apres. On applique donc ici les memes transformations, en memoire,
     pour que ground_clamp et le garde-fou de queue voient la bonne geometrie.
     """
-    import copy, grossir_bras, bras_ror, nageoires
+    import copy, grossir_bras, bras_ror, corps, nageoires
     g = copy.deepcopy(bb)
     grossir_bras.grossir(g)
     bras_ror.add(g)
+    corps.remodele(g)          # meme ordre que pipeline.sh : queue et pattes AVANT nageoires
     nageoires.ajoute(g)
     return g
 
@@ -674,8 +675,8 @@ def post_slash(tracks, length, loop):
 
 add('coup_griffes_gauche_ror', 2.0, 'once', [Layer('slash_left', 0.0)], post_slash, clamp=True)
 add('coup_griffes_droit_ror', 2.0, 'once', [Layer('slash_right', 0.0)], post_slash, clamp=True)
-add('combo_griffes_ror', 4.0, 'once',
-    [Layer('slash_left', 0.0), Layer('slash_left2', 2.0)], post_slash)
+# combo_griffes_ror retiree (V81) : deux coups du MEME bras, couverts par coup_griffes_gauche_ror
+# joue deux fois et par coup_griffes_double
 
 # --- 8..13. le reste du bestiaire ROR, garde a notre sauce
 def post_calm(tracks, length, loop):
@@ -686,8 +687,9 @@ def post_breath(tracks, length, loop):
     throat_vibe(tracks, length, loop, freq=1.1, amp=0.10, rot=1.6)
 
 # se_couche_ror, se_releve_ror, assis_ror : reconstruites plus bas (voir 'postures ROR')
-add('renifle_piste_ror', 10.25, 'once', [Layer('scent', 0.0)], post_calm, clamp=True)
-add('mange_ror', 2.0, 'once', [Layer('eat', 0.0)], post_calm, clamp=True)
+# renifle_piste_ror retiree (V81) : flair AERIEN malgre son nom (crane 103 -> 113),
+# couvert par renifle_air (air) et renifle_piste_sol (museau a terre)
+# mange_ror retiree (V81) : simple hochement de tete, entierement couvert par mange_carcasse
 add('nage_rapide_ror', 0.7519, 'loop', [Layer('swim2', 0.0, loop_src=True)], post_calm)
 
 
@@ -884,7 +886,7 @@ def post_rush_greffe(tracks, length, loop):
     post_rush(tracks, length, loop)
 
 
-add('course_ror', 1.25, 'loop', [Layer('run', 0.0, loop_src=True)], post_run_greffe, clamp=True)
+# course_ror retiree (V81) : cinquieme course, avec depuis V80 les jambes memes de `course`
 
 # ---------------------------------------------------------------- postures ROR
 # Rendu de controle, qui a fait tomber le portage d origine : se_couche_ror se terminait
@@ -2403,6 +2405,160 @@ def post_mort_eau(tracks, length, loop):
 add_maison('mort_eau', 4.0, 'hold', mort_eau, post_mort_eau, clamp=False)
 
 
+
+# ================================================================== regard fixe
+# Pendant la marche, il tourne brusquement la tete et FIXE le joueur. La bascule dure
+# 3 images, puis la tete est verrouillee en orientation absolue : les pattes continuent
+# de marcher et le corps d oscille, mais ces oscillations sont retranchees de la tete,
+# si bien que le regard ne bouge plus. Deux cotes : le code du mod joue celui ou se
+# trouve le joueur. Duree = deux cycles de marche pile, pour s enchainer sur `marche`.
+RF_L = 2 * MARCHE.length
+RF_BASCULE, RF_LACHE, RF_FIN = 0.50, 2.85, 3.45
+ANCETRES_TETE = ('root', 'body', 'chest', 'neck')
+_MOY_RF = {b: MARCHE.moyenne(b) for b in ANCETRES_TETE + ('head',)}
+
+
+def _fixe(t, a, lache, fin):
+    return ease(t, a, a + 0.10) * (1 - ease(t, lache, fin))
+
+
+def marche_regard(cote):
+    def fn(bone, chan, t):
+        v = list(MARCHE.at(bone, chan, t))
+        f = _fixe(t, RF_BASCULE, RF_LACHE, RF_FIN)
+        if chan != 'rotation' or f <= 0.0:
+            return v
+        if bone == 'neck':
+            v[0] += 3.0 * f
+            v[1] += 24.0 * cote * f
+        elif bone == 'chest':
+            v[1] += 6.0 * cote * f
+        elif bone == 'head':
+            m = _MOY_RF['head']
+            # la tete ne suit plus la marche : on retire sa propre oscillation...
+            v = [m[k] + (v[k] - m[k]) * (1 - f) for k in range(3)]
+            # ...et celles de ses ancetres, pour que le regard reste fixe dans le monde
+            for a in ANCETRES_TETE:
+                va = MARCHE.at(a, 'rotation', t)
+                ma = _MOY_RF[a]
+                for k in range(3):
+                    v[k] -= (va[k] - ma[k]) * f
+            v[0] += -5.0 * f                       # il fixe, legerement vers le bas
+            v[1] += 32.0 * cote * f
+            v[2] += 7.0 * cote * f                 # crane a peine incline
+        return v
+    return fn
+
+
+def _euler_zyx(R):
+    """Inverse de fk.mat_rot (R = Rz . Ry . Rx), en degres."""
+    b = math.asin(max(-1.0, min(1.0, -R[2][0])))
+    a = math.atan2(R[2][1], R[2][2])
+    g = math.atan2(R[1][0], R[0][0])
+    return [math.degrees(a), math.degrees(b), math.degrees(g)]
+
+
+def verrouille_tete(tracks, length, loop, env, t_ref):
+    """Verrouille la tete en orientation ABSOLUE pendant `env`.
+
+    Premier essai : retrancher de la tete les oscillations d angle de ses ancetres.
+    Mesure : 1.9 deg de derive residuelle (contre 3.7 sur la marche normale), parce
+    que des angles d Euler ne s additionnent pas en 3D. Ici c est exact : a chaque
+    image on calcule l orientation du parent dans le monde, et on en deduit la
+    rotation locale qui garde la tete dans l orientation qu elle avait a t_ref.
+    """
+    _ensure_rig()
+    G = {g['name']: g for g in bb['groups']}
+    parent = None
+    for u, enfants in RIG.children.items():
+        if RIG.byname['head'] in enfants and u is not None:
+            parent = RIG.groups[u]['name']
+    repos = G['head'].get('rotation', [0, 0, 0])
+
+    def pose(t):
+        def g(bone, chan):
+            tr = tracks.get(bone, {}).get(chan)
+            neutral = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+            return lerp_track(tr, t, length, loop) if tr else neutral
+        return RIG.pose(g)
+    cible = pose(t_ref)['head'][0]
+    base = tracks['head']['rotation']
+    n = int(round(length * R.FPS))
+    out = []
+    for i in range(n + 1):
+        t = min(i / R.FPS, length)
+        v = lerp_track(base, t, length, loop)
+        w = env(t)
+        if w > 0.0:
+            Mp = pose(t)[parent][0]
+            loc = FK.mul([[Mp[k][j] for k in range(3)] for j in range(3)], cible)   # Mp^T . cible
+            e = _euler_zyx(loc)
+            e = [e[k] - repos[k] for k in range(3)]
+            # meme determination de l angle que la piste d origine (pas de saut de 360)
+            e = [e[k] + 360.0 * round((v[k] - e[k]) / 360.0) for k in range(3)]
+            v = [v[k] * (1 - w) + e[k] * w for k in range(3)]
+        out.append((t, v))
+    tracks['head']['rotation'] = R.compress(out, R.TOL['rotation'])
+    print('      tete verrouillee en orientation absolue (parent : %s)' % parent)
+
+
+def post_marche_regard(tracks, length, loop):
+    verrouille_tete(tracks, length, loop, lambda t: _fixe(t, RF_BASCULE + 0.10, RF_LACHE, RF_FIN),
+                    RF_BASCULE + 0.10)
+    sail_rework(tracks, length, loop, gain=0.24, lag=0.12, cap=4.5)
+    # souffle retenu pendant qu il fixe
+    throat_vibe(tracks, length, loop, freq=1.3, amp=0.09, rot=1.8,
+                env=lambda t: 1 - 0.85 * _fixe(t, RF_BASCULE, RF_LACHE, RF_FIN))
+
+
+add_maison('marche_regard_fixe_droite', RF_L, 'once', marche_regard(+1), post_marche_regard)
+add_maison('marche_regard_fixe_gauche', RF_L, 'once', marche_regard(-1), post_marche_regard)
+
+
+# Le meme geste pendant le repas, sans toucher a mange_carcasse. Juste apres la premiere
+# morsure (tete au sol, viande dans la gueule), il releve la tete d un coup vers le
+# joueur et SE FIGE tout entier 2.2 s ; puis il redescend lentement et reprend son
+# repas exactement la ou il l avait laisse.
+MR_T1, MR_TIENT, MR_RETOUR = 1.00, 3.30, 4.10
+MR_DECALAGE = MR_RETOUR - MR_T1
+MR_L = 5.8 + MR_DECALAGE
+
+
+def mange_regard(cote):
+    def fn(bone, chan, t):
+        if t < MR_T1:
+            return mange(bone, chan, t)
+        if t >= MR_RETOUR:
+            return mange(bone, chan, t - MR_DECALAGE)
+        v = list(mange(bone, chan, MR_T1))           # tout le corps fige
+        f = _fixe(t, MR_T1, MR_TIENT, MR_RETOUR)
+        if chan != 'rotation':
+            return v
+        if bone == 'neck':
+            v[0] += 24.0 * f; v[1] += 20.0 * cote * f
+        elif bone == 'head':
+            v[0] += 20.0 * f; v[1] += 28.0 * cote * f; v[2] += 6.0 * cote * f
+        elif bone == 'jaw':
+            # a l instant fige la machoire de mange est deja fermee (0) : on l entrouvre
+            v[0] += -7.0 * f                         # sur la viande
+        elif bone == 'chest':
+            v[1] += 5.0 * cote * f
+        return v
+    return fn
+
+
+def post_mange_regard(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.30, lag=0.11, cap=6.0)
+    d = MR_DECALAGE
+    throat_vibe(tracks, length, loop, freq=3.5, amp=0.24, rot=5.5,
+                env=lambda t: max(ease(t, 1.85 + d, 2.20 + d) * (1 - ease(t, 2.55 + d, 2.85 + d)),
+                                  ease(t, 4.55 + d, 4.90 + d) * (1 - ease(t, 5.25 + d, 5.55 + d))))
+
+
+add_maison('mange_carcasse_regard_droite', MR_L, 'once', mange_regard(+1), post_mange_regard)
+add_maison('mange_carcasse_regard_gauche', MR_L, 'once', mange_regard(-1), post_mange_regard)
+
+
 # ================================================================== ecriture
 par_nom = {a['name']: i for i, a in enumerate(bb['animations'])}
 remplacees = []
@@ -2428,7 +2584,10 @@ bb['credit'] = ('V41 - texture et yeux JP3 affines; animation grimpe reconstruit
                 '| V79 - renifle_piste_sol, museau a terre '
                 '| V80 - revision complete : z-fighting supprime, courses ROR sans moonwalk, '
                 'postures ROR reellement couchees, boucles periodiques, pieds plantes, '
-                'etats moteur (degats, degats_eau, saut, chute, mort_eau)')
+                'etats moteur (degats, degats_eau, saut, chute, mort_eau) '
+                '| V81 - queue droite et epaisse, pattes plus massives, texture d apres la '
+                'reference du joueur, regard fixe en marchant et en mangeant, 4 portages ROR '
+                'redondants retires')
 out = os.path.join(W, 'RIVIERE_70_ADAPTATION_ROR_UPDATED.bbmodel')
 json.dump(bb, open(out, 'w'), separators=(',', ':'))
 print('\nEcrit :', out, round(os.path.getsize(out) / 1e6, 1), 'Mo',

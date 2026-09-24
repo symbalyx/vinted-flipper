@@ -11,6 +11,9 @@ except Exception:
     F = FP = ImageFont.load_default()
 
 
+TEXTURE = True      # placage reel ; False = couleur moyenne par face (ancien rendu)
+
+
 def pistes(a):
     t = {}
     for u, an in a['animators'].items():
@@ -49,7 +52,8 @@ def bande(cote, anim, rig, im, res, nom, sous, u, sc, cx, cy, az, el, fond,
     T = pistes(anim)
     P = rig.pose(lambda b, c: (lp(T[b][c], u) if b in T and c in T.get(b, {})
                                else ([1., 1., 1.] if c == 'scale' else [0., 0., 0.])))
-    img = gif.rendu(rig, im, res, P, cote, sc, cx, cy, az, el, fond, surligne)
+    rendu = gif.rendu_z if TEXTURE else gif.rendu
+    img = rendu(rig, im, res, P, cote, sc, cx, cy, az, el, fond, surligne)
     d = ImageDraw.Draw(img)
     if reperes:
         # aplomb et ligne de sol : sans eux, un roulis de quelques degres ne se voit pas

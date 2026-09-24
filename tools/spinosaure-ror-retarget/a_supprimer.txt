@@ -1,0 +1,6 @@
+animation.spinosaure.charge_crie
+animation.spinosaure.balayage_queue
+animation.spinosaure.transport_joueur_terre
+animation.spinosaure.capture_joueur_terre
+animation.spinosaure.hurle_intimidation_ondes
+animation.spinosaure.inspecte_obstacle_sur_place
