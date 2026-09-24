@@ -364,11 +364,12 @@ def ground_clamp(tracks, length, loop, smooth=2, skip=('tail_04', 'tail_05', 'ta
 TAILB = ['tail_01', 'tail_02', 'tail_03', 'tail_04', 'tail_05']
 
 
-def finger_converge(tracks, length, loop, dmax=12.0):
+def finger_converge(tracks, length, loop, dmax=8.0):
     """Borne l'ecart de rotation entre doigts voisins.
 
-    La palmure est un cube rigide : si deux doigts divergent, elle se decolle de
-    l'un des deux. On conserve integralement le mouvement COMMUN des doigts et on
+    Chaque palmure (V82) est portee par un doigt externe et son bord interne est
+    cache DANS le doigt du milieu : si les doigts divergent trop, ce bord ressort.
+    Mesure : a 12 deg d ecart le bord depassait de 0.6 unite (sauts ROR). On conserve integralement le mouvement COMMUN des doigts et on
     ne resserre que leur ecartement relatif.
     """
     n = int(round(length * R.FPS))
@@ -2559,6 +2560,149 @@ add_maison('mange_carcasse_regard_droite', MR_L, 'once', mange_regard(+1), post_
 add_maison('mange_carcasse_regard_gauche', MR_L, 'once', mange_regard(-1), post_mange_regard)
 
 
+# ================================================================== escalade (V82)
+# L animation grimpe d origine (V41) etait une MARCHE SUR PLACE : corps a
+# l horizontale (tangage 10-14 deg), pieds au sol, bras qui moulinent dans le vide
+# en phase opposee (upper_arm 40-76), doigts sans prise. Rien ne se lit comme une
+# escalade. Reecriture complete, meme nom :
+#   - corps cabre de 36 deg (sur `body` : les jambes, filles de `root`, restent
+#     d aplomb sous le bassin) ; cou et tete ramenes pour regarder le haut du mur ;
+#   - deux tractions par boucle, bras alternes : main tendue tout en haut doigts
+#     ouverts, prise (doigts refermes), traction jusqu a la poitrine, lacher ;
+#   - jambes CONTROLATERALES comme sur une echelle : le genou droit monte pendant
+#     que la main gauche va chercher la prise suivante, l autre jambe pousse ;
+#   - a chaque traction le corps remonte d un cran (root +1.8, tangage +3) ;
+#   - queue redressee a la base pour contrebalancer, balancier lateral oppose.
+# Les valeurs sont mesurees sur le rig : X+ sur body leve le museau, X+ sur
+# upper_arm et forearm porte la main vers l avant et le haut.
+GRIMPE_L = 2.8
+
+
+def cyc(p, keys):
+    """Interpolation cosinus PERIODIQUE sur p dans [0, 1[ ; keys = [(p, valeur), ...]."""
+    p %= 1.0
+    ks = list(keys) + [(1.0, keys[0][1])]
+    for i in range(len(ks) - 1):
+        (p0, v0), (p1, v1) = ks[i], ks[i + 1]
+        if p0 <= p < p1:
+            w = (1 - math.cos(math.pi * (p - p0) / (p1 - p0))) / 2
+            if isinstance(v0, (list, tuple)):
+                return [a + (b - a) * w for a, b in zip(v0, v1)]
+            return v0 + (v1 - v0) * w
+    return ks[0][1]
+
+
+def spline_cyc(p, keys):
+    """Hermite PERIODIQUE (tangentes de Catmull-Rom sur temps non uniformes) : passe
+    par les cles SANS s y arreter, contrairement a cyc. Indispensable pour la traction :
+    une pause a chaque cle intermediaire se lirait comme un bras qui hoquette."""
+    p %= 1.0
+    n = len(keys)
+    ts = [k[0] for k in keys]
+    vs = [list(k[1]) for k in keys]
+
+    def T(i):
+        return ts[i % n] + (i // n)
+
+    def V(i):
+        return vs[i % n]
+    for i in range(n):
+        t0, t1 = T(i), T(i + 1)
+        if t0 <= p < t1 or (i == n - 1 and p >= t0):
+            h = t1 - t0
+            s_ = (p - t0) / h
+            out = []
+            for k in range(len(vs[0])):
+                m0 = (V(i + 1)[k] - V(i - 1)[k]) / (T(i + 1) - T(i - 1)) * h
+                m1 = (V(i + 2)[k] - V(i)[k]) / (T(i + 2) - T(i)) * h
+                s2, s3 = s_ * s_, s_ * s_ * s_
+                out.append((2 * s3 - 3 * s2 + 1) * V(i)[k] + (s3 - 2 * s2 + s_) * m0
+                           + (-2 * s3 + 3 * s2) * V(i + 1)[k] + (s3 - s2) * m1)
+            return out
+    return vs[0]
+
+
+# cycle d un bras (upper_arm, forearm, hand, doigts) : prise en haut a p = 0.
+# Les angles de traction sont RESOLUS sur le rig (corps cabre de 36) pour que la main
+# reste dans le plan du mur (z = -58) pendant qu elle descend de y 85 a y 45 : la
+# prise ne glisse pas, c est le corps qui monte. Soit 40 unites par traction, deux
+# tractions en 2.8 s : 28.6 unites/s, 1.8 bloc/s a l echelle 1.
+BRAS_CYCLE = [(0.00, [82.0, -4.0, -12.0, 26.0]),     # prise, tout en haut
+              (0.15, [50.0, 26.0, -8.0, 26.0]),      # traction (main fixe sur le mur)
+              (0.30, [18.0, 48.0, -3.0, 26.0]),
+              (0.45, [-2.0, 54.0, 2.0, 26.0]),       # main a hauteur de poitrine
+              (0.55, [-30.0, 78.0, 10.0, 4.0]),      # lacher : la main se DECOLLE du mur
+              (0.70, [4.0, 82.0, 14.0, 2.0]),        # remonte pres du corps (z -46)
+              (0.84, [48.0, 52.0, 12.0, 2.0]),
+              (0.93, [84.0, 4.0, 4.0, 6.0])]         # va chercher la prise suivante
+
+
+def grimpe_fn(bone, chan, t):
+    u = t / GRIMPE_L
+    ph = {'left': u % 1.0, 'right': (u + 0.5) % 1.0}
+    tire = {c: bosse(ph[c], 0.02, 0.47) for c in ph}          # 1 au milieu d une traction
+    tend = {c: bosse(ph[c], 0.52, 0.98) for c in ph}          # 1 quand la main monte
+    effort = tire['left'] + tire['right']                     # deux tractions par boucle
+    lat = tire['left'] - tire['right']                        # + : c est la gauche qui tire
+    v = [1.0, 1.0, 1.0] if chan == 'scale' else [0.0, 0.0, 0.0]
+    if chan == 'position':
+        if bone == 'root':
+            v[1] += 1.8 * effort
+    elif chan == 'rotation':
+        cote = 'left' if bone.endswith('left') or '_left_' in bone else 'right'
+        opp = 'right' if cote == 'left' else 'left'
+        sg = 1.0 if cote == 'left' else -1.0
+        if bone == 'root':
+            v[2] += 2.0 * lat
+        elif bone == 'body':
+            v[0] += 36.0 + 3.0 * effort
+            v[1] += 3.0 * lat
+            v[2] += -2.5 * lat
+        elif bone == 'chest':
+            v[0] += 2.0
+            v[1] += 5.0 * (tend['left'] - tend['right'])       # l epaule qui monte avance
+        elif bone == 'neck':
+            v[0] += -15.0 + 1.5 * effort
+            v[1] += 4.0 * cyc(u, [(0.0, 1.0), (0.5, -1.0)])
+        elif bone == 'head':
+            v[0] += -4.0 - 2.0 * effort
+            v[1] += 3.0 * cyc(u - 0.06, [(0.0, 1.0), (0.5, -1.0)])
+        elif bone == 'jaw':
+            v[0] += -2.0 - 3.0 * effort                        # souffle a l effort
+        elif bone.startswith('upper_arm'):
+            v[0] += spline_cyc(ph[cote], BRAS_CYCLE)[0]
+            v[2] += -5.0 * sg - 4.0 * sg * tend[cote]           # s ecarte pour passer
+        elif bone.startswith('forearm'):
+            v[0] += spline_cyc(ph[cote], BRAS_CYCLE)[1]
+        elif bone.startswith('hand'):
+            v[0] += spline_cyc(ph[cote], BRAS_CYCLE)[2]
+        elif bone.startswith('finger'):
+            v[0] += spline_cyc(ph[cote], BRAS_CYCLE)[3]
+        elif bone.startswith(('thigh', 'shin', 'foot')):
+            # jambe controlaterale : monte quand la main OPPOSEE va chercher sa prise
+            leve = tend[opp]
+            pousse = tire[opp]
+            if bone.startswith('thigh'):
+                v[0] += 38.0 * leve - 6.0 * pousse
+            elif bone.startswith('shin'):
+                v[0] += -42.0 * leve
+            else:
+                v[0] += 12.0 * leve
+        elif bone.startswith('tail_'):
+            i = int(bone[-2:])
+            v[0] += -32.0 if i == 1 else -4.0            # queue relevee, pointe degagee
+            v[1] += (2.0 + 0.8 * i) * cyc(u - 0.05 * i, [(0.0, -1.0), (0.5, 1.0)])
+    return accroupi(bone, chan, v, 5.0)
+
+
+def post_grimpe(tracks, length, loop):
+    sail_rework(tracks, length, loop, gain=0.30, lag=0.12, cap=5.0)
+    throat_vibe(tracks, length, loop, freq=2 / GRIMPE_L, amp=0.12, rot=2.5)
+
+
+add_maison('grimpe', GRIMPE_L, 'loop', grimpe_fn, post_grimpe)
+
+
 # ================================================================== ecriture
 par_nom = {a['name']: i for i, a in enumerate(bb['animations'])}
 remplacees = []
@@ -2587,7 +2731,8 @@ bb['credit'] = ('V41 - texture et yeux JP3 affines; animation grimpe reconstruit
                 'etats moteur (degats, degats_eau, saut, chute, mort_eau) '
                 '| V81 - queue droite et epaisse, pattes plus massives, texture d apres la '
                 'reference du joueur, regard fixe en marchant et en mangeant, 4 portages ROR '
-                'redondants retires')
+                'redondants retires '
+                '| V82 - palmures de main dans le plan des doigts, escalade reecrite')
 out = os.path.join(W, 'RIVIERE_70_ADAPTATION_ROR_UPDATED.bbmodel')
 json.dump(bb, open(out, 'w'), separators=(',', ':'))
 print('\nEcrit :', out, round(os.path.getsize(out) / 1e6, 1), 'Mo',

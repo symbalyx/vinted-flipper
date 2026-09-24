@@ -15,6 +15,8 @@ Aucun pixel de texture n'est ajoute : toutes les faces pointent sur des
 rectangles UV deja peints du modele.
 """
 import json, uuid, sys
+from fk import mat_rot, apply
+from boite import coins
 
 NS = uuid.UUID('7d1c4e93-0a62-4f15-9b83-2e5a6c0d41f7')
 
@@ -27,6 +29,19 @@ def mk(name, frm, to, origin, rot, uv):
             'origin': [round(v, 4) for v in origin], 'rotation': [round(v, 4) for v in rot],
             'autouv': 0, 'color': 0, 'locked': False, 'visibility': True,
             'export': True, 'inflate': 0, 'faces': faces}
+
+
+def _monde(e):
+    """Coins monde (au repos) d'un cube tourne autour de son origine."""
+    R, o = mat_rot(*e.get('rotation', [0, 0, 0])), e['origin']
+    return [[a + b for a, b in zip(apply(R, [p[k] - o[k] for k in range(3)]), o)]
+            for p in coins(e['from'], e['to'])]
+
+
+def _local(R, o, p):
+    """Point monde -> repere local d'un cube (R orthogonale : inverse = transposee)."""
+    d = [p[k] - o[k] for k in range(3)]
+    return [sum(R[k][j] * d[k] for k in range(3)) for j in range(3)]
 
 
 def index(bb):
@@ -52,27 +67,43 @@ def par_nom(bb, nom):
     return [e for e in bb['elements'] if e['name'] == nom][0]
 
 
-def ajoute(bb, ep_main=0.55, deb_main=2.2, ep_pied=0.7, deb_pied=1.2,
+def ajoute(bb, ep_main=0.55, deb_main=2.0, deb_int=2.0, fin_main=2.5, ep_pied=0.7, deb_pied=1.2,
            ep_tibia=0.6, flasque_tibia=8.0, ep_bras=0.55, larg_bras=11.0):
     em, nodes = index(bb)
     out = []
 
     for cote, sgn in (('left', +1), ('right', -1)):
         # ---------------------------------------------------------- main
-        # une seule feuille, calee sous le plan des doigts pour ne pas les traverser
-        dg = []
-        for i in range(3):
-            dg += [e for e in cubes(nodes['finger_%s_%d' % (cote, i)], em) if 'doigt' in e['name']]
-        prox = [e for e in dg if e['name'].endswith('_0')]
-        x0 = min(min(e['from'][0], e['to'][0]) for e in dg) - deb_main
-        x1 = max(max(e['from'][0], e['to'][0]) for e in dg) + deb_main
-        oy = sum(e['origin'][1] for e in prox) / len(prox)
-        oz = sum(e['origin'][2] for e in prox) / len(prox)
-        rx = sum(e['rotation'][0] for e in prox) / len(prox)
-        out.append((nodes['hand_%s' % cote], mk(
-            'V74_nageoire_main_%s' % cote,
-            [x0, oy - 2.6 - ep_main, oz - 9.5], [x1, oy - 2.6, oz + 6.5],
-            [(x0 + x1) / 2, oy, oz], [rx, 0.0, 0.0], prox[0]['faces']['west']['uv'])))
+        # V82 : la feuille unique de V74 prenait la moyenne des rotations X des doigts
+        # mais oubliait leur rotation Y de 180 degres : elle etait inclinee de -53 au
+        # lieu de +53 et coupait les doigts a ~106 degres, comme une lame.
+        # Desormais chaque doigt EXTERNE porte sa palmure, construite dans le repere
+        # exact de sa phalange proximale (meme origine, meme rotation) : elle est dans
+        # le plan median du doigt par construction, suit le doigt quand il bouge, et
+        # son bord interne s'enfonce dans le doigt du milieu (cache dedans) au lieu
+        # de flotter.
+        d0 = [par_nom(bb, 'V67_doigt_%s_%d_0' % (cote, i)) for i in range(3)]
+        d1 = [par_nom(bb, 'V67_doigt_%s_%d_1' % (cote, i)) for i in range(3)]
+        centre = [e['origin'] for e in d0]
+        for i in (0, 2):
+            p0, p1 = d0[i], d1[i]
+            R = mat_rot(*p0['rotation'])
+            o = p0['origin']
+            L0 = [_local(R, o, q) for q in _monde(p0)]
+            L1 = [_local(R, o, q) for q in _monde(p1)]
+            hx = max(abs(q[0]) for q in L0)
+            z0 = min(q[2] for q in L0) - 1.0                # entre dans la paume
+            z1 = max(q[2] for q in L1) - fin_main           # s'arrete avant la griffe
+            # cote du doigt du milieu, exprime dans l'axe X local du doigt
+            vers = [centre[1][k] - centre[i][k] for k in range(3)]
+            s_in = 1 if sum(R[k][0] * vers[k] for k in range(3)) > 0 else -1
+            bord_in, bord_out = s_in * (hx + deb_int), -s_in * (hx + deb_main)
+            xa, xb = min(bord_in, bord_out), max(bord_in, bord_out)
+            out.append((nodes['finger_%s_%d' % (cote, i)], mk(
+                'V82_palmure_main_%s_%d' % (cote, i),
+                [o[0] + xa, o[1] - ep_main / 2, o[2] + z0],
+                [o[0] + xb, o[1] + ep_main / 2, o[2] + z1],
+                list(o), list(p0['rotation']), p0['faces']['up']['uv'])))
 
         # ---------------------------------------------------------- avant-bras
         ab = par_nom(bb, 'V67_avant_bras_%s' % cote)
@@ -121,6 +152,6 @@ if __name__ == '__main__':
     json.dump(bb, open(dst, 'w'), separators=(',', ':'))
     print('%d nageoires ajoutees -> %s (total %d elements)' % (n, dst, len(bb['elements'])))
     for e in bb['elements']:
-        if e['name'].startswith('V74_'):
+        if e['name'].startswith(('V74_', 'V82_')):
             print('   %-32s %5.1f x %5.1f x %5.1f' % (e['name'],
                   *[e['to'][i] - e['from'][i] for i in range(3)]))
