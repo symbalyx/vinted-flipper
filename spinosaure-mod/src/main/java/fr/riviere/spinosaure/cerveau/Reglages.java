@@ -83,6 +83,26 @@ public final class Reglages {
     public double degatsFinFrappe = 0.05;       // fraction de vie perdue qui l'interrompt
     public long dureeDisparition = 200;
 
+    // ------------------------------------------------------------ armes a feu (TaCZ)
+    /** Un coup de feu s'entend a cette distance. */
+    public double ouieTir = 96;
+    /** Tireur qui le voit a moins de cette distance : il est sous le feu, il se met a couvert. */
+    public double porteeFeu = 48;
+    /** Face a une arme a feu, il file et observe de plus loin. */
+    public double margeFeu = 6;
+    /** Un canon braque sur lui a moins de cette distance : il disparait (pas de duel de regards). */
+    public double disparitionFeu = 40;
+
+    // ------------------------------------------------------------ directeur (a la Alien Isolation)
+    /** Sans contact depuis ce delai, le « directeur » lui souffle la zone du joueur le plus proche. */
+    public long delaiIndice = 1200;              // 1 min
+    public double porteeIndice = 160;
+    public double flouIndice = 16;
+    /** Pression : temps passe a moins de `distancePression` d'un joueur sans l'avoir frappe. */
+    public double distancePression = 32;
+    public double pressionMax = 3600;            // 3 min : il se retire pour laisser respirer
+    public long dureeRetrait = 1600;             // 80 s en coulisses
+
     // ------------------------------------------------------------ attaques
     public double porteeMorsure = 6.8;
     public double porteeGriffes = 4.5;

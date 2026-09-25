@@ -6,7 +6,13 @@ import fr.riviere.spinosaure.cerveau.Reglages;
 import fr.riviere.spinosaure.cerveau.Soi;
 import fr.riviere.spinosaure.cerveau.Vec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -38,6 +44,9 @@ final class Instantane {
     private final Map<UUID, Boolean> atteignable = new HashMap<>();
     private final Map<UUID, Long> atteignableCalcule = new HashMap<>();
     private Vec eauProfonde;
+    private Player cibleTerrain;
+    /** Portee a laquelle le « directeur » connait les joueurs (au-dela de ses sens). */
+    static final double PORTEE_DIRECTEUR = 160;
     private List<PointTerrain> voisinage = List.of();
     private long terrainCalcule = Long.MIN_VALUE / 2;
     /** Derniere position connue de chaque joueur, pour mesurer sa vitesse. */
@@ -63,33 +72,41 @@ final class Instantane {
         return new Vec(-Mth.sin(rad), 0, Mth.cos(rad));
     }
 
-    Soi soi(boolean attaqueEnCours) {
+    /** En jungle ou dans l'eau : son domaine. Il ne fonctionne pas ailleurs. */
+    static boolean domaine(Level niveau, BlockPos pos) {
+        return niveau.getFluidState(pos).is(FluidTags.WATER) || niveau.getBiome(pos).is(BiomeTags.IS_JUNGLE);
+    }
+
+    Soi soi(boolean attaqueEnCours, Player cible) {
         long tick = spino.level().getGameTime();
-        if (tick - terrainCalcule >= 40) {
-            voisinage = echantillonner();
+        if (tick - terrainCalcule >= 40 || (cible != null && cible != cibleTerrain)) {
+            cibleTerrain = cible;
+            voisinage = echantillonner(cible);
             eauProfonde = plusProcheEauProfonde();
             terrainCalcule = tick;
         }
         return new Soi(vec(spino.position()), avant(spino.yBodyRot), spino.getHealth() / spino.getMaxHealth(),
                 spino.getMaxHealth(), spino.isInWater(), spino.estSubmerge(), eauProfonde, attaqueEnCours, tick,
-                voisinage);
+                voisinage, spino.isInWater() || domaine(spino.level(), spino.blockPosition()));
     }
 
     List<Joueur> joueurs() {
         Level niveau = spino.level();
         long tick = niveau.getGameTime();
         List<Joueur> out = new ArrayList<>();
-        List<Player> ps = niveau.getEntitiesOfClass(Player.class, spino.getBoundingBox().inflate(r.porteeVue),
+        // jusqu'a 160 blocs : au-dela de ses sens (48), seul le « directeur » s'en sert
+        List<Player> ps = niveau.getEntitiesOfClass(Player.class, spino.getBoundingBox().inflate(PORTEE_DIRECTEUR),
                 p -> p.isAlive() && !p.isSpectator());      // creatif inclus : observe, jamais attaque
         for (Player p : ps) {
             UUID id = p.getUUID();
-            // un chemin par joueur toutes les 20 ticks, decale selon le joueur
+            boolean proche = p.distanceTo(spino) <= r.porteeVue;
+            // un chemin par joueur proche toutes les 20 ticks, decale selon le joueur
             Long quand = atteignableCalcule.get(id);
-            if (quand == null || tick - quand >= 20 + (id.hashCode() & 7)) {
+            if (proche && (quand == null || tick - quand >= 20 + (id.hashCode() & 7))) {
                 atteignable.put(id, calculerAtteignable(p));
                 atteignableCalcule.put(id, tick);
             }
-            boolean visible = !p.isInvisible() && spino.getSensing().hasLineOfSight(p);
+            boolean visible = proche && !p.isInvisible() && spino.getSensing().hasLineOfSight(p);
             // vitesse mesuree sur le deplacement reel : cote serveur, getDeltaMovement() d'un
             // joueur est peu fiable (c'est le client qui le deplace)
             Vec pos = vec(p.position());
@@ -101,10 +118,12 @@ final class Instantane {
             }
             dernierePos.put(id, pos);
             derniereFois.put(id, tick);
+            ItemStack main = p.getMainHandItem();
             out.add(new Joueur(id, pos, vec(p.getViewVector(1.0F)),
-                    p.getHealth() / p.getMaxHealth(), p.getArmorValue(), arme(p.getMainHandItem().getItem()),
+                    p.getHealth() / p.getMaxHealth(), p.getArmorValue(), arme(main),
                     p.isBlocking(), p.isCrouching(), p.isSprinting(), p.isInWater(),
-                    visible, atteignable.getOrDefault(id, true), vitesse, p.isCreative()));
+                    visible, atteignable.getOrDefault(id, true), vitesse, p.isCreative(),
+                    chargeurVide(main), p.isInWater() || domaine(niveau, p.blockPosition())));
         }
         atteignable.keySet().removeIf(id -> ps.stream().noneMatch(p -> p.getUUID().equals(id)));
         atteignableCalcule.keySet().retainAll(atteignable.keySet());
@@ -129,6 +148,30 @@ final class Instantane {
         return fin != null && Vec3.atCenterOf(fin).distanceTo(p.position()) <= r.porteeMorsure - 1;
     }
 
+    /**
+     * Armes du mod TaCZ reconnues sans dependance de compilation : objet de l'espace de noms
+     * « tacz » dont le nom contient « gun ». Toute autre arme a feu d'un autre mod peut etre
+     * ajoutee ici de la meme facon.
+     */
+    static boolean armeAFeu(Item item) {
+        var cle = ForgeRegistries.ITEMS.getKey(item);
+        return cle != null && cle.getNamespace().equals("tacz") && cle.getPath().contains("gun");
+    }
+
+    /** TaCZ range les munitions de l'arme dans ses donnees : « GunCurrentAmmoCount ». */
+    static boolean chargeurVide(ItemStack stack) {
+        if (!armeAFeu(stack.getItem())) {
+            return false;
+        }
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.contains("GunCurrentAmmoCount") && tag.getInt("GunCurrentAmmoCount") <= 0
+                && !tag.getBoolean("HasBulletInBarrel");
+    }
+
+    static Joueur.Arme arme(ItemStack stack) {
+        return armeAFeu(stack.getItem()) ? Joueur.Arme.FEU : arme(stack.getItem());
+    }
+
     static Joueur.Arme arme(Item item) {
         if (item instanceof TridentItem) {
             return Joueur.Arme.TRIDENT;
@@ -148,7 +191,7 @@ final class Instantane {
      * point : eau et profondeur, denivele, et danger selon le classement de pathfinding
      * de Minecraft lui-meme (lave, feu, cactus, neige poudreuse...).
      */
-    private List<PointTerrain> echantillonner() {
+    private List<PointTerrain> echantillonner(Player cible) {
         Level niveau = spino.level();
         List<PointTerrain> out = new ArrayList<>();
         int x0 = spino.getBlockX(), z0 = spino.getBlockZ();
@@ -172,7 +215,20 @@ final class Instantane {
                         || type == BlockPathTypes.POWDER_SNOW;
                 int sol = eau ? fond : surface;
                 double y = profondeur >= 4 ? surface - 2.5 : sol;        // eau profonde : sous la surface
-                out.add(new PointTerrain(new Vec(x + 0.5, y, z + 0.5), eau, profondeur, sol - spino.getY(), danger));
+                BlockPos ici = new BlockPos(x, Math.max(sol, fond), z);
+                boolean domaine = eau || niveau.getBiome(ici).is(BiomeTags.IS_JUNGLE);
+                // a couvert : la ligne de vue depuis les yeux de sa cible jusqu'au point (a hauteur
+                // de son dos) est coupee par un tronc, du feuillage ou le relief
+                boolean couvert = false;
+                if (cible != null) {
+                    Vec3 dos = new Vec3(x + 0.5, sol + 3.0, z + 0.5);
+                    HitResult h = niveau.clip(new ClipContext(cible.getEyePosition(), dos,
+                            ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, cible));
+                    couvert = h.getType() != HitResult.Type.MISS
+                            && h.getLocation().distanceToSqr(dos) > 4.0;
+                }
+                out.add(new PointTerrain(new Vec(x + 0.5, y, z + 0.5), eau, profondeur, sol - spino.getY(), danger,
+                        domaine, couvert));
             }
         }
         return out;

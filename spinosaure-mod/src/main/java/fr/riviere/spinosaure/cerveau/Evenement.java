@@ -9,6 +9,10 @@ public sealed interface Evenement {
     record Degats(UUID source, double montant, boolean aDistance) implements Evenement {
     }
 
+    /** Coup de feu (TaCZ) : s'entend de tres loin, et s'il est vu du tireur, il est sous le feu. */
+    record Tir(UUID tireur, Vec pos) implements Evenement {
+    }
+
     /** Un bruit a ete percu (bloc casse, porte, coffre, explosion...). */
     record Bruit(UUID source, Vec pos, double portee) implements Evenement {
     }

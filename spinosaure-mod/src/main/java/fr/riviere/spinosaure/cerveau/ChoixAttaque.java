@@ -59,7 +59,9 @@ public final class ChoixAttaque {
             return null;                                   // il faut le contourner
         }
         boolean ligneDroite = cible.visible() && cible.atteignable() && !soi.dansEau() && dy < 2.5;
-        if (ligneDroite && d >= r.chargeMin && d <= r.chargeMax && ang < 20 && dispo(pret, Attaque.CHARGE, tick)) {
+        // pas de charge en ligne droite face a un canon braque : il se ferait abattre
+        boolean canonBraque = cible.armeFeu() && Perception.meRegarde(soi, cible, r);
+        if (ligneDroite && !canonBraque && d >= r.chargeMin && d <= r.chargeMax && ang < 20 && dispo(pret, Attaque.CHARGE, tick)) {
             return Attaque.CHARGE;
         }
         if (ligneDroite && d >= r.bondMin && d <= r.bondMax && ang < 30 && dispo(pret, Attaque.BOND, tick)) {

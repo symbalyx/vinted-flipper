@@ -472,4 +472,103 @@ class CerveauTest {
         Soi arrive = new Soi(d1.destination(), NORD, 1, 300, false, false, null, false, 20, terrain);
         assertNotEquals(d1.destination(), c.penser(arrive, List.of(), List.of()).destination());
     }
+
+    // ------------------------------------------------------------ jungle, armes a feu, directeur
+
+    static Joueur arme(Joueur p, boolean vide) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), Arme.FEU, false, false, false,
+                p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), false, vide, p.dansDomaine());
+    }
+
+    static Joueur horsJungle(Joueur p) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), false, false, false,
+                p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), false, false, false);
+    }
+
+    @Test
+    void joueurSortiDeLaJungle_ilResteALOreeEtNeLeSuitPas() {
+        Cerveau c = cerveau();
+        List<PointTerrain> terrain = List.of(
+                new PointTerrain(new Vec(0, 0, -8), false, 0, 0, false, true, false),     // lisiere (jungle)
+                new PointTerrain(new Vec(0, 0, -20), false, 0, 0, false, false, false));  // plaine
+        Joueur plaine = horsJungle(avec(j(A, 0, -26), "detourne"));
+        Decision d = null;
+        for (long t = 0; t <= 2400; t += 4) {
+            d = c.penser(new Soi(Vec.ZERO, NORD, 1, 300, false, false, null, false, t, terrain), List.of(plaine), List.of());
+            assertFalse(frappe(d), "il ne frappe pas en plaine");
+            assertNotEquals(Tactique.FILATURE, d.tactique(), "il ne la suit pas en plaine");
+        }
+        assertEquals(Tactique.OBSERVATION, d.tactique(), d.raison());
+        assertEquals(new Vec(0, 0, -8), d.destination(), "il guette depuis la lisiere");
+    }
+
+    @Test
+    void canonBraqueSurLui_ilDisparaitMemeDeLoin() {
+        Cerveau c = cerveau();
+        Decision d = c.penser(soi(0), List.of(arme(j(A, 0, -35), false)), List.of());
+        assertEquals(Tactique.DISPARITION, d.tactique(), "pas de duel de regards avec un fusil : " + d.raison());
+    }
+
+    @Test
+    void chargeurVide_ilProfiteDuRechargement() {
+        Cerveau c = cerveau();
+        jusqua(c, List.of(avec(j(C, 0, -45), "detourne")), 0, 1000, x -> false);      // phase 2
+        Decision d = c.penser(soi(1004), List.of(arme(j(C, 0, -17), true)), List.of()); // il le regarde, mais recharge
+        assertTrue(frappe(d), "chargeur vide : " + d.raison());
+    }
+
+    @Test
+    void faceAUnCanonBraque_jamaisDeChargeEnLigneDroite() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(arme(j(C, 0, -13), false));
+        c.penser(soi(0), ps, coups(C, 1, false));                 // pour ouvrir une frappe il faudrait etre au contact...
+        Soi s = soi(4);
+        Attaque a = ChoixAttaque.choisir(s, arme(j(C, 0, -13), false), ps, new java.util.EnumMap<>(Attaque.class), Reglages.defaut());
+        assertNotEquals(Attaque.CHARGE, a, "charger un fusil braque, c'est mourir");
+    }
+
+    @Test
+    void sousLeFeu_ilSeMetACouvert() {
+        Cerveau c = cerveau();
+        Vec abri = new Vec(-10, 0, 6);
+        List<PointTerrain> terrain = List.of(new PointTerrain(abri, false, 0, 0, false, true, true),
+                new PointTerrain(new Vec(10, 0, -6), false, 0, 0, false, true, false));
+        Joueur tireur = arme(avec(j(A, 0, -30), "detourne"), false);
+        Soi s = new Soi(Vec.ZERO, NORD, 1, 300, false, false, null, false, 0, terrain);
+        Decision d = c.penser(s, List.of(tireur), List.of(new Evenement.Tir(A, tireur.pos())));
+        assertEquals(Tactique.DISPARITION, d.tactique(), d.raison());
+        assertEquals(abri, d.destination(), "derriere le tronc, hors de sa vue");
+    }
+
+    @Test
+    void unCoupDeFeuSEntendDeLoin() {
+        Cerveau c = cerveau();
+        Joueur loin = arme(avec(j(A, 0, -90), "detourne"), false);          // hors de vue
+        c.penser(soi(0), List.of(loin), List.of(new Evenement.Tir(A, loin.pos())));
+        Decision d = c.penser(soi(40), List.of(loin), List.of());
+        assertEquals(Tactique.ENQUETE, d.tactique(), "il va voir d'ou venait le coup de feu");
+        assertEquals(new Vec(0, 0, -90), d.destination());
+    }
+
+    @Test
+    void directeur_sansContactLongtemps_ilFlaireTaZone() {
+        Cerveau c = cerveau();
+        Joueur loin = avec(j(A, 100, -60), "detourne");                      // hors de portee de ses sens
+        Decision d = c.penser(soi(0), List.of(loin), List.of());
+        assertEquals(Tactique.ERRANCE, d.tactique(), "d'abord il ne sait rien");
+        d = c.penser(soi(1300), List.of(loin), List.of());
+        assertEquals(Tactique.ENQUETE, d.tactique(), d.raison());
+        assertTrue(d.destination().distanceH(loin.pos()) <= Reglages.defaut().flouIndice + 0.01,
+                "une zone floue autour du joueur : " + d.destination());
+    }
+
+    @Test
+    void tropLongtempsSurLeDosDuJoueurSansFrapper_ilSeRetire() {
+        Cerveau c = cerveau();
+        // un groupe : il ne peut pas frapper, mais il reste pres pendant 3 min
+        List<Joueur> groupe = List.of(avec(j(A, -2, -20), "detourne"), avec(j(B, 2, -20), "detourne"));
+        Decision d = jusqua(c, groupe, 0, 4000, x -> x.raison().contains("se retire"));
+        assertTrue(d.raison().contains("se retire"), d.raison());
+        assertTrue(d.destination().distanceH(new Vec(0, 0, -20)) > 40, "il part loin, en coulisses");
+    }
 }

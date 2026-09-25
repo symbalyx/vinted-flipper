@@ -13,12 +13,19 @@ import java.util.List;
  * @param attaqueEnCours une attaque est en train d'etre jouee : ne pas en lancer d'autre
  * @param tick           horloge du monde, en ticks (20 par seconde)
  * @param voisinage      points de terrain echantillonnes autour de lui (peut etre vide)
+ * @param dansDomaine    lui-meme en jungle ou dans l'eau
  */
 public record Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
-                  Vec eauProfonde, boolean attaqueEnCours, long tick, List<PointTerrain> voisinage) {
+                  Vec eauProfonde, boolean attaqueEnCours, long tick, List<PointTerrain> voisinage,
+                  boolean dansDomaine) {
+
+    public Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
+               Vec eauProfonde, boolean attaqueEnCours, long tick, List<PointTerrain> voisinage) {
+        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, voisinage, true);
+    }
 
     public Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
                Vec eauProfonde, boolean attaqueEnCours, long tick) {
-        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, List.of());
+        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, List.of(), true);
     }
 }

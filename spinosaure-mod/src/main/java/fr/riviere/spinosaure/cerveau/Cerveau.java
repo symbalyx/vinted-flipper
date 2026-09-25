@@ -61,6 +61,11 @@ public final class Cerveau {
     private final List<Vec> interdits = new ArrayList<>();
     /** Frappe eclair en cours (hit and run) et disparition. */
     private long frappeJusqua = Long.MIN_VALUE / 2;
+    private long sousLeFeu = Long.MIN_VALUE / 2;
+    private long retraitJusqua = Long.MIN_VALUE / 2;
+    private Vec indice;
+    private long indiceJusqua;
+    private UUID indiceCible;
     private boolean frappeOuverte;
     private int attaquesFrappe;
     private double santeDebutFrappe;
@@ -165,6 +170,9 @@ public final class Cerveau {
         if (territoire == null) {
             territoire = soi.pos();
         }
+        if (dernierContact == Long.MIN_VALUE / 2) {
+            dernierContact = tick;              // le directeur attend une minute apres l'apparition
+        }
 
         Map<UUID, Joueur> parId = new HashMap<>();
         for (Joueur j : joueurs) {
@@ -190,6 +198,17 @@ public final class Cerveau {
                         degatsVictime += d.montant();
                     } else {
                         degatsAllies += d.montant();
+                    }
+                }
+            } else if (e instanceof Evenement.Tir tir) {
+                Joueur tireur = parId.get(tir.tireur());
+                if (tir.pos().distance(soi.pos()) <= r.ouieTir && (tireur == null || !tireur.inoffensif())) {
+                    m.vu(tir.tireur(), tir.pos(), tick);            // on sait d'ou ca tire
+                    if (tireur != null && tireur.visible() && tireur.pos().distance(soi.pos()) <= r.porteeFeu) {
+                        sousLeFeu = tick;
+                        if (!percus.contains(tireur)) {
+                            percus.add(tireur);
+                        }
                     }
                 }
             } else if (e instanceof Evenement.Bruit b) {
@@ -219,9 +238,9 @@ public final class Cerveau {
             if (!observes.isEmpty() && !(tactique == Tactique.ENQUETE && m.degatsRecents() > 0)) {
                 return observer(soi, observes);
             }
-            return sansPersonne(soi);
+            return sansPersonne(soi, joueurs);
         }
-        return combat(soi, percus);
+        return combat(soi, percus, joueurs);
     }
 
     /**
@@ -390,7 +409,7 @@ public final class Cerveau {
 
     // ------------------------------------------------------------------ 7. personne
 
-    private Decision sansPersonne(Soi soi) {
+    private Decision sansPersonne(Soi soi, List<Joueur> tous) {
         long tick = soi.tick();
         figeDepuis = -1;
         Memoire.Trace piste = null;
@@ -420,6 +439,30 @@ public final class Cerveau {
             return new Decision(Tactique.ENQUETE, pisteId, piste.derniere, Allure.MARCHE, null, null, false,
                     null, "va voir ou il l'a percu pour la derniere fois");
         }
+        // le « directeur » : trop longtemps sans contact, il lui souffle la zone du joueur le
+        // plus proche (floue), pour que la menace ne s'eteigne jamais tout a fait
+        if (tick - dernierContact > r.delaiIndice && tick >= retraitJusqua) {
+            Joueur proche = null;
+            for (Joueur j : tous) {
+                if (!j.inoffensif() && j.dansDomaine() && j.pos().distanceH(soi.pos()) <= r.porteeIndice
+                        && (proche == null || j.pos().distanceH(soi.pos()) < proche.pos().distanceH(soi.pos()))) {
+                    proche = j;
+                }
+            }
+            if (proche != null) {
+                if (indice == null || tick >= indiceJusqua || indiceCible == null || !indiceCible.equals(proche.id())) {
+                    double a = alea.nextDouble() * Math.PI * 2, rr = alea.nextDouble() * r.flouIndice;
+                    indice = proche.pos().plus(new Vec(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+                    indiceJusqua = tick + 400;
+                    indiceCible = proche.id();
+                }
+                if (soi.pos().distanceH(indice) > 4) {
+                    changer(Tactique.ENQUETE, tick);
+                    return new Decision(Tactique.ENQUETE, null, indice, soi.dansEau() ? Allure.NAGE : Allure.MARCHE,
+                            null, null, false, null, "flaire ta zone et s'en approche");
+                }
+            }
+        }
         changer(Tactique.ERRANCE, tick);
         cible = null;
         if (pointErrance == null || tick >= errancePlanifiee || soi.pos().distanceH(pointErrance) < 2) {
@@ -438,11 +481,11 @@ public final class Cerveau {
 
     // ------------------------------------------------------------------ 4-6. combat
 
-    private Decision combat(Soi soi, List<Joueur> percus) {
+    private Decision combat(Soi soi, List<Joueur> percus, List<Joueur> tous) {
         long tick = soi.tick();
         SelecteurCible.Resultat choix = SelecteurCible.choisir(soi, percus, m, r, cible, cibleDepuis);
         if (choix.cible() == null) {
-            return sansPersonne(soi);
+            return sansPersonne(soi, tous);
         }
         Tactique avant = tactique;
         if (!choix.cible().equals(cible)) {
@@ -553,6 +596,17 @@ public final class Cerveau {
         if (tick < disparaitJusqua) {
             return disparaitre(soi, percus, j, false, raisonDisparition);
         }
+        // en coulisses : il s'est retire pour laisser respirer (voir pression plus bas)
+        if (tick < retraitJusqua) {
+            changer(Tactique.ERRANCE, tick);
+            Vec loin = j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(64));
+            return new Decision(Tactique.ERRANCE, null, loin, soi.dansEau() ? Allure.NAGE : Allure.MARCHE, null, null,
+                    false, null, "se retire dans la jungle... pour l'instant");
+        }
+        // sous le feu : il se met a couvert, sauf en pleine frappe
+        if (tick - sousLeFeu < 40) {
+            return commencerDisparition(soi, percus, j, "sous le feu : il se met a couvert");
+        }
         // blesse : au contact il riposte, de loin il se derobe
         Joueur agresseur = null;
         for (Joueur p : percus) {
@@ -583,6 +637,19 @@ public final class Cerveau {
         }
 
         int phase = t.tension < r.phaseFilature ? 1 : (t.tension < r.phaseFrappe ? 2 : 3);
+        boolean feu = j.armeFeu();
+        // la pression : trop longtemps tout pres sans frapper, il se retire (puis revient)
+        if (d <= r.distancePression) {
+            m.presser(j.id(), tick);
+            if (t.pression >= r.pressionMax) {
+                t.pression = 0;
+                retraitJusqua = tick + r.dureeRetrait;
+                changer(Tactique.ERRANCE, tick);
+                Vec loin = j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(64));
+                return new Decision(Tactique.ERRANCE, null, loin, Allure.MARCHE, null, null, false, null,
+                        "se retire dans la jungle... pour l'instant");
+            }
+        }
         double allie = Double.MAX_VALUE;
         for (Joueur p : percus) {
             if (!p.id().equals(j.id())) {
@@ -593,15 +660,25 @@ public final class Cerveau {
         boolean regarde = Perception.meRegarde(soi, j, r);
 
         // l'ouverture : proie isolee (ou traque interminable), dos tourne, assez pres
+        // hors de la jungle (et hors de l'eau), il ne la suit pas : il la guette depuis l'oree
+        if (!j.dansDomaine()) {
+            changer(Tactique.OBSERVATION, tick);
+            Vec poste = posteObservation(soi, j, true);
+            boolean arrive = poste == null || poste.distanceH(soi.pos()) < 3;
+            return new Decision(Tactique.OBSERVATION, cible, arrive ? null : poste, arrive ? Allure.ARRET : Allure.FEUTREE,
+                    j.pos(), null, false, null, "reste a l'oree de la jungle et te regarde");
+        }
         boolean ouverture = phase == 3 && !regarde && d <= r.distanceFrappe && (isole || t.tension >= r.tensionGroupe);
         ouverture |= phase >= 2 && isole && j.sante() < 0.35 && d <= r.distanceFrappe;     // proie affaiblie
+        // il recharge : l'arme se tait, c'est le moment (meme s'il le regarde)
+        ouverture |= feu && j.chargeurVide() && phase >= 2 && isole && d <= r.distanceFrappe + r.margeFeu;
         if (ouverture) {
             ouvrirFrappe(soi);
             return null;
         }
         // on le regarde : de pres il disparait, de loin il se fige et soutient le regard
         if (regarde) {
-            if (d <= r.distanceDisparition) {
+            if (d <= r.distanceDisparition || (feu && d <= r.disparitionFeu)) {
                 return commencerDisparition(soi, percus, j, "vu de trop pres : il disparait");
             }
             if (figeDepuis < 0) {
@@ -627,7 +704,7 @@ public final class Cerveau {
         // phase 1, ou un groupe qui le tient a distance : il observe de loin, planque
         if (phase == 1 || (!isole && t.tension < r.tensionGroupe)) {
             changer(Tactique.OBSERVATION, tick);
-            Vec poste = posteObservation(soi, j);
+            Vec poste = posteObservation(soi, j, false);
             if (poste.distanceH(soi.pos()) < 3) {
                 if (anim == null && tick - dernierePose > 400 && alea.nextInt(3) == 0) {
                     anim = "tete_inclinee_fixe";                     // la tete qui se penche...
@@ -642,7 +719,7 @@ public final class Cerveau {
         }
         // phases 2 et 3 : il la file, derriere elle, hors de son champ de vision
         changer(Tactique.FILATURE, tick);
-        double recul = phase == 3 ? r.distanceFilatureProche : r.distanceFilature;
+        double recul = (phase == 3 ? r.distanceFilatureProche : r.distanceFilature) + (feu ? r.margeFeu : 0);
         Vec dos = new Vec(j.regard().x(), 0, j.regard().z()).unitaireH();
         Vec poste = dos == Vec.ZERO ? j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(recul))
                 : j.pos().moins(dos.fois(recul));
@@ -665,28 +742,33 @@ public final class Cerveau {
      * Poste d'observation : a ~28 blocs de la proie, de preference dans l'eau (il y guette,
      * a demi immerge) ; sinon dans l'axe ou il se trouve deja.
      */
-    private Vec posteObservation(Soi soi, Joueur j) {
+    private Vec posteObservation(Soi soi, Joueur j, boolean oree) {
         Vec best = null;
         double bestScore = -Double.MAX_VALUE;
+        double ideal = r.distanceObservation + (j.armeFeu() ? r.margeFeu : 0);
         for (PointTerrain p : soi.voisinage()) {
             double dj = p.pos().distanceH(j.pos());
-            if (p.danger() || dj < r.distanceObservation - 6 || dj > r.distanceObservation + 8 || interdit(p.pos(), soi.tick())) {
+            if (p.danger() || !p.domaine() || interdit(p.pos(), soi.tick())) {
                 continue;
             }
-            double s = (p.eau() ? 4 : 0) - Math.abs(dj - r.distanceObservation) * 0.3 - p.pos().distanceH(soi.pos()) * 0.1;
+            if (!oree && (dj < ideal - 6 || dj > ideal + 8)) {
+                continue;
+            }
+            double s = (p.eau() ? 4 : 0) + (p.couvert() ? (j.armeFeu() ? 6 : 3) : 0)
+                    - Math.abs(dj - (oree ? 0 : ideal)) * 0.3 - p.pos().distanceH(soi.pos()) * 0.1;
             if (s > bestScore) {
                 bestScore = s;
                 best = p.pos();
             }
         }
-        if (best != null) {
+        if (best != null || oree) {
             return best;
         }
         Vec axe = soi.pos().moins(j.pos()).unitaireH();
         if (axe == Vec.ZERO) {
             axe = soi.regard().fois(-1);
         }
-        return j.pos().plus(axe.fois(r.distanceObservation));
+        return j.pos().plus(axe.fois(ideal));
     }
 
     private void ouvrirFrappe(Soi soi) {
@@ -703,7 +785,24 @@ public final class Cerveau {
         return disparaitre(soi, percus, j, true, raison);
     }
 
-    /** Il s'efface : sous l'eau s'il y en a, sinon loin, a l'oppose de la proie. */
+    /** Point du voisinage hors de la vue de la proie, dans son domaine, le plus eloigne d'elle. */
+    private Vec couvertLePlusSur(Soi soi, Joueur j) {
+        Vec best = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (PointTerrain p : soi.voisinage()) {
+            if (!p.couvert() || p.danger() || !p.domaine() || Math.abs(p.denivele()) > 4) {
+                continue;
+            }
+            double s = p.pos().distanceH(j.pos()) - 0.5 * p.pos().distanceH(soi.pos());
+            if (s > bestScore) {
+                bestScore = s;
+                best = p.pos();
+            }
+        }
+        return best;
+    }
+
+    /** Il s'efface : sous l'eau s'il y en a, sinon a couvert, sinon loin a l'oppose de la proie. */
     private Decision disparaitre(Soi soi, List<Joueur> percus, Joueur j, boolean debut, String raison) {
         long tick = soi.tick();
         if (debut && disparaitJusqua < tick) {
@@ -717,6 +816,8 @@ public final class Cerveau {
             but = soi.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(6)).plus(new Vec(0, -2, 0));
         } else if (eau != null && eau.distanceH(soi.pos()) < 40) {
             but = eau;
+        } else if ((but = couvertLePlusSur(soi, j)) != null) {
+            // a couvert : derriere un tronc, un relief, hors de sa ligne de vue
         } else {
             Vec fuite = soi.pos().moins(j.pos()).unitaireH();
             if (fuite == Vec.ZERO) {
@@ -792,8 +893,8 @@ public final class Cerveau {
         Vec best = null;
         double bestScore = -Double.MAX_VALUE;
         for (PointTerrain p : soi.voisinage()) {
-            if (p.danger() || Math.abs(p.denivele()) > 4 || interdit(p.pos(), soi.tick())) {
-                continue;
+            if (p.danger() || !p.domaine() || Math.abs(p.denivele()) > 4 || interdit(p.pos(), soi.tick())) {
+                continue;                       // jamais en plaine : jungle ou eau seulement
             }
             double s = alea.nextDouble() * 2;
             if (p.rive()) {

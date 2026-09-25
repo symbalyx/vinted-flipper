@@ -29,6 +29,9 @@ public final class Memoire {
         /** Temps cumule passe a traquer ce joueur (ticks) : fait avancer les phases. */
         public double tension;
         long tickTension = Long.MIN_VALUE / 2;
+        /** Temps passe tout pres de lui sans frapper : au-dela d'un seuil, il se retire. */
+        public double pression;
+        long tickPression = Long.MIN_VALUE / 2;
     }
 
     private final Map<UUID, Trace> traces = new HashMap<>();
@@ -119,6 +122,14 @@ public final class Memoire {
             t.tension += tick - t.tickTension;
         }
         t.tickTension = tick;
+    }
+
+    public void presser(UUID id, long tick) {
+        Trace t = de(id);
+        if (tick - t.tickPression <= 40) {
+            t.pression += tick - t.tickPression;
+        }
+        t.tickPression = tick;
     }
 
     public boolean inatteignable(UUID id, long tick) {

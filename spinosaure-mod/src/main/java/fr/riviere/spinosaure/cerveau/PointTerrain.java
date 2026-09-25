@@ -8,8 +8,15 @@ package fr.riviere.spinosaure.cerveau;
  * @param profondeur hauteur d'eau (0 hors de l'eau) ; >= 4 : il peut s'y submerger
  * @param denivele   difference d'altitude avec lui (positif : plus haut)
  * @param danger     lave, feu, neige poudreuse... a eviter absolument
+ * @param domaine    en jungle ou dans l'eau : son territoire (il ne va pas en plaine)
+ * @param couvert    hors de la ligne de vue de sa cible actuelle (tronc, relief, feuillage)
  */
-public record PointTerrain(Vec pos, boolean eau, double profondeur, double denivele, boolean danger) {
+public record PointTerrain(Vec pos, boolean eau, double profondeur, double denivele, boolean danger,
+                           boolean domaine, boolean couvert) {
+
+    public PointTerrain(Vec pos, boolean eau, double profondeur, double denivele, boolean danger) {
+        this(pos, eau, profondeur, denivele, danger, true, false);
+    }
 
     public boolean profonde() {
         return eau && profondeur >= 4;

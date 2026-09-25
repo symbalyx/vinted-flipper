@@ -89,6 +89,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     private final Instantane instantane;
     private final Locomotion locomotion;
     private final List<Evenement> evenements = new ArrayList<>();
+    private final java.util.Map<java.util.UUID, Long> derniersTirs = new java.util.HashMap<>();
 
     private Decision decision;
     private Attaque attaque;
@@ -318,6 +319,20 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
 
     // ================================================================== saisie
 
+    /**
+     * Un coup de feu (balle TaCZ) a ete tire par ce joueur a portee d'oreille. Limite a un
+     * evenement par demi-seconde et par tireur : une rafale ne sature pas le cerveau.
+     */
+    public void entendreTir(Player tireur) {
+        long tick = level().getGameTime();
+        Long dernier = derniersTirs.get(tireur.getUUID());
+        if (dernier != null && tick - dernier < 10) {
+            return;
+        }
+        derniersTirs.put(tireur.getUUID(), tick);
+        evenements.add(new Evenement.Tir(tireur.getUUID(), Instantane.vec(tireur.position())));
+    }
+
     /** Le joueur est-il tenu dans la gueule (et interdit de descendre) ? */
     public boolean retient(Entity e) {
         // jamais un mort ou un joueur qui quitte le monde : sinon il resterait accroche
@@ -390,7 +405,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (decision == null || (tick + getId()) % 4 == 0) {
             List<Evenement> evts = new ArrayList<>(evenements);
             evenements.clear();
-            decision = cerveau.penser(instantane.soi(attaque != null), instantane.joueurs(), evts);
+            decision = cerveau.penser(instantane.soi(attaque != null, joueur(cerveau.cible())), instantane.joueurs(), evts);
             appliquerNouvelleDecision(decision);
         }
         executer(decision);

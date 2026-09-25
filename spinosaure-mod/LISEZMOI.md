@@ -30,6 +30,12 @@ La tension monte avec le temps qu'il passe à te traquer :
 | Plus personne en vue | Il va à la dernière position connue et renifle la piste. La rancune prolonge sa mémoire. |
 | Joueur en créatif | Il l'observe et le suit, mais ne l'attaque jamais. **Le combat se teste en survie.** |
 
+| Hors de la jungle | Il n'y va pas. Si tu sors en plaine, il te regarde depuis la lisière et ne te suit pas. L'eau reste son domaine partout. Il n'apparaît qu'en jungle. |
+| Joueur armé (TaCZ) | Il te file et t'observe de plus loin, de préférence à couvert : derrière un tronc, hors de ta ligne de vue, calculé par lancer de rayon. Un canon braqué sur lui à moins de 40 blocs : il disparaît. Jamais de charge de face contre un fusil braqué. |
+| Coups de feu | Il les entend à 96 blocs et va voir d'où ils viennent. Si le tireur le voit, il est « sous le feu » : il se met à couvert (eau, tronc, relief). |
+| Rechargement | Arme vide : c'est son ouverture. Il frappe même si tu le regardes. |
+| Le « directeur » (*Alien Isolation*) | Sans contact depuis 1 min, il reçoit ta zone approximative (à 16 blocs près) et s'en approche. Après 3 min de pression continue sans frapper, il se retire 80 s « en coulisses », puis revient. |
+
 **Sons**
 - Silence pendant l'observation, la filature, l'affût et la fuite.
 - De temps en temps, une respiration grave : elle vient de sa position réelle, donc tu l'entends dans ton dos.
@@ -115,10 +121,11 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
   berges et l'abandon d'une destination bloquée. Ils couvrent le choix de cible, l'hystérésis, le tireur perché,
   l'encerclement, le bouclier, l'approche par le flanc, le repli, la traque, la saisie avec
   libération, la mémoire et le blocage.
-- **La partie Minecraft** (`entite/`, `client/`) : **pas compilée contre le vrai Forge**, car
-  les dépôts Forge et Mojang étaient inaccessibles depuis mon environnement. Je l'ai compilée
-  contre des bouchons des API, ce qui valide la cohérence interne mais pas les signatures
-  exactes. Points à surveiller à la première compilation :
+- **La partie Minecraft** (`entite/`, `client/`) : compilée par GitHub Actions contre le vrai
+  Forge 1.20.1 et GeckoLib. **TaCZ** est détecté sans dépendance de compilation : objets et
+  balles de l'espace de noms `tacz`, munitions lues dans la donnée `GunCurrentAmmoCount`.
+  À vérifier en jeu si une version de TaCZ nomme ces éléments autrement. Anciens points de
+  vigilance, résolus par la compilation :
   - la version `geckolib_version=4.4.9` dans `gradle.properties` : prendre la dernière 4.4.x
     pour 1.20.1 si elle diffère ;
   - `GeoEntityRenderer.withScale` ;
