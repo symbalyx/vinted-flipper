@@ -4,3 +4,6 @@ run/
 out/
 *.iml
 .idea/
+
+# le .gitignore racine du depot exclut *.json : les ressources du mod en ont besoin
+!*.json
