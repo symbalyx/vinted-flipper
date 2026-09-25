@@ -12,8 +12,9 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Scenarios multijoueurs. Le spinosaure est a l'origine, regard vers -Z (vers le nord),
- * sauf mention contraire.
+ * Scenarios. Le spinosaure est a l'origine, regard vers -Z (vers le nord), sauf mention
+ * contraire. j(...) cree un joueur qui REGARDE le spinosaure ; avec(p, "detourne") un
+ * joueur qui lui tourne le dos.
  */
 class CerveauTest {
 
@@ -67,15 +68,149 @@ class CerveauTest {
         return List.of(new Evenement.Degats(source, montant, distance));
     }
 
+    /** Fait penser le cerveau tous les 4 ticks de `debut` a `fin`, jusqu'a `stop` s'il est vrai. */
+    static Decision jusqua(Cerveau c, List<Joueur> ps, long debut, long fin, java.util.function.Predicate<Decision> stop) {
+        Decision d = null;
+        for (long t = debut; t <= fin; t += 4) {
+            d = c.penser(soi(t), ps, List.of());
+            if (stop.test(d)) {
+                return d;
+            }
+        }
+        return d;
+    }
+
+    static Joueur court(Joueur p, Vec vitesse) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), p.bouclierLeve(),
+                p.accroupi(), true, p.dansEau(), p.visible(), p.atteignable(), vitesse, false);
+    }
+
+    static Joueur creatif(Joueur p) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), false, false, false,
+                p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), true);
+    }
+
+    static boolean frappe(Decision d) {
+        return d.tactique() == Tactique.ENGAGEMENT;
+    }
+
     // ------------------------------------------------------------ perception
 
     @Test
     void unJoueurAccroupiDansLeDosPasseInapercu() {
         Reglages r = Reglages.defaut();
-        Joueur furtif = avec(avec(j(A, 0, 10), "accroupi"), "detourne");   // 10 blocs derriere
+        Joueur furtif = avec(avec(j(A, 0, 10), "accroupi"), "detourne");
         assertFalse(Perception.percoit(soi(0), furtif, r));
-        Joueur bruyant = avec(j(A, 0, 20), "sprint");                       // 20 derriere, en sprint
+        Joueur bruyant = avec(j(A, 0, 20), "sprint");
         assertTrue(Perception.percoit(soi(0), bruyant, r), "un sprint s'entend a 24 blocs");
+    }
+
+    // ------------------------------------------------------------ horreur : la montee de tension
+
+    @Test
+    void premiereDetection_ilObserveEtTourneLaTete() {
+        Cerveau c = cerveau();
+        Decision d = c.penser(soi(0), List.of(avec(j(A, 0, -30), "detourne")), List.of());
+        assertEquals(Tactique.OBSERVATION, d.tactique(), d.raison());
+        assertNull(d.attaque());
+        assertNotNull(d.animation(), "il tourne brusquement la tete vers sa proie");
+    }
+
+    @Test
+    void apres30sIlFileSaProieParDerriere() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(A, 0, -30), "detourne"));   // A regarde vers le nord
+        Decision d = jusqua(c, ps, 0, 900, x -> x.tactique() == Tactique.FILATURE);
+        assertEquals(Tactique.FILATURE, d.tactique(), d.raison());
+        // derriere A par rapport a SON regard : 16 blocs au sud de lui
+        assertEquals(-14, d.destination().z(), 0.5, "poste dans son dos : " + d.destination());
+        assertNotEquals(Allure.COURSE, d.allure(), "en silence");
+    }
+
+    @Test
+    void phase3_ilFrappeQuandLaProieIsoleeTourneLeDos() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(C, 0, -13), "detourne"));
+        Decision d = jusqua(c, ps, 0, 2400, CerveauTest::frappe);
+        assertTrue(frappe(d), "jamais frappe : " + d.raison());
+        assertEquals(Attaque.CHARGE, d.attaque(), "ligne degagee : charge surprise");
+        assertTrue(d.destination() != null);
+    }
+
+    @Test
+    void phase3_mais_ilNeFrappePasSiOnLeRegarde() {
+        Cerveau c = cerveau();
+        Decision d = jusqua(c, List.of(avec(j(C, 0, -40), "detourne")), 0, 2000, x -> false);  // tension
+        d = c.penser(soi(2004), List.of(j(C, 0, -13)), List.of());                            // il se retourne
+        assertEquals(Tactique.DISPARITION, d.tactique(), "vu de pres : " + d.raison());
+    }
+
+    @Test
+    void frappeEclair_deuxCoupsPuisIlDisparait() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(C, 0, -12), "detourne"));
+        long debut = -1;
+        Decision d = null;
+        for (long t = 0; t <= 2400 && debut < 0; t += 4) {
+            d = c.penser(soi(t), ps, List.of());
+            if (frappe(d)) {
+                debut = t;
+            }
+        }
+        assertTrue(debut >= 0, "jamais frappe");
+        int attaques = d.attaque() != null ? 1 : 0;
+        Decision fin = null;
+        for (long t = debut + 4; t < debut + 200; t += 4) {
+            fin = c.penser(soi(t), ps, List.of());
+            if (fin.attaque() != null) {
+                attaques++;
+            }
+            if (fin.tactique() == Tactique.DISPARITION) {
+                break;
+            }
+        }
+        assertEquals(Tactique.DISPARITION, fin.tactique(), "il ne reste pas se battre : " + fin.raison());
+        assertTrue(attaques <= 2, attaques + " attaques");
+        assertEquals(Allure.COURSE, fin.allure());
+        assertTrue(fin.destination().distanceH(new Vec(0, 0, -12)) > 20, "il s'eloigne de sa proie");
+    }
+
+    @Test
+    void blesseDeLoin_ilSeDerobe() {
+        Cerveau c = cerveau();
+        Decision d = c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 6, false));
+        assertEquals(Tactique.DISPARITION, d.tactique(), d.raison());
+        assertNull(d.attaque());
+    }
+
+    @Test
+    void vuDePres_ilDisparait_vuDeLoin_ilSeFigeEtSoutientLeRegard() {
+        Cerveau c = cerveau();
+        assertEquals(Tactique.DISPARITION, c.penser(soi(0), List.of(j(A, 0, -15)), List.of()).tactique());
+
+        Cerveau loin = cerveau();
+        loin.penser(soi(0), List.of(avec(j(A, 0, -30), "detourne")), List.of());
+        Decision f = loin.penser(soi(4), List.of(j(A, 0, -30)), List.of());
+        assertEquals(Tactique.FIGE, f.tactique());
+        Decision fin = jusqua(loin, List.of(j(A, 0, -30)), 8, 200, x -> x.tactique() != Tactique.FIGE);
+        assertEquals(Tactique.DISPARITION, fin.tactique(), "soutient le regard puis s'efface");
+    }
+
+    @Test
+    void unGroupe_ilResteADistanceEtAttendQuUnJoueurSIsole() {
+        Cerveau c = cerveau();
+        List<Joueur> groupe = List.of(avec(j(A, -3, -20), "detourne"), avec(j(B, 0, -21), "detourne"),
+                avec(j(C, 3, -20), "detourne"));
+        Decision d = jusqua(c, groupe, 0, 3000, CerveauTest::frappe);
+        assertFalse(frappe(d), "il n'attaque pas un groupe");
+        assertEquals(Tactique.OBSERVATION, d.tactique(), d.raison());
+
+        // C s'ecarte du groupe, dos tourne, a 12 blocs : il frappe
+        List<Joueur> ecart = List.of(avec(j(A, -30, -30), "detourne"), avec(j(B, -28, -32), "detourne"),
+                avec(j(C, 0, -12), "detourne"));
+        Decision e = jusqua(c, ecart, 3004, 3100, CerveauTest::frappe);
+        assertTrue(frappe(e), e.raison());
+        assertEquals(C, e.cible());
     }
 
     // ------------------------------------------------------------ choix de cible
@@ -84,8 +219,8 @@ class CerveauTest {
     void prefereLeJoueurIsoleAuGroupe() {
         Cerveau c = cerveau();
         List<Joueur> ps = List.of(j(A, -3, -10), j(B, -1, -10), j(C, 14, -6));
-        c.penser(soi(0), ps, coups(A, 1, false));           // deja en combat : pas de traque
-        Decision d = c.penser(soi(1), ps, List.of());
+        c.penser(soi(0), ps, List.of());
+        Decision d = c.penser(soi(4), ps, List.of());
         assertEquals(C, d.cible(), d.raison());
     }
 
@@ -95,10 +230,9 @@ class CerveauTest {
         int changements = 0;
         UUID avant = null;
         for (int t = 0; t < 400; t++) {
-            // deux joueurs quasi equivalents qui oscillent autour de la meme distance
             double e = Math.sin(t * 0.7) * 0.8;
-            List<Joueur> ps = List.of(j(A, -8, -10 + e), j(B, 8, -10 - e));
-            Decision d = c.penser(soi(t), ps, t == 0 ? coups(A, 1, false) : List.of());
+            List<Joueur> ps = List.of(avec(j(A, -8, -30 + e), "detourne"), avec(j(B, 8, -30 - e), "detourne"));
+            Decision d = c.penser(soi(t), ps, List.of());
             if (d.cible() != null && !d.cible().equals(avant)) {
                 changements++;
                 avant = d.cible();
@@ -110,14 +244,12 @@ class CerveauTest {
     @Test
     void ignoreLeTireurPercheQuandUnAutreEstAtteignable() {
         Cerveau c = cerveau();
-        Joueur tireur = avec(j(A, 0, -12), "perche");
-        Joueur epeiste = j(B, 6, -9);
-        List<Joueur> ps = List.of(tireur, epeiste);
+        List<Joueur> ps = List.of(avec(j(A, 0, -12), "perche"), j(B, 6, -9));
         Decision d = null;
         for (int t = 0; t < 60; t++) {
             d = c.penser(soi(t), ps, t % 20 == 0 ? coups(A, 4, true) : List.of());
         }
-        assertEquals(B, d.cible(), "il ne reste pas plante sous le pilier : " + d.raison());
+        assertEquals(B, d.cible(), d.raison());
     }
 
     @Test
@@ -130,60 +262,60 @@ class CerveauTest {
             d = c.penser(soi(t, 1.0, eau, false, false), List.of(tireur), t % 20 == 0 ? coups(A, 4, true) : List.of());
         }
         assertEquals(Tactique.ESQUIVE_TIR, d.tactique());
-        assertEquals(eau, d.destination(), "il plonge pour casser la ligne de vue");
+        assertEquals(eau, d.destination());
     }
 
-    // ------------------------------------------------------------ attaques
+    // ------------------------------------------------------------ riposte au contact
 
     @Test
-    void encercle_balayageDeQueue() {
+    void encercleEtFrappe_balayageDeQueue() {
         Cerveau c = cerveau();
-        List<Joueur> ps = List.of(j(A, 0, -4), j(B, -2, 4), j(C, 2, 5));   // un devant, deux derriere
+        List<Joueur> ps = List.of(j(A, 0, -4), j(B, -2, 4), j(C, 2, 5));
         Decision d = c.penser(soi(0), ps, coups(B, 2, false));
         assertEquals(Attaque.BALAYAGE_QUEUE, d.attaque(), d.raison());
     }
 
     @Test
-    void bouclierLeve_griffesPuisContournement() {
+    void bouclierLeveAuContact_griffesPuisContournement() {
         Cerveau c = cerveau();
         List<Joueur> ps = List.of(avec(j(A, 0, -4), "bouclier"));
         Decision d1 = c.penser(soi(0), ps, coups(A, 1, false));
         assertEquals(Attaque.GRIFFES, d1.attaque(), "les griffes brisent le bouclier");
-        Decision d2 = c.penser(soi(5), ps, List.of());
-        assertEquals(Tactique.CONTOURNEMENT, d2.tactique(), "griffes en recharge : il passe sur le flanc");
+        Decision d2 = c.penser(soi(4), ps, List.of());
+        assertEquals(Tactique.CONTOURNEMENT, d2.tactique(), d2.raison());
         assertTrue(Math.abs(d2.destination().x()) > 2, "destination laterale : " + d2.destination());
     }
 
     @Test
-    void attaqueParLeCoteOpposeAuxAllies() {
+    void aPorteeIlTourneAutourAuLieuDePousserContreLeJoueur() {
         Cerveau c = cerveau();
-        // la cible C est au nord, hors de portee de charge ; ses deux allies sont a l'ouest d'elle
-        Joueur cible = avec(j(C, 0, -24), "blesse");
-        List<Joueur> ps = List.of(cible, j(A, -12, -24), j(B, -12, -26));
-        c.penser(soi(0), ps, coups(C, 1, false));
-        Decision d = c.penser(soi(80), ps, List.of());
+        List<Joueur> ps = List.of(j(A, 0, -5));
+        c.penser(soi(0), ps, coups(A, 1, false));
+        Decision d = c.penser(soi(4), ps, List.of());
+        assertNull(d.attaque());
+        double r = d.destination().distanceH(new Vec(0, 0, -5));
+        assertTrue(r > 4 && r < 6, "sur un cercle autour du joueur : " + d.destination());
+    }
+
+    @Test
+    void frappeAvecDesAlliesAuLoin_ilVientParLeCoteOppose() {
+        Cerveau c = cerveau();
+        // C isolee (allies a 20 blocs a l'ouest), bouclier leve : pas de charge, il s'approche
+        List<Joueur> ps = List.of(avec(avec(j(C, 0, -12), "bouclier"), "detourne"), j(A, -20, -12), j(B, -20, -14));
+        Decision d = jusqua(c, ps, 0, 2400, CerveauTest::frappe);
+        assertTrue(frappe(d), d.raison());
         assertEquals(C, d.cible());
         assertTrue(d.destination().x() > 0, "il vient par l'est, les allies a l'ouest : " + d.destination());
+        assertEquals(Allure.COURSE, d.allure(), "il court jusqu'a portee");
     }
 
     @Test
-    void chargeQuandLaLigneEstDegagee() {
+    void coupeLaRouteDUnJoueurQuiFuit() {
         Cerveau c = cerveau();
-        Decision d = c.penser(soi(0), List.of(j(A, 0, -13)), coups(A, 1, false));
-        assertEquals(Attaque.CHARGE, d.attaque(), d.raison());
-        assertEquals(Allure.CHARGE, d.allure());
-    }
-
-    // ------------------------------------------------------------ groupe
-
-    @Test
-    void unGroupeArrive_rugissementUneSeuleFois() {
-        Cerveau c = cerveau();
-        List<Joueur> ps = List.of(j(A, -4, -18), j(B, 0, -20), j(C, 4, -18));
-        Decision d = c.penser(soi(0), ps, List.of());
-        assertEquals(Attaque.RUGISSEMENT, d.attaque());
-        Decision d2 = c.penser(soi(20), ps, List.of());
-        assertNotEquals(Attaque.RUGISSEMENT, d2.attaque());
+        Joueur fuyard = court(avec(j(C, 0, -12), "detourne"), new Vec(0.28, 0, 0));
+        Decision d = jusqua(c, List.of(fuyard), 0, 2400, CerveauTest::frappe);
+        assertTrue(frappe(d), d.raison());
+        assertTrue(d.destination().x() > 3, "il vise devant le fuyard : " + d.destination());
     }
 
     // ------------------------------------------------------------ survie
@@ -201,7 +333,6 @@ class CerveauTest {
         d = c.penser(soi(80, 0.3, eau, true, true), ps, List.of());
         assertEquals(Tactique.REGENERATION, d.tactique(), d.raison());
 
-        // soigne ; le joueur A (le plus rancunier) est au bord de l'eau
         List<Joueur> bord = List.of(avec(j(A, 0, -20), "eau"));
         d = c.penser(soi(900, 0.8, eau, true, true), bord, List.of());
         assertEquals(Tactique.AFFUT_EAU, d.tactique(), d.raison());
@@ -209,115 +340,12 @@ class CerveauTest {
     }
 
     @Test
-    void sansEauEtPresqueMort_ilSeBatAcculé() {
+    void sansEauEtPresqueMort_ilSeBatAccule() {
         Cerveau c = cerveau();
         List<Joueur> ps = List.of(j(A, 0, -4), j(B, 3, -4));
         c.penser(soi(0, 0.5, null, false, false), ps, coups(A, 40, false));
         Decision d = c.penser(soi(5, 0.1, null, false, false), ps, coups(B, 40, false));
         assertEquals(Tactique.ACCULE, d.tactique(), d.raison());
-    }
-
-    // ------------------------------------------------------------ traque
-
-    @Test
-    void traqueFurtivePuisFigeSousLeRegard() {
-        Cerveau c = cerveau();
-        Joueur distrait = avec(j(A, 0, -30), "detourne");
-        Decision d = c.penser(soi(0), List.of(distrait), List.of());
-        assertEquals(Tactique.TRAQUE, d.tactique());
-        assertEquals(Allure.FEUTREE, d.allure());
-        assertNotNull(d.animation(), "il tourne la tete vers sa proie a la premiere detection");
-
-        Decision f = c.penser(soi(5), List.of(j(A, 0, -30)), List.of());   // il se retourne et le voit
-        assertEquals(Tactique.FIGE, f.tactique());
-
-        Decision fin = null;
-        for (int t = 6; t < 120; t++) {
-            fin = c.penser(soi(t), List.of(j(A, 0, -30)), List.of());
-        }
-        assertEquals(Tactique.ENGAGEMENT, fin.tactique(), "fige trop longtemps : il passe a l'attaque");
-    }
-
-    // ------------------------------------------------------------ saisie
-
-    @Test
-    void saisieDansLEauPuisLiberationParLesAllies() {
-        Cerveau c = cerveau();
-        Vec eau = new Vec(0, -3, -12);
-        Joueur nageur = avec(j(A, 0, -4), "eau");
-        List<Joueur> ps = List.of(nageur, j(B, 6, 2));
-        Decision d = c.penser(soi(0, 1, eau, true, false), ps, coups(A, 1, false));
-        assertEquals(Attaque.SAISIE, d.attaque(), d.raison());
-
-        c.priseEtablie(A, 10);
-        d = c.penser(soi(11, 1, eau, true, false), ps, List.of());
-        assertEquals(Tactique.MAINTIEN, d.tactique());
-        assertEquals(eau, d.destination(), "il l'entraine vers l'eau profonde");
-
-        d = c.penser(soi(20, 1, eau, true, false), ps, coups(B, 12, false));
-        assertFalse(d.lacher());
-        d = c.penser(soi(25, 1, eau, true, false), ps, coups(B, 10, false));
-        assertTrue(d.lacher(), "22 degats des allies : il lache prise");
-    }
-
-    // ------------------------------------------------------------ memoire
-
-    @Test
-    void perdDeVue_vaVoirLaDerniereTracePuisRenifle() {
-        Cerveau c = cerveau();
-        c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 1, false));
-        Decision d = c.penser(soi(40), List.of(), List.of());
-        assertEquals(Tactique.ENQUETE, d.tactique());
-        assertEquals(new Vec(0, 0, -20), d.destination());
-        Soi arrive = new Soi(new Vec(0, 0, -19), NORD, 1, 300, false, false, null, false, 200);
-        d = c.penser(arrive, List.of(), List.of());
-        assertEquals("renifle_piste_sol", d.animation());
-    }
-
-    @Test
-    void cibleBloqueeEstAbandonneePourUneAutre() {
-        Cerveau c = cerveau();
-        // A est derriere un obstacle : on ne peut pas s'en approcher. B est plus loin mais accessible.
-        // Mini-simulation : le spinosaure avance de 0.25 bloc/tick vers sa destination, sauf vers A.
-        Joueur a = avec(j(A, 0, -9), "blesse");
-        List<Joueur> ps = List.of(a, j(B, 20, -14));
-        Vec pos = Vec.ZERO;
-        Decision d = null;
-        for (int t = 0; t < 400; t++) {
-            Soi s = new Soi(pos, NORD, 1, 300, false, false, null, false, t);
-            d = c.penser(s, ps, t == 0 ? coups(A, 1, false) : List.of());
-            if (d.destination() != null && B.equals(d.cible()) && pos.distanceH(d.destination()) > 4) {
-                pos = pos.plus(d.destination().moins(pos).unitaireH().fois(0.25));
-            }
-        }
-        assertEquals(B, d.cible(), "A est inatteignable depuis 5 s : il change de cible");
-        assertTrue(pos.distanceH(new Vec(20, 0, -14)) < 8, "et il l'a rejoint : " + pos);
-    }
-
-    @Test
-    void laRancuneLeFaitRevenirSurUneTraceAncienne() {
-        Cerveau c = cerveau();
-        c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 30, false));
-        Decision d = c.penser(soi(1500), List.of(), List.of());      // 75 s plus tard, personne en vue
-        assertEquals(Tactique.ENQUETE, d.tactique(), "30 degats de rancune : il n'a pas oublie");
-    }
-
-    // ------------------------------------------------------------ deplacement
-
-    static Joueur court(Joueur p, Vec vitesse) {
-        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), p.bouclierLeve(),
-                p.accroupi(), true, p.dansEau(), p.visible(), p.atteignable(), vitesse, false);
-    }
-
-    @Test
-    void coupeLaRouteDUnJoueurQuiFuit() {
-        Cerveau c = cerveau();
-        // A est a 26 blocs au nord et file vers l'est en sprint (0.28 bloc/tick)
-        Joueur fuyard = court(j(A, 0, -26), new Vec(0.28, 0, 0));
-        c.penser(soi(0), List.of(fuyard), coups(A, 1, false));
-        Decision d = c.penser(soi(100), List.of(fuyard), List.of());
-        assertTrue(d.destination().x() > 3, "il vise devant le fuyard, pas derriere : " + d.destination());
-        assertEquals(new Vec(0, 0, -26), d.regard(), "mais garde les yeux sur lui");
     }
 
     @Test
@@ -327,25 +355,110 @@ class CerveauTest {
         List<PointTerrain> terrain = List.of(new PointTerrain(eauDerriereEux, true, 6, -3, false),
                 new PointTerrain(eauLibre, true, 6, -3, false));
         List<Joueur> ps = List.of(j(A, -2, -9), j(B, 2, -9), j(C, 0, -11));
-        Soi blesse = new Soi(Vec.ZERO, NORD, 0.25, 300, false, false, null, false, 10, terrain);
         c.penser(new Soi(Vec.ZERO, NORD, 0.6, 300, false, false, null, false, 0, terrain), ps, coups(A, 30, false));
-        Decision d = c.penser(blesse, ps, coups(B, 30, false));
+        Decision d = c.penser(new Soi(Vec.ZERO, NORD, 0.25, 300, false, false, null, false, 10, terrain), ps, coups(B, 30, false));
         assertEquals(Tactique.REPLI, d.tactique(), d.raison());
-        assertEquals(eauLibre, d.destination(), "l'eau la plus proche est derriere le groupe : il prend l'autre");
+        assertEquals(eauLibre, d.destination());
+    }
+
+    // ------------------------------------------------------------ eau
+
+    @Test
+    void saisieDansLEauPuisLiberationParLesAllies() {
+        Cerveau c = cerveau();
+        Vec eau = new Vec(0, -3, -12);
+        List<Joueur> ps = List.of(avec(j(A, 0, -4), "eau"), j(B, 6, 2));
+        Decision d = c.penser(soi(0, 1, eau, true, false), ps, coups(A, 1, false));
+        assertEquals(Attaque.SAISIE, d.attaque(), d.raison());
+
+        c.priseEtablie(A, 10);
+        d = c.penser(soi(11, 1, eau, true, false), ps, List.of());
+        assertEquals(Tactique.MAINTIEN, d.tactique());
+        assertEquals(eau, d.destination());
+        d = c.penser(soi(20, 1, eau, true, false), ps, coups(B, 12, false));
+        assertFalse(d.lacher());
+        d = c.penser(soi(25, 1, eau, true, false), ps, coups(B, 10, false));
+        assertTrue(d.lacher(), "22 degats des allies : il lache prise");
     }
 
     @Test
-    void patrouilleLesBergesEtEviteFalaisesEtLave() {
+    void nageurLoinDansLEau_ilApprocheParEnDessous() {
         Cerveau c = cerveau();
+        Decision d = c.penser(soi(0, 1, null, true, true), List.of(avec(avec(j(A, 0, -20), "eau"), "detourne")), List.of());
+        assertEquals(Tactique.AFFUT_EAU, d.tactique(), d.raison());
+        assertTrue(d.destination().y() < 0, "sous la surface");
+    }
+
+    // ------------------------------------------------------------ memoire, blocage, creatif
+
+    @Test
+    void perdDeVue_vaVoirLaDerniereTracePuisRenifle() {
+        Cerveau c = cerveau();
+        c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 1, false));
+        Decision d = c.penser(soi(40), List.of(), List.of());
+        assertEquals(Tactique.ENQUETE, d.tactique());
+        assertEquals(new Vec(0, 0, -20), d.destination());
+        Soi arrive = new Soi(new Vec(0, 0, -19), NORD, 1, 300, false, false, null, false, 200);
+        assertEquals("renifle_piste_sol", c.penser(arrive, List.of(), List.of()).animation());
+    }
+
+    @Test
+    void laRancuneLeFaitRevenirSurUneTraceAncienne() {
+        Cerveau c = cerveau();
+        c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 30, false));
+        Decision d = c.penser(soi(1500), List.of(), List.of());
+        assertEquals(Tactique.ENQUETE, d.tactique());
+    }
+
+    @Test
+    void enPleineFrappe_uneCibleBloqueeEstAbandonneePourUneAutre() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(A, 0, -8), "blesse"), j(B, 20, -14));
+        Decision d = c.penser(soi(0), ps, coups(A, 1, false));            // riposte
+        boolean passeSurB = false;
+        for (int t = 4; t < 120; t += 4) {
+            d = c.penser(soi(t), ps, List.of());                          // il n'avance jamais vers A
+            passeSurB |= B.equals(d.cible()) && frappe(d);
+        }
+        assertTrue(passeSurB, "A inatteignable depuis 5 s : il change de cible");
+    }
+
+    @Test
+    void destinationBloqueeEnFrappe_laCibleDevientInatteignable() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(A, 0, -8), "blesse"), j(B, 20, -20));
+        c.penser(soi(0), ps, coups(A, 1, false));
+        Decision d = c.penser(soi(4), ps, List.of());
+        assertEquals(A, d.cible());
+        c.destinationBloquee(5);
+        assertEquals(B, c.penser(soi(8), ps, List.of()).cible());
+    }
+
+    @Test
+    void joueurEnCreatif_ilLObserveSansJamaisLAttaquer() {
+        Cerveau c = cerveau();
+        Decision d = c.penser(soi(0), List.of(creatif(avec(j(A, 0, -30), "detourne"))), List.of());
+        assertEquals(Tactique.TRAQUE, d.tactique(), d.raison());
+        for (int t = 1; t < 200; t++) {
+            d = c.penser(soi(t), List.of(creatif(j(A, 0, -5))), List.of());
+            assertNull(d.attaque(), "jamais d'attaque sur un joueur en creatif");
+        }
+        assertEquals(Tactique.FIGE, d.tactique());
+    }
+
+    // ------------------------------------------------------------ terrain
+
+    @Test
+    void patrouilleLesBergesEtEviteFalaisesEtLave() {
         List<PointTerrain> terrain = List.of(
-                new PointTerrain(new Vec(12, 0, 0), false, 0, 0, false),        // prairie
-                new PointTerrain(new Vec(-12, 0, 0), true, 1.5, -1, false),     // berge
-                new PointTerrain(new Vec(0, 9, 12), false, 0, 9, false),        // haut d'une falaise
-                new PointTerrain(new Vec(0, 0, -12), false, 0, 0, true));       // lave
+                new PointTerrain(new Vec(12, 0, 0), false, 0, 0, false),
+                new PointTerrain(new Vec(-12, 0, 0), true, 1.5, -1, false),
+                new PointTerrain(new Vec(0, 9, 12), false, 0, 9, false),
+                new PointTerrain(new Vec(0, 0, -12), false, 0, 0, true));
         for (int essai = 0; essai < 20; essai++) {
             Cerveau n = new Cerveau(Reglages.defaut(), essai);
             Decision d = n.penser(new Soi(Vec.ZERO, NORD, 1, 300, false, false, null, false, 0, terrain), List.of(), List.of());
-            assertEquals(new Vec(-12, 0, 0), d.destination(), "graine " + essai + " : " + d.raison());
+            assertEquals(new Vec(-12, 0, 0), d.destination(), "graine " + essai);
         }
     }
 
@@ -356,66 +469,7 @@ class CerveauTest {
                 new PointTerrain(new Vec(-12, 0, 0), true, 1.5, -1, false),
                 new PointTerrain(new Vec(12, 0, 2), true, 1.5, -1, false));
         Decision d1 = c.penser(new Soi(Vec.ZERO, NORD, 1, 300, false, false, null, false, 0, terrain), List.of(), List.of());
-        // arrive au premier point : le suivant doit etre l'autre berge
         Soi arrive = new Soi(d1.destination(), NORD, 1, 300, false, false, null, false, 20, terrain);
-        Decision d2 = c.penser(arrive, List.of(), List.of());
-        assertNotEquals(d1.destination(), d2.destination());
-    }
-
-    @Test
-    void destinationBloqueeEnCombat_laCibleDevientInatteignable() {
-        Cerveau c = cerveau();
-        List<Joueur> ps = List.of(avec(j(A, 0, -25), "blesse"), j(B, 20, -20));
-        c.penser(soi(0), ps, coups(A, 1, false));
-        Decision d = c.penser(soi(80), ps, List.of());
-        assertEquals(A, d.cible());
-        c.destinationBloquee(81);                       // le corps n'arrive pas a l'atteindre
-        Decision apres = c.penser(soi(84), ps, List.of());
-        assertEquals(B, apres.cible(), apres.raison());
-    }
-
-    // ------------------------------------------------------------ retours du premier test en jeu
-
-    static Joueur creatif(Joueur p) {
-        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), false, false, false,
-                p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), true);
-    }
-
-    @Test
-    void joueurEnCreatif_ilLObserveSansJamaisLAttaquer() {
-        Cerveau c = cerveau();
-        Joueur spectateur = creatif(avec(j(A, 0, -30), "detourne"));
-        Decision d = c.penser(soi(0), List.of(spectateur), List.of());
-        assertEquals(Tactique.TRAQUE, d.tactique(), d.raison());
-        for (int t = 1; t < 200; t++) {
-            Joueur proche = creatif(j(A, 0, -5));                   // tout pres, il le regarde
-            d = c.penser(soi(t), List.of(proche), List.of());
-            assertNull(d.attaque(), "jamais d'attaque sur un joueur en creatif");
-        }
-        assertEquals(Tactique.FIGE, d.tactique());
-    }
-
-    @Test
-    void aPorteeIlTourneAutourAuLieuDePousserContreLeJoueur() {
-        Cerveau c = cerveau();
-        List<Joueur> ps = List.of(j(A, 0, -5));
-        c.penser(soi(0), ps, coups(A, 1, false));                  // morsure tout de suite
-        Decision d = c.penser(soi(4), ps, List.of());               // morsure en recharge
-        assertNull(d.attaque());
-        assertEquals(Allure.MARCHE, d.allure());
-        double r = d.destination().distanceH(new Vec(0, 0, -5));
-        assertTrue(r > 4 && r < 6, "destination sur un cercle autour du joueur : " + d.destination());
-        assertTrue(d.destination().distanceH(Vec.ZERO) > 1, "pas sur place : " + d.raison());
-    }
-
-    @Test
-    void ilCourtJusquAPortee() {
-        Cerveau c = cerveau();
-        List<Joueur> ps = List.of(avec(j(A, 3, -8), "bouclier"));  // pas de charge (bouclier), 8.5 blocs
-        c.penser(soi(0), ps, coups(A, 1, false));
-        Decision d = c.penser(soi(4), List.of(j(A, 3, -8)), List.of());
-        if (d.attaque() == null) {
-            assertEquals(Allure.COURSE, d.allure(), d.raison());
-        }
+        assertNotEquals(d1.destination(), c.penser(arrive, List.of(), List.of()).destination());
     }
 }

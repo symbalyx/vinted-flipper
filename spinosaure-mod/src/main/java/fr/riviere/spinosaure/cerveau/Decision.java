@@ -17,7 +17,10 @@ public record Decision(Tactique tactique, UUID cible, Vec destination, Allure al
 
     public enum Tactique {
         ERRANCE, ENQUETE, TRAQUE, FIGE, AFFUT_EAU, INTIMIDATION, ENGAGEMENT, CONTOURNEMENT,
-        MAINTIEN, REPLI, REGENERATION, ESQUIVE_TIR, ACCULE
+        MAINTIEN, REPLI, REGENERATION, ESQUIVE_TIR, ACCULE,
+        /** horreur : observe de loin */ OBSERVATION,
+        /** horreur : file sa proie par derriere */ FILATURE,
+        /** horreur : s'efface (vu, blesse de loin, ou apres une frappe) */ DISPARITION
     }
 
     /**

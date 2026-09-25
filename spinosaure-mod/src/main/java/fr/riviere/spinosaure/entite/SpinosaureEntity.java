@@ -12,14 +12,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.server.level.ServerBossEvent;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.BossEvent;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -92,8 +89,6 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     private final Instantane instantane;
     private final Locomotion locomotion;
     private final List<Evenement> evenements = new ArrayList<>();
-    private final ServerBossEvent barre = new ServerBossEvent(Component.translatable("entity.spinosaure.spinosaure"),
-            BossEvent.BossBarColor.GREEN, BossEvent.BossBarOverlay.NOTCHED_10);
 
     private Decision decision;
     private Attaque attaque;
@@ -103,7 +98,9 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     private Player tenu;
     private boolean lacherAutorise;
     private long dernierCombat = Long.MIN_VALUE / 2;
-    private java.util.UUID cibleAnnoncee;
+    private Tactique tactiquePrecedente = Tactique.ERRANCE;
+    private long prochainePresence;
+    private long dernierActif = Long.MIN_VALUE / 2;
     private long derniereAnnonce = Long.MIN_VALUE / 2;
 
     public SpinosaureEntity(EntityType<? extends SpinosaureEntity> type, Level level) {
@@ -116,7 +113,6 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         this.cerveau = new Cerveau(reglages, level.getRandom().nextLong());
         this.instantane = new Instantane(this, reglages);
         this.locomotion = new Locomotion(this);
-        this.barre.setVisible(false);
     }
 
     public static AttributeSupplier.Builder attributs() {
@@ -172,8 +168,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
 
     @Override
     protected net.minecraft.sounds.SoundEvent getAmbientSound() {
-        Tactique t = tactique();
-        return t == Tactique.TRAQUE || t == Tactique.FIGE || t == Tactique.AFFUT_EAU ? null : SoundEvents.RAVAGER_AMBIENT;
+        return silencieux(tactique()) ? null : SoundEvents.RAVAGER_AMBIENT;
     }
 
     @Override
@@ -193,7 +188,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
 
     @Override
     protected void playStepSound(BlockPos pos, net.minecraft.world.level.block.state.BlockState etat) {
-        if (tactique() != Tactique.TRAQUE) {                  // pas feutres : pas de bruit
+        if (!silencieux(tactique()) || allure() == Allure.COURSE) {   // il file sans bruit
             playSound(SoundEvents.RAVAGER_STEP, 0.9F, 0.6F);
         }
     }
@@ -221,7 +216,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     @Override
     public boolean removeWhenFarAway(double distance) {
         // pas de disparition au milieu d'une chasse ou d'une rancune
-        return level().getGameTime() - dernierCombat > 6000;
+        return level().getGameTime() - dernierActif > 6000;
     }
 
     @Override
@@ -404,7 +399,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             cerveau.destinationBloquee(tick);         // le cerveau choisit autre chose
         }
         regeneration(tick);
-        barre(tick);
+        presence(tick);
         if (tick % 10 == 0 && getTags().contains("debug")) {
             setCustomName(Component.literal(decision.tactique() + " : " + decision.raison()));
             setCustomNameVisible(true);
@@ -431,20 +426,16 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (enCombat(d.tactique())) {
             dernierCombat = tick;
         }
-        // nouvelle cible : il le fait savoir (grognement, et rugissement court s'il est libre)
-        if (d.cible() != null && !d.cible().equals(cibleAnnoncee) && enCombat(d.tactique())) {
-            cibleAnnoncee = d.cible();
-            if (tick - derniereAnnonce > 200) {
-                derniereAnnonce = tick;
-                playSound(SoundEvents.RAVAGER_ROAR, 2.5F, 0.75F);
-                if (attaque == null && d.attaque() == null) {
-                    triggerAnim("ambiance", "hurle_court");
-                }
-            }
+        if (d.tactique() != Tactique.ERRANCE && d.tactique() != Tactique.ENQUETE) {
+            dernierActif = tick;
         }
-        if (d.cible() == null) {
-            cibleAnnoncee = null;
+        // il jaillit de l'ombre : c'est le seul moment ou il rugit (le sursaut)
+        if (d.tactique() == Tactique.ENGAGEMENT && silencieux(tactiquePrecedente)
+                && tactiquePrecedente != Tactique.DISPARITION && tick - derniereAnnonce > 200) {
+            derniereAnnonce = tick;
+            playSound(SoundEvents.RAVAGER_ROAR, 3.5F, 0.7F);
         }
+        tactiquePrecedente = d.tactique();
     }
 
     private void executer(Decision d) {
@@ -632,7 +623,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         return best;
     }
 
-    // ================================================================== soins, barre de vie
+    // ================================================================== soins
 
     private void regeneration(long tick) {
         if (tick % 20 != 0 || getHealth() >= getMaxHealth()) {
@@ -652,31 +643,34 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         }
     }
 
-    /** Tactiques ou il est engage contre quelqu'un (la traque d'un joueur en creatif n'en est pas). */
+    /** Tactiques de combat (la traque, l'observation et la filature n'en sont pas). */
     private static boolean enCombat(Tactique t) {
         return switch (t) {
-            case ENGAGEMENT, CONTOURNEMENT, INTIMIDATION, MAINTIEN, ACCULE, REPLI, REGENERATION, ESQUIVE_TIR -> true;
+            case ENGAGEMENT, CONTOURNEMENT, MAINTIEN, ACCULE, REPLI, REGENERATION, ESQUIVE_TIR, DISPARITION -> true;
             default -> false;
         };
     }
 
-    private void barre(long tick) {
-        barre.setProgress(getHealth() / getMaxHealth());
-        // visible tout le combat et 60 s apres : elle ne clignote plus quand il perd de vue
-        // sa cible une seconde, se replie ou part enqueter
-        barre.setVisible(tick - dernierCombat < 1200);
+    /** Tactiques ou il est silencieux : il chasse, observe, file, attend ou s'efface. */
+    private static boolean silencieux(Tactique t) {
+        return switch (t) {
+            case TRAQUE, FIGE, AFFUT_EAU, OBSERVATION, FILATURE, DISPARITION -> true;
+            default -> false;
+        };
     }
 
-    @Override
-    public void startSeenByPlayer(ServerPlayer joueur) {
-        super.startSeenByPlayer(joueur);
-        barre.addPlayer(joueur);
-    }
-
-    @Override
-    public void stopSeenByPlayer(ServerPlayer joueur) {
-        super.stopSeenByPlayer(joueur);
-        barre.removePlayer(joueur);
+    /**
+     * Signes de presence pendant la filature et l'observation : de temps en temps une
+     * respiration grave, qui vient de SA position (on l'entend dans son dos, pas a l'ecran).
+     */
+    private void presence(long tick) {
+        Tactique t = decision.tactique();
+        if ((t == Tactique.FILATURE || t == Tactique.OBSERVATION) && tick >= prochainePresence) {
+            if (prochainePresence > 0) {
+                playSound(SoundEvents.RAVAGER_AMBIENT, 0.9F, 0.42F + getRandom().nextFloat() * 0.06F);
+            }
+            prochainePresence = tick + 900 + getRandom().nextInt(900);        // 45 a 90 s
+        }
     }
 
     // ================================================================== animations
@@ -751,7 +745,8 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             }
         } else {
             nom = switch (t) {
-                case FIGE -> "fige_en_traque";
+                case FIGE, FILATURE -> "fige_en_traque";
+                case OBSERVATION -> "respiration_lourde";                 // il te regarde en respirant
                 case TRAQUE -> "traque_lente";
                 default -> getHealth() / getMaxHealth() < reglages.seuilRepli ? "respiration_lourde" : "repos";
             };

@@ -1,33 +1,45 @@
-# Spinosaure — mod Forge 1.20.1 + GeckoLib
+# Spinosaure — mod d'horreur Forge 1.20.1 + GeckoLib
 
-Un spinosaure amphibie dont l'IA est pensée pour le **multijoueur** : il choisit sa cible,
-change de tactique selon le nombre de joueurs et ne se laisse pas exploiter par les
-astuces classiques (pilier, bouclier, encerclement).
+Un spinosaure amphibie qui **traque** : il observe de loin, te file sans bruit, disparaît
+quand tu le regardes de trop près, et ne frappe qu'à l'ouverture, avant de s'effacer. Ce
+n'est pas un boss : il n'a pas de barre de vie et ne cherche pas le combat loyal.
 
 ## Ce qu'il fait
 
+La tension monte avec le temps qu'il passe à te traquer :
+
+| Phase | Durée de traque | Comportement |
+|---|---|---|
+| 1. Observation | 0 à 30 s | Il se poste à environ 28 blocs, de préférence dans l'eau, immobile, en respirant lourdement. Parfois sa tête se penche (`tete_inclinee_fixe`). |
+| 2. Filature | 30 s à 1 min 30 | Il te suit **dans ton dos**, hors de ton champ de vision, à 16 blocs, à pas feutrés, sans bruit de pas. |
+| 3. L'ouverture | au-delà | Il se rapproche à 10 blocs et attend que tu sois **isolé, dos tourné, à moins de 14 blocs**. Alors il jaillit : c'est son seul rugissement. |
+
 | Situation | Réaction |
 |---|---|
-| Plusieurs joueurs | Il choisit sa cible par score : menace récente, vie et armure du joueur, **isolement**, terrain (un joueur dans l'eau est vulnérable), rancune. Une hystérésis l'empêche de changer de cible à chaque tick. |
-| La cible est entourée d'alliés | Il l'attaque **par le côté opposé** à ses alliés, qui doivent la contourner pour l'aider. |
-| Un groupe de 3 arrive | Il rugit une fois par rencontre, avant le contact : Lenteur II et Faiblesse pendant 3 s pour tous dans un rayon de 16 blocs. |
-| Joueurs dans son dos | Balayage de queue sur 360° avec recul. |
-| Bouclier levé | Griffes qui désactivent le bouclier. Si elles sont en recharge, il passe sur le flanc. |
-| Tireur sur un pilier, inatteignable | S'il y a une autre cible accessible, il va sur elle. S'il n'y a que le tireur, il **plonge** pour rompre la ligne de tir, ou s'éloigne hors de portée. |
-| Cible bloquée (aucun progrès en 5 s) | Il la déclare inatteignable 15 s et en prend une autre. |
-| Joueur dans l'eau | Il le **saisit** et l'entraîne au fond. Ses alliés le libèrent en infligeant 20 dégâts au spinosaure. La victime se libère en en infligeant 12. Le maintien dure 6 s au maximum. |
-| Proie seule et distraite | **Traque** à pas feutrés. Si on le regarde, il **se fige**. Au bout de 4,5 s de regard, il attaque. |
-| Près de l'eau | Affût submergé, puis jaillissement. |
-| Moins de 30 % de vie et en infériorité | **Repli** vers l'eau profonde. Il se soigne au fond (+2 PV/s), puis revient en embuscade sur celui qui lui en veut le plus. |
-| Pas d'eau et moins de 15 % de vie | Acculé, il se bat jusqu'au bout. |
-| Plus personne en vue | Il va à la dernière position connue et renifle la piste. La **rancune** prolonge sa mémoire. |
-| Perception | Vue en cône de 220° avec ligne de vue. Ouïe : 24 blocs pour un sprint, 12 pour une marche, 4 accroupi. Les joueurs invisibles ne sont qu'entendus. |
+| Tu le regardes de près (moins de 24 blocs) | Il **disparaît** : il plonge dans l'eau la plus proche, ou s'enfuit hors de vue. |
+| Tu le regardes de loin | Il se **fige** et soutient ton regard, puis s'efface au bout de 4,5 s. |
+| Frappe éclair | Au plus 2 attaques ou 6 s, puis il s'efface avant qu'on riposte. La traque reprend plus tard. |
+| Tu le blesses de loin | Il se dérobe, et reviendra plus décidé. |
+| Tu le blesses au contact | Il riposte, frappe éclair comprise. |
+| Groupe de joueurs | Il reste à distance et observe. Il frappe celui qui s'isole : la tension monte sur tous ceux qu'il surveille, donc celui qui s'écarte est déjà « mûr ». Au bout de 4 min de traque, il ose même dans un groupe. |
+| Proie affaiblie (moins de 35 % de vie) et isolée | Il frappe plus tôt, dès la phase 2. |
+| Joueur dans l'eau | C'est son domaine. Il approche par en dessous, le **saisit** et l'entraîne au fond. Ses alliés le libèrent en lui infligeant 20 dégâts, la victime en lui en infligeant 12. |
+| Tireur perché, inatteignable | Il passe à une autre proie, ou plonge pour rompre la ligne de tir. |
+| Blessé à moins de 30 % en infériorité | Il se replie dans l'eau profonde et s'y soigne, puis revient en embuscade sur celui qui lui en veut le plus. |
+| Acculé, sans eau, presque mort | Il se bat jusqu'au bout. |
+| Plus personne en vue | Il va à la dernière position connue et renifle la piste. La rancune prolonge sa mémoire. |
+| Joueur en créatif | Il l'observe et le suit, mais ne l'attaque jamais. **Le combat se teste en survie.** |
 
-Toutes les attaques sont **télégraphiées**. Le coup porte à l'instant où on le voit porter dans
-l'animation (fermeture de la mâchoire, bras au plus rapide), instant mesuré sur le fichier
-d'animation. À plusieurs, un joueur attentif peut donc esquiver.
+**Sons**
+- Silence pendant l'observation, la filature, l'affût et la fuite.
+- De temps en temps, une respiration grave : elle vient de sa position réelle, donc tu l'entends dans ton dos.
+- Un rugissement quand il jaillit.
+- Sa tête et son cou suivent ce qu'il regarde.
 
-Une barre de vie de boss apparaît pour tous les joueurs proches pendant le combat.
+**Attaques**
+- Elles sont télégraphiées : le coup porte quand on le voit porter.
+- Au contact : balayage de queue si on l'encercle, griffes qui brisent les boucliers, morsure, et il tourne autour de sa proie entre deux coups.
+- En surgissant : charge ou bond.
 
 ## Déplacements
 

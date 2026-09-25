@@ -58,6 +58,31 @@ public final class Reglages {
     /** Fige sous un regard plus longtemps que ca : il bondit. */
     public long figeMax = 90;
 
+    // ------------------------------------------------------------ horreur
+    // La tension monte avec le temps passe a traquer UNE proie (ticks cumules) :
+    //   phase 1 (< phaseFilature) : il observe de loin, planque ;
+    //   phase 2 (< phaseFrappe)   : il la file, derriere elle, en silence ;
+    //   phase 3                   : il frappe a la premiere ouverture.
+    public double phaseFilature = 600;          // 30 s
+    public double phaseFrappe = 1800;           // 1 min 30
+    /** Face a un groupe, il n'ose frapper qu'apres une tres longue traque. */
+    public double tensionGroupe = 4800;         // 4 min
+    public double demiVieTension = 2400;
+    /** Ouverture : proie a moins de cette distance, dos tourne, sans allie proche. */
+    public double distanceFrappe = 14;
+    public double isolementFrappe = 16;
+    /** Blesse par un joueur plus proche que ca : il riposte ; plus loin : il se derobe. */
+    public double distanceRiposte = 8;
+    /** Vu de plus pres que ca : il disparait. Plus loin : il se fige et soutient le regard. */
+    public double distanceDisparition = 24;
+    public double distanceObservation = 28;
+    public double distanceFilature = 16, distanceFilatureProche = 10;
+    /** Frappe eclair : au plus 2 attaques ou 6 s, puis il disparait. */
+    public long dureeFrappe = 120;
+    public int attaquesParFrappe = 2;
+    public double degatsFinFrappe = 0.05;       // fraction de vie perdue qui l'interrompt
+    public long dureeDisparition = 200;
+
     // ------------------------------------------------------------ attaques
     public double porteeMorsure = 6.8;
     public double porteeGriffes = 4.5;

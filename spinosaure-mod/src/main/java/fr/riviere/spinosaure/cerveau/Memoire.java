@@ -26,6 +26,9 @@ public final class Memoire {
         public long inatteignableJusqua = Long.MIN_VALUE / 2;
         final Deque<Long> tirsInatteignables = new ArrayDeque<>();
         public long dernierCoup = Long.MIN_VALUE / 2;
+        /** Temps cumule passe a traquer ce joueur (ticks) : fait avancer les phases. */
+        public double tension;
+        long tickTension = Long.MIN_VALUE / 2;
     }
 
     private final Map<UUID, Trace> traces = new HashMap<>();
@@ -56,9 +59,13 @@ public final class Memoire {
             long dt = tick - dernierTick;
             double km = Math.pow(0.5, dt / r.demiVieMenace);
             double kr = Math.pow(0.5, dt / r.demiVieRancune);
+            double kt = Math.pow(0.5, dt / r.demiVieTension);
             for (Trace t : traces.values()) {
                 t.menace *= km;
                 t.rancune *= kr;
+                if (tick - t.tickTension > 40) {
+                    t.tension *= kt;                 // elle ne retombe que hors de vue
+                }
             }
         }
         dernierTick = tick;
@@ -103,6 +110,15 @@ public final class Memoire {
             s += d[1] / 100.0;
         }
         return s;
+    }
+
+    /** Accumule la tension sur la proie traquee (vue sans interruption de plus de 2 s). */
+    public void traquer(UUID id, long tick) {
+        Trace t = de(id);
+        if (tick - t.tickTension <= 40) {
+            t.tension += tick - t.tickTension;
+        }
+        t.tickTension = tick;
     }
 
     public boolean inatteignable(UUID id, long tick) {

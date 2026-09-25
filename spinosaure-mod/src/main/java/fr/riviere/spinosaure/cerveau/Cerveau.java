@@ -47,7 +47,6 @@ public final class Cerveau {
     private long tickProgres;
     private long esquiveJusqua = Long.MIN_VALUE / 2;
     private long figeDepuis = -1;
-    private boolean groupeSalue;
     private long dernierContact = Long.MIN_VALUE / 2;
     private Vec pointErrance;
     private long errancePlanifiee = Long.MIN_VALUE / 2;
@@ -60,6 +59,14 @@ public final class Cerveau {
     /** Destinations physiquement bloquees, evitees jusqu'a expiration. */
     private final List<long[]> interditsExpiration = new ArrayList<>();
     private final List<Vec> interdits = new ArrayList<>();
+    /** Frappe eclair en cours (hit and run) et disparition. */
+    private long frappeJusqua = Long.MIN_VALUE / 2;
+    private boolean frappeOuverte;
+    private int attaquesFrappe;
+    private double santeDebutFrappe;
+    private long disparaitJusqua = Long.MIN_VALUE / 2;
+    private String raisonDisparition = "";
+    private long dernierePose = Long.MIN_VALUE / 2;
     /** Sens dans lequel il tourne autour de sa proie (+1 / -1), revu toutes les 3 s. */
     private int sens = 1;
     private long sensDepuis = Long.MIN_VALUE / 2;
@@ -196,8 +203,6 @@ public final class Cerveau {
         }
         if (!percus.isEmpty()) {
             dernierContact = tick;
-        } else if (tick - dernierContact > 400) {
-            groupeSalue = false;
         }
 
         Decision d;
@@ -452,34 +457,31 @@ public final class Cerveau {
         double d = soi.pos().distanceH(j.pos());
         Vec devant = interception(soi, j, d > 12 ? Allure.COURSE : Allure.MARCHE);
 
-        // 4. un groupe arrive : rugir d'abord, une fois par rencontre
-        int proches = compterProches(soi, percus, r.rayonGroupe);
-        Joueur premier = plusProche(soi, percus);
-        boolean arrive = premier.pos().distance(soi.pos()) > r.porteeMorsure + 2.5;   // pas encore au contact
-        if (!groupeSalue && arrive && proches >= r.surnombre && !soi.attaqueEnCours()
-                && ChoixAttaque.dispo(pret, Attaque.RUGISSEMENT, tick)) {
-            groupeSalue = true;
-            pret.put(Attaque.RUGISSEMENT, tick + Attaque.RUGISSEMENT.recharge);
-            changer(Tactique.INTIMIDATION, tick);
-            return new Decision(Tactique.INTIMIDATION, cible, null, Allure.ARRET, centre(percus, null),
-                    Attaque.RUGISSEMENT, false, null, proches + " joueurs approchent : rugissement");
+        // 4-5. horreur : observer, filer, disparaitre... et frapper seulement a l'ouverture
+        if (frappeOuverte && tick > frappeJusqua + 40) {
+            frappeOuverte = false;              // perimee (repli, maintien... entre-temps) : on la referme
         }
-
-        // 5. proie seule et distraite : traque ou affut
-        Memoire.Trace t = m.connue(j.id());
-        boolean enCombat = tick - (t == null ? Long.MIN_VALUE / 2 : t.dernierCoup) < 200
-                || m.degatsRecents() > 0 || proches >= 2;
-        boolean enChasse = tactique == Tactique.TRAQUE || tactique == Tactique.FIGE
-                || tactique == Tactique.AFFUT_EAU || tactique == Tactique.ERRANCE || tactique == Tactique.ENQUETE;
-        if (!enCombat && enChasse && d > r.traqueContact) {
-            Decision furtif = chasse(soi, j, d, avant);
-            if (furtif != null) {
-                return furtif;
+        boolean frappe = frappeOuverte && tick < frappeJusqua;
+        boolean finie = frappeOuverte && (tick >= frappeJusqua || attaquesFrappe >= r.attaquesParFrappe
+                || santeDebutFrappe - soi.sante() >= r.degatsFinFrappe);
+        if (finie && tactique != Tactique.ACCULE) {
+            // frappe eclair terminee (coups portes, riposte encaissee ou temps ecoule) :
+            // il ne reste pas se battre, il s'efface
+            frappeOuverte = false;
+            frappeJusqua = Long.MIN_VALUE / 2;
+            Memoire.Trace t = m.de(j.id());
+            t.tension = Math.min(t.tension, r.phaseFilature);          // il reprend la traque de zero ou presque
+            return disparaitre(soi, percus, j, true, "a frappe, il s'efface avant qu'on riposte");
+        }
+        if (!frappe && tactique != Tactique.ACCULE) {
+            Decision h = horreur(soi, percus, j, d, avant);
+            if (h != null) {
+                return h;
             }
         }
         figeDepuis = -1;
 
-        // 6. combat
+        // 6. frappe eclair (ou combat accule)
         if (tactique != Tactique.ACCULE) {
             changer(Tactique.ENGAGEMENT, tick);
         }
@@ -488,6 +490,7 @@ public final class Cerveau {
         Attaque a = soi.attaqueEnCours() ? null : ChoixAttaque.choisir(soi, j, percus, pret, r);
         if (a != null) {
             pret.put(a, tick + a.recharge);
+            attaquesFrappe++;
             Vec regard = a == Attaque.BALAYAGE_QUEUE ? null : j.pos();
             return new Decision(tactique, cible, a == Attaque.CHARGE ? interception(soi, j, Allure.CHARGE) : null,
                     a == Attaque.CHARGE ? Allure.CHARGE : Allure.ARRET, regard, a, false, null,
@@ -535,39 +538,194 @@ public final class Cerveau {
         return new Decision(tactique, cible, but, allure, j.pos(), null, false, null, comment);
     }
 
-    private Decision chasse(Soi soi, Joueur j, double d, Tactique avant) {
+    /**
+     * Le coeur du mod d'horreur. Renvoie null quand il faut frapper (la frappe eclair est
+     * alors ouverte et le code de combat prend le relais).
+     */
+    private Decision horreur(Soi soi, List<Joueur> percus, Joueur j, double d, Tactique avant) {
         long tick = soi.tick();
-        boolean eau = j.dansEau() || (soi.dansEau() && soi.eauProfonde() != null && j.pos().distance(soi.eauProfonde()) < 8);
-        if (eau && (soi.dansEau() || soi.submerge())) {
+        Memoire.Trace t = m.de(j.id());
+        for (Joueur p : percus) {
+            m.traquer(p.id(), tick);              // il les surveille tous : celui qui s'isolera est deja « mur »
+        }
+
+        // en train de s'effacer : il finit de disparaitre
+        if (tick < disparaitJusqua) {
+            return disparaitre(soi, percus, j, false, raisonDisparition);
+        }
+        // blesse : au contact il riposte, de loin il se derobe
+        Joueur agresseur = null;
+        for (Joueur p : percus) {
+            Memoire.Trace tp = m.connue(p.id());
+            if (tp != null && tick - tp.dernierCoup < 40 && (agresseur == null
+                    || p.pos().distanceH(soi.pos()) < agresseur.pos().distanceH(soi.pos()))) {
+                agresseur = p;
+            }
+        }
+        if (agresseur != null) {
+            if (agresseur.pos().distanceH(soi.pos()) <= r.distanceRiposte) {
+                ouvrirFrappe(soi);
+                return null;
+            }
+            t.tension += 300;                               // il reviendra, plus decide
+            return commencerDisparition(soi, percus, j, "blesse de loin : il se derobe");
+        }
+        // l'eau est son domaine : il y approche par en dessous et saisit
+        if (j.dansEau() && (soi.dansEau() || soi.submerge())) {
+            if (d <= r.porteeSaisie + 2) {
+                ouvrirFrappe(soi);
+                return null;
+            }
             changer(Tactique.AFFUT_EAU, tick);
             Vec sous = new Vec(j.pos().x(), Math.min(j.pos().y(), soi.pos().y()) - 1.5, j.pos().z());
             return new Decision(Tactique.AFFUT_EAU, cible, sous, Allure.NAGE, j.pos(), null, false, null,
                     "approche sous l'eau, sans remous");
         }
-        if (Perception.meRegarde(soi, j, r)) {
+
+        int phase = t.tension < r.phaseFilature ? 1 : (t.tension < r.phaseFrappe ? 2 : 3);
+        double allie = Double.MAX_VALUE;
+        for (Joueur p : percus) {
+            if (!p.id().equals(j.id())) {
+                allie = Math.min(allie, p.pos().distanceH(j.pos()));
+            }
+        }
+        boolean isole = allie > r.isolementFrappe;
+        boolean regarde = Perception.meRegarde(soi, j, r);
+
+        // l'ouverture : proie isolee (ou traque interminable), dos tourne, assez pres
+        boolean ouverture = phase == 3 && !regarde && d <= r.distanceFrappe && (isole || t.tension >= r.tensionGroupe);
+        ouverture |= phase >= 2 && isole && j.sante() < 0.35 && d <= r.distanceFrappe;     // proie affaiblie
+        if (ouverture) {
+            ouvrirFrappe(soi);
+            return null;
+        }
+        // on le regarde : de pres il disparait, de loin il se fige et soutient le regard
+        if (regarde) {
+            if (d <= r.distanceDisparition) {
+                return commencerDisparition(soi, percus, j, "vu de trop pres : il disparait");
+            }
             if (figeDepuis < 0) {
                 figeDepuis = tick;
             }
             if (tick - figeDepuis > r.figeMax) {
                 figeDepuis = -1;
-                changer(Tactique.ENGAGEMENT, tick);
-                return null;                                 // il a assez attendu : il attaque
+                return commencerDisparition(soi, percus, j, "soutient le regard puis s'efface");
             }
             changer(Tactique.FIGE, tick);
             return new Decision(Tactique.FIGE, cible, null, Allure.ARRET, j.pos(), null, false, null,
-                    "se fige sous son regard");
+                    "se fige et soutient ton regard");
         }
         figeDepuis = -1;
-        changer(Tactique.TRAQUE, tick);
+
         String anim = null;
         if (avant == Tactique.ERRANCE || avant == Tactique.ENQUETE) {
             // premiere detection : il tourne brusquement la tete et le fixe en marchant
             Vec v = j.pos().moins(soi.pos());
-            double croix = soi.regard().x() * v.z() - soi.regard().z() * v.x();
-            anim = croix > 0 ? "marche_regard_fixe_droite" : "marche_regard_fixe_gauche";
+            anim = soi.regard().x() * v.z() - soi.regard().z() * v.x() > 0
+                    ? "marche_regard_fixe_droite" : "marche_regard_fixe_gauche";
         }
-        return new Decision(Tactique.TRAQUE, cible, interception(soi, j, Allure.FEUTREE), Allure.FEUTREE, j.pos(), null, false, anim,
-                "traque une proie qui ne l'a pas vu");
+        // phase 1, ou un groupe qui le tient a distance : il observe de loin, planque
+        if (phase == 1 || (!isole && t.tension < r.tensionGroupe)) {
+            changer(Tactique.OBSERVATION, tick);
+            Vec poste = posteObservation(soi, j);
+            if (poste.distanceH(soi.pos()) < 3) {
+                if (anim == null && tick - dernierePose > 400 && alea.nextInt(3) == 0) {
+                    anim = "tete_inclinee_fixe";                     // la tete qui se penche...
+                    dernierePose = tick;
+                }
+                return new Decision(Tactique.OBSERVATION, cible, null, Allure.ARRET, j.pos(), null, false, anim,
+                        isole ? "t'observe de loin" : "un groupe : il observe et attend qu'un joueur s'isole");
+            }
+            Allure a = soi.dansEau() ? Allure.NAGE : (poste.distanceH(soi.pos()) > 10 ? Allure.MARCHE : Allure.FEUTREE);
+            return new Decision(Tactique.OBSERVATION, cible, poste, a, j.pos(), null, false, anim,
+                    "gagne un poste d'observation");
+        }
+        // phases 2 et 3 : il la file, derriere elle, hors de son champ de vision
+        changer(Tactique.FILATURE, tick);
+        double recul = phase == 3 ? r.distanceFilatureProche : r.distanceFilature;
+        Vec dos = new Vec(j.regard().x(), 0, j.regard().z()).unitaireH();
+        Vec poste = dos == Vec.ZERO ? j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(recul))
+                : j.pos().moins(dos.fois(recul));
+        if (poste.distanceH(soi.pos()) < 2.5) {
+            return new Decision(Tactique.FILATURE, cible, null, Allure.ARRET, j.pos(), null, false, anim,
+                    phase == 3 ? "juste derriere toi, il attend l'ouverture" : "te suit, derriere toi");
+        }
+        Allure a = soi.dansEau() ? Allure.NAGE : (poste.distanceH(soi.pos()) > 20 ? Allure.MARCHE : Allure.FEUTREE);
+        return new Decision(Tactique.FILATURE, cible, interceptionPoint(poste, j), a, j.pos(), null, false, anim,
+                phase == 3 ? "se rapproche dans ton dos" : "te file a distance, sans bruit");
+    }
+
+    /** Le poste suit le deplacement de la proie : on vise ou il sera. */
+    private static Vec interceptionPoint(Vec poste, Joueur j) {
+        Vec v = j.vitesse() == null ? Vec.ZERO : new Vec(j.vitesse().x(), 0, j.vitesse().z());
+        return poste.plus(v.fois(20));
+    }
+
+    /**
+     * Poste d'observation : a ~28 blocs de la proie, de preference dans l'eau (il y guette,
+     * a demi immerge) ; sinon dans l'axe ou il se trouve deja.
+     */
+    private Vec posteObservation(Soi soi, Joueur j) {
+        Vec best = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (PointTerrain p : soi.voisinage()) {
+            double dj = p.pos().distanceH(j.pos());
+            if (p.danger() || dj < r.distanceObservation - 6 || dj > r.distanceObservation + 8 || interdit(p.pos(), soi.tick())) {
+                continue;
+            }
+            double s = (p.eau() ? 4 : 0) - Math.abs(dj - r.distanceObservation) * 0.3 - p.pos().distanceH(soi.pos()) * 0.1;
+            if (s > bestScore) {
+                bestScore = s;
+                best = p.pos();
+            }
+        }
+        if (best != null) {
+            return best;
+        }
+        Vec axe = soi.pos().moins(j.pos()).unitaireH();
+        if (axe == Vec.ZERO) {
+            axe = soi.regard().fois(-1);
+        }
+        return j.pos().plus(axe.fois(r.distanceObservation));
+    }
+
+    private void ouvrirFrappe(Soi soi) {
+        frappeOuverte = true;
+        frappeJusqua = soi.tick() + r.dureeFrappe;
+        attaquesFrappe = 0;
+        santeDebutFrappe = soi.sante();
+        disparaitJusqua = Long.MIN_VALUE / 2;
+    }
+
+    private Decision commencerDisparition(Soi soi, List<Joueur> percus, Joueur j, String raison) {
+        disparaitJusqua = soi.tick() + r.dureeDisparition;
+        raisonDisparition = raison;
+        return disparaitre(soi, percus, j, true, raison);
+    }
+
+    /** Il s'efface : sous l'eau s'il y en a, sinon loin, a l'oppose de la proie. */
+    private Decision disparaitre(Soi soi, List<Joueur> percus, Joueur j, boolean debut, String raison) {
+        long tick = soi.tick();
+        if (debut && disparaitJusqua < tick) {
+            disparaitJusqua = tick + r.dureeDisparition;
+            raisonDisparition = raison;
+        }
+        changer(Tactique.DISPARITION, tick);
+        Vec eau = choisirEau(soi, percus, null);
+        Vec but;
+        if (soi.submerge()) {
+            but = soi.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(6)).plus(new Vec(0, -2, 0));
+        } else if (eau != null && eau.distanceH(soi.pos()) < 40) {
+            but = eau;
+        } else {
+            Vec fuite = soi.pos().moins(j.pos()).unitaireH();
+            if (fuite == Vec.ZERO) {
+                fuite = soi.regard().fois(-1);
+            }
+            but = soi.pos().plus(fuite.fois(32));
+        }
+        Allure a = soi.dansEau() ? Allure.NAGE_RAPIDE : Allure.COURSE;
+        return new Decision(Tactique.DISPARITION, cible, but, a, null, null, false, null, raison);
     }
 
     // ------------------------------------------------------------------ deplacement
