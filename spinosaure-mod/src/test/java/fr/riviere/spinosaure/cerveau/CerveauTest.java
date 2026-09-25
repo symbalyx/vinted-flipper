@@ -32,7 +32,7 @@ class CerveauTest {
 
     static Joueur j(UUID id, double x, double z) {
         return new Joueur(id, new Vec(x, 0, z), versOrigine(x, z), 1.0, 10, Arme.MELEE,
-                false, false, false, false, true, true);
+                false, false, false, false, true, true, Vec.ZERO);
     }
 
     static Vec versOrigine(double x, double z) {
@@ -42,19 +42,19 @@ class CerveauTest {
     static Joueur avec(Joueur p, String quoi) {
         return switch (quoi) {
             case "bouclier" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    true, p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable());
+                    true, p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
             case "eau" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    p.bouclierLeve(), p.accroupi(), p.sprinte(), true, p.visible(), p.atteignable());
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), true, p.visible(), p.atteignable(), p.vitesse());
             case "perche" -> new Joueur(p.id(), p.pos().plus(new Vec(0, 6, 0)), p.regard(), p.sante(), p.armure(),
-                    Arme.DISTANCE, false, false, false, false, true, false);
+                    Arme.DISTANCE, false, false, false, false, true, false, p.vitesse());
             case "accroupi" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    false, true, false, p.dansEau(), p.visible(), p.atteignable());
+                    false, true, false, p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
             case "sprint" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    false, false, true, p.dansEau(), p.visible(), p.atteignable());
+                    false, false, true, p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
             case "detourne" -> new Joueur(p.id(), p.pos(), p.regard().fois(-1), p.sante(), p.armure(), p.arme(),
-                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable());
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
             case "blesse" -> new Joueur(p.id(), p.pos(), p.regard(), 0.3, 2, p.arme(),
-                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable());
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
             default -> throw new IllegalArgumentException(quoi);
         };
     }
@@ -300,5 +300,77 @@ class CerveauTest {
         c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 30, false));
         Decision d = c.penser(soi(1500), List.of(), List.of());      // 75 s plus tard, personne en vue
         assertEquals(Tactique.ENQUETE, d.tactique(), "30 degats de rancune : il n'a pas oublie");
+    }
+
+    // ------------------------------------------------------------ deplacement
+
+    static Joueur court(Joueur p, Vec vitesse) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), p.bouclierLeve(),
+                p.accroupi(), true, p.dansEau(), p.visible(), p.atteignable(), vitesse);
+    }
+
+    @Test
+    void coupeLaRouteDUnJoueurQuiFuit() {
+        Cerveau c = cerveau();
+        // A est a 26 blocs au nord et file vers l'est en sprint (0.28 bloc/tick)
+        Joueur fuyard = court(j(A, 0, -26), new Vec(0.28, 0, 0));
+        c.penser(soi(0), List.of(fuyard), coups(A, 1, false));
+        Decision d = c.penser(soi(100), List.of(fuyard), List.of());
+        assertTrue(d.destination().x() > 3, "il vise devant le fuyard, pas derriere : " + d.destination());
+        assertEquals(new Vec(0, 0, -26), d.regard(), "mais garde les yeux sur lui");
+    }
+
+    @Test
+    void seReplieVersUneEauQuiNeLObligePasATraverserLesJoueurs() {
+        Cerveau c = cerveau();
+        Vec eauDerriereEux = new Vec(0, -3, -22), eauLibre = new Vec(4, -3, 30);
+        List<PointTerrain> terrain = List.of(new PointTerrain(eauDerriereEux, true, 6, -3, false),
+                new PointTerrain(eauLibre, true, 6, -3, false));
+        List<Joueur> ps = List.of(j(A, -2, -9), j(B, 2, -9), j(C, 0, -11));
+        Soi blesse = new Soi(Vec.ZERO, NORD, 0.25, 300, false, false, null, false, 10, terrain);
+        c.penser(new Soi(Vec.ZERO, NORD, 0.6, 300, false, false, null, false, 0, terrain), ps, coups(A, 30, false));
+        Decision d = c.penser(blesse, ps, coups(B, 30, false));
+        assertEquals(Tactique.REPLI, d.tactique(), d.raison());
+        assertEquals(eauLibre, d.destination(), "l'eau la plus proche est derriere le groupe : il prend l'autre");
+    }
+
+    @Test
+    void patrouilleLesBergesEtEviteFalaisesEtLave() {
+        Cerveau c = cerveau();
+        List<PointTerrain> terrain = List.of(
+                new PointTerrain(new Vec(12, 0, 0), false, 0, 0, false),        // prairie
+                new PointTerrain(new Vec(-12, 0, 0), true, 1.5, -1, false),     // berge
+                new PointTerrain(new Vec(0, 9, 12), false, 0, 9, false),        // haut d'une falaise
+                new PointTerrain(new Vec(0, 0, -12), false, 0, 0, true));       // lave
+        for (int essai = 0; essai < 20; essai++) {
+            Cerveau n = new Cerveau(Reglages.defaut(), essai);
+            Decision d = n.penser(new Soi(Vec.ZERO, NORD, 1, 300, false, false, null, false, 0, terrain), List.of(), List.of());
+            assertEquals(new Vec(-12, 0, 0), d.destination(), "graine " + essai + " : " + d.raison());
+        }
+    }
+
+    @Test
+    void neRevientPasSurSesPas() {
+        Cerveau c = cerveau();
+        List<PointTerrain> terrain = List.of(
+                new PointTerrain(new Vec(-12, 0, 0), true, 1.5, -1, false),
+                new PointTerrain(new Vec(12, 0, 2), true, 1.5, -1, false));
+        Decision d1 = c.penser(new Soi(Vec.ZERO, NORD, 1, 300, false, false, null, false, 0, terrain), List.of(), List.of());
+        // arrive au premier point : le suivant doit etre l'autre berge
+        Soi arrive = new Soi(d1.destination(), NORD, 1, 300, false, false, null, false, 20, terrain);
+        Decision d2 = c.penser(arrive, List.of(), List.of());
+        assertNotEquals(d1.destination(), d2.destination());
+    }
+
+    @Test
+    void destinationBloqueeEnCombat_laCibleDevientInatteignable() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(A, 0, -25), "blesse"), j(B, 20, -20));
+        c.penser(soi(0), ps, coups(A, 1, false));
+        Decision d = c.penser(soi(80), ps, List.of());
+        assertEquals(A, d.cible());
+        c.destinationBloquee(81);                       // le corps n'arrive pas a l'atteindre
+        Decision apres = c.penser(soi(84), ps, List.of());
+        assertEquals(B, apres.cible(), apres.raison());
     }
 }

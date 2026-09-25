@@ -14,8 +14,8 @@ public enum Attaque {
     GRIFFES("coup_griffes_double", 44, 70, 0.8, 10, 32),
     /** Pivot complet sur 360 degres : touche tout ce qui l'entoure, avec recul. */
     BALAYAGE_QUEUE("coup_de_queue_pivot", 36, 100, 0.7, 19),
-    /** Course droite : l'impact se fait au contact, pas a un instant fixe. */
-    CHARGE("charge", 40, 200, 1.3),
+    /** Course engagee vers un point fixe : l'impact se fait au contact, sur l'axe du corps. */
+    CHARGE("charge", 70, 200, 1.3),
     /** Elan au tick 6, morsure a l'atterrissage (tick 22). */
     BOND("bond_joueur", 34, 160, 1.1, 22),
     /** Saisie : sur terre il secoue, dans l'eau il entraine au fond. Les allies peuvent liberer. */

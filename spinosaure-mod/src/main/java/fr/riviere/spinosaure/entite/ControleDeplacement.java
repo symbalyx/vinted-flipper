@@ -1,13 +1,18 @@
 package fr.riviere.spinosaure.entite;
 
-import net.minecraft.util.Mth;
+import fr.riviere.spinosaure.cerveau.Decision.Allure;
+import fr.riviere.spinosaure.cerveau.Pilote;
+import fr.riviere.spinosaure.cerveau.Vec;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.control.MoveControl;
 
+import java.util.List;
+
 /**
- * Deplacement amphibie, sur le modele du noye vanilla : au sol, le controle standard ;
- * dans l'eau, une nage en 3D (il plonge et remonte vers sa destination au lieu de
- * flotter en surface comme un mob terrestre).
+ * Remplace le controle vanilla (pivot de 90 degres par tick, vitesse instantanee) par le
+ * {@link Pilote} : lacet borne selon la vitesse, inertie, freinage avant les virages du
+ * chemin. Au sol le corps avance dans la direction de son lacet ; dans l'eau il nage en 3D
+ * vers le point vise.
  */
 final class ControleDeplacement extends MoveControl {
 
@@ -20,32 +25,41 @@ final class ControleDeplacement extends MoveControl {
 
     @Override
     public void tick() {
-        if (!spino.isInWater()) {
-            if (!spino.onGround()) {
-                spino.setDeltaMovement(spino.getDeltaMovement().add(0.0D, -0.008D, 0.0D));
+        Locomotion loco = spino.locomotion();
+        Vec pos = Instantane.vec(spino.position());
+        if (this.operation == MoveControl.Operation.MOVE_TO) {
+            this.operation = MoveControl.Operation.WAIT;      // la navigation le reposera au tick suivant
+            Vec vise = loco.viseeLissee(new Vec(this.wantedX, this.wantedY, this.wantedZ));
+            Pilote.Commande k = loco.pilote.piloter(pos, spino.getYRot(), vise, loco.suivants(4), loco.allure);
+            appliquer(k, vise);
+            // marche trop haute pour le pas automatique : saut (meme regle que le vanilla)
+            double dx = this.wantedX - spino.getX(), dz = this.wantedZ - spino.getZ();
+            double dy = this.wantedY - spino.getY();
+            if (!spino.isInWater() && dy > spino.maxUpStep() && dx * dx + dz * dz < Math.max(1.0F, spino.getBbWidth())) {
+                spino.getJumpControl().jump();
+                this.operation = MoveControl.Operation.JUMPING;
             }
-            super.tick();
-            return;
+        } else if (this.operation == MoveControl.Operation.JUMPING) {
+            spino.setSpeed((float) (loco.pilote.vitesseCourante() * spino.getAttributeValue(Attributes.MOVEMENT_SPEED)));
+            if (spino.onGround()) {
+                this.operation = MoveControl.Operation.WAIT;
+            }
+        } else {
+            // pas de destination : il freine progressivement au lieu de s'arreter net
+            appliquer(loco.pilote.piloter(pos, spino.getYRot(), null, List.of(), Allure.ARRET), null);
         }
-        if (this.operation != MoveControl.Operation.MOVE_TO || spino.getNavigation().isDone()) {
-            spino.setSpeed(0.0F);
-            return;
+    }
+
+    private void appliquer(Pilote.Commande k, Vec vise) {
+        spino.setYRot(k.lacet());
+        spino.yBodyRot = k.lacet();
+        float v = (float) (k.vitesse() * spino.getAttributeValue(Attributes.MOVEMENT_SPEED));
+        spino.setSpeed(v);                                     // avance selon son lacet
+        if (spino.isInWater() && vise != null) {
+            double d = Math.max(1e-3, vise.distance(Instantane.vec(spino.position())));
+            double dy = (vise.y() - spino.getY()) / d;
+            spino.setDeltaMovement(spino.getDeltaMovement().add(0, v * dy * 0.08, 0));   // plonge ou remonte
         }
-        double dx = this.wantedX - spino.getX();
-        double dy = this.wantedY - spino.getY();
-        double dz = this.wantedZ - spino.getZ();
-        double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (d < 1.0E-4) {
-            spino.setSpeed(0.0F);
-            return;
-        }
-        dy /= d;
-        float cap = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
-        spino.setYRot(this.rotlerp(spino.getYRot(), cap, 20.0F));   // gros animal : virage lent
-        spino.yBodyRot = spino.getYRot();
-        float cible = (float) (this.speedModifier * spino.getAttributeValue(Attributes.MOVEMENT_SPEED));
-        float v = Mth.lerp(0.125F, spino.getSpeed(), cible);
-        spino.setSpeed(v);
-        spino.setDeltaMovement(spino.getDeltaMovement().add(v * dx * 0.005D, v * dy * 0.1D, v * dz * 0.005D));
+        spino.locomotion().geste(k.geste());
     }
 }

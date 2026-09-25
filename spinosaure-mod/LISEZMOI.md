@@ -29,6 +29,27 @@ d'animation. À plusieurs, un joueur attentif peut donc esquiver.
 
 Une barre de vie de boss apparaît pour tous les joueurs proches pendant le combat.
 
+## Déplacements
+
+Le cerveau décide où aller et à quelle allure. Le **pilote** (`cerveau/Pilote.java`) décide
+comment un animal de 13 blocs y va :
+
+| Comportement | Détail |
+|---|---|
+| Rayon de braquage | 0,7 bloc au pas, 3 blocs en course, 5,3 en charge. Le déplacement vanilla le faisait pivoter de 90° par tick. |
+| Inertie | Il met 1,6 s pour passer de l'arrêt à la course, et freine progressivement. S'il s'arrête en pleine course, il joue `ralentissement_course_arret`. |
+| Freinage avant les virages | Il lit les nœuds du chemin à venir et ralentit pour ne pas déborder de plus de 1,5 bloc. Il ralentit aussi quand le point visé est dans son cercle de braquage, au lieu d'orbiter autour. |
+| Pivot sur place | Si la destination est derrière lui à l'arrêt, il tourne sur place (`tourne_sur_place`, 90°/s). |
+| Virages rapides | Il penche dans le virage (`virage_serre_gauche`/`droite`). |
+| Chemins en diagonale | La grille vanilla produit des escaliers. Il vise la moyenne des nœuds des 4 prochains blocs, avec une correction de cap amortie. Cap mesuré sur une diagonale : 0,67°/tick, contre 4,5 en visant le nœud suivant. |
+| Endurance | 12 s de course ou 5 s de charge l'essoufflent : il marche le temps de récupérer. Un joueur qui court longtemps peut le semer. |
+| Charge engagée | Elle part vers le point où le joueur sera (interception), prolongé de 6 blocs, sans correction ensuite. Elle ne touche que sur l'axe du corps, jusqu'au museau, et renverse ce qui se trouve sur la ligne. Un pas de côté l'évite. Lancé, il dépasse de plus de 9 blocs avant de revenir : c'est la fenêtre de contre-attaque. |
+| Interception | Il vise où le joueur sera, pas où il est : un fuyard en ligne droite se fait couper la route. |
+| Terrain | 48 points lus dans les cartes de hauteur toutes les 2 s : eau et profondeur, dénivelé, et danger selon le classement de pathfinding de Minecraft (lave, feu, cactus, neige poudreuse). |
+| Errance | Il patrouille les berges de son territoire, sauvegardé dans la partie. Il évite falaises et lave, et ne repasse pas par ses derniers points. |
+| Repli | Il choisit l'eau profonde qui l'éloigne des joueurs, jamais une eau qu'il faudrait atteindre en leur passant au travers. |
+| Déblocage | Mesuré en distance gagnée vers le but, pas en distance parcourue. Dans l'ordre : sauter (et arracher les feuilles), reculer, contourner par un côté puis par l'autre la fois suivante, abandonner. S'il abandonne, le cerveau raye la destination pour une minute, ou déclare la cible inatteignable. |
+
 ## Installer
 
 1. JDK 17, puis dans ce dossier : `./gradlew runClient`.
@@ -60,8 +81,12 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
 
 ## Ce qui est vérifié, ce qui ne l'est pas
 
-- **Le cerveau** (`cerveau/`, sans aucune dépendance à Minecraft) : 17 scénarios JUnit, tous
-  verts (`./gradlew test`). Ils couvrent le choix de cible, l'hystérésis, le tireur perché,
+- **Le cerveau et le pilote** (`cerveau/`, sans aucune dépendance à Minecraft) : 36 tests
+  JUnit, tous verts (`./gradlew test`). Les tests du pilote simulent le modèle cinématique de
+  Minecraft : pivot, accélération, anti-orbite, freinage avant virage, dépassement après une
+  charge ratée, essoufflement, stabilité du cap sur un chemin en escalier. S'y ajoutent
+  l'échelle de déblocage, l'interception, le choix de l'eau de repli, l'errance sur les
+  berges et l'abandon d'une destination bloquée. Ils couvrent le choix de cible, l'hystérésis, le tireur perché,
   l'encerclement, le bouclier, l'approche par le flanc, le repli, la traque, la saisie avec
   libération, la mémoire et le blocage.
 - **La partie Minecraft** (`entite/`, `client/`) : **pas compilée contre le vrai Forge**, car
@@ -72,7 +97,8 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
     pour 1.20.1 si elle diffère ;
   - `GeoEntityRenderer.withScale` ;
   - `Player.disableShield(boolean)` ;
-  - `IForgeEntity.shouldRiderSit`.
+  - `IForgeEntity.shouldRiderSit` ;
+  - `WalkNodeEvaluator.getBlockPathTypeStatic`, utilisée pour classer le terrain dangereux.
 
 ## Limites connues
 

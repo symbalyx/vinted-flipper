@@ -11,10 +11,11 @@ import java.util.UUID;
  * @param armure      points d'armure, 0..20
  * @param visible     ligne de vue degagee entre le spinosaure et le joueur
  * @param atteignable un chemin terrestre ou aquatique existe jusqu'a lui
+ * @param vitesse     deplacement mesure, en blocs par tick (pour l'intercepter)
  */
 public record Joueur(UUID id, Vec pos, Vec regard, double sante, double armure, Arme arme,
                      boolean bouclierLeve, boolean accroupi, boolean sprinte, boolean dansEau,
-                     boolean visible, boolean atteignable) {
+                     boolean visible, boolean atteignable, Vec vitesse) {
 
     public enum Arme { AUCUNE, MELEE, DISTANCE, TRIDENT }
 

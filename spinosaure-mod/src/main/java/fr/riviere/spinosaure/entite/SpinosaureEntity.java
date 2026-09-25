@@ -76,19 +76,21 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     private static final String PREFIXE = "animation.spinosaure.";
     /** Animations ponctuelles d'ambiance que le cerveau peut demander. */
     private static final String[] AMBIANCES = {"renifle_piste_sol", "marche_regard_fixe_droite",
-            "marche_regard_fixe_gauche", "plonge", "secoue_proie", "degats", "degats_eau", "hurle_court"};
+            "marche_regard_fixe_gauche", "secoue_proie", "degats", "degats_eau", "hurle_court",
+            "entree_eau", "ralentissement_course_arret"};
     /**
      * Vitesse au sol (blocs/s) pour laquelle chaque animation de marche a ete calee,
      * mesuree sur le modele a l'echelle 1 puis ramenee a l'echelle de rendu. Le rendu
      * accelere ou ralentit l'animation selon la vitesse reelle : pas de pieds qui glissent.
      */
     private static final double MARCHE_NOMINALE = 1.08, COURSE_NOMINALE = 5.53, CHARGE_NOMINALE = 8.92,
-            FEUTREE_NOMINALE = 0.23, BOITEUSE_NOMINALE = 0.77;
+            FEUTREE_NOMINALE = 0.23, BOITEUSE_NOMINALE = 0.77, VIRAGE_NOMINALE = 6.1;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     private final Reglages reglages = Reglages.defaut();
     private final Cerveau cerveau;
     private final Instantane instantane;
+    private final Locomotion locomotion;
     private final List<Evenement> evenements = new ArrayList<>();
     private final ServerBossEvent barre = new ServerBossEvent(Component.translatable("entity.spinosaure.spinosaure"),
             BossEvent.BossBarColor.GREEN, BossEvent.BossBarOverlay.NOTCHED_10);
@@ -100,8 +102,6 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     private boolean chargeTouchee;
     private Player tenu;
     private boolean lacherAutorise;
-    private Vec3 destination;
-    private int prochainChemin;
     private long dernierCombat = Long.MIN_VALUE / 2;
 
     public SpinosaureEntity(EntityType<? extends SpinosaureEntity> type, Level level) {
@@ -113,6 +113,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         this.xpReward = 80;
         this.cerveau = new Cerveau(reglages, level.getRandom().nextLong());
         this.instantane = new Instantane(this, reglages);
+        this.locomotion = new Locomotion(this);
         this.barre.setVisible(false);
     }
 
@@ -187,6 +188,39 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         return isInWater() && level().getFluidState(BlockPos.containing(getX(), getY() + 2.5, getZ())).is(FluidTags.WATER);
     }
 
+    Locomotion locomotion() {
+        return locomotion;
+    }
+
+    boolean attaqueEnCours() {
+        return attaque != null;
+    }
+
+    /** Renverse ce qui se trouve sur la trajectoire d'une charge (sans l'arreter). */
+    void pietiner(LivingEntity e) {
+        blesser(e, 0.5, 1.6);
+    }
+
+    @Override
+    public void addAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        fr.riviere.spinosaure.cerveau.Vec t = cerveau.territoire();
+        if (t != null) {
+            tag.putDouble("TerritoireX", t.x());
+            tag.putDouble("TerritoireY", t.y());
+            tag.putDouble("TerritoireZ", t.z());
+        }
+    }
+
+    @Override
+    public void readAdditionalSaveData(net.minecraft.nbt.CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.contains("TerritoireX")) {
+            cerveau.definirTerritoire(new fr.riviere.spinosaure.cerveau.Vec(
+                    tag.getDouble("TerritoireX"), tag.getDouble("TerritoireY"), tag.getDouble("TerritoireZ")));
+        }
+    }
+
     public Tactique tactique() {
         return Tactique.values()[entityData.get(TACTIQUE)];
     }
@@ -198,7 +232,8 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     @Override
     public void travel(Vec3 entree) {
         if (isEffectiveAi() && isInWater()) {
-            moveRelative(0.02F, entree);
+            // poussee calee pour nager a ~2.7 blocs/s (NAGE) et ~4 blocs/s (NAGE_RAPIDE)
+            moveRelative(0.05F, entree);
             move(net.minecraft.world.entity.MoverType.SELF, getDeltaMovement());
             setDeltaMovement(getDeltaMovement().scale(0.9D));
         } else {
@@ -312,6 +347,9 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         }
         executer(decision);
         tickAttaque();
+        if (locomotion.tick() == fr.riviere.spinosaure.cerveau.Deblocage.Action.ABANDONNER) {
+            cerveau.destinationBloquee(tick);         // le cerveau choisit autre chose
+        }
         regeneration(tick);
         barre(tick);
         if (tick % 10 == 0 && getTags().contains("debug")) {
@@ -334,7 +372,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             triggerAnim("ambiance", d.animation());
         }
         if (d.attaque() != null && attaque == null) {
-            demarrerAttaque(d.attaque(), joueur(d.cible()));
+            demarrerAttaque(d.attaque(), joueur(d.cible()), d.destination());
         }
         if (d.tactique() != Tactique.ERRANCE && d.tactique() != Tactique.ENQUETE) {
             dernierCombat = level().getGameTime();
@@ -342,8 +380,11 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     }
 
     private void executer(Decision d) {
-        if (attaque != null && attaque != Attaque.CHARGE) {
-            getNavigation().stop();                         // attaque engagee : il ne bouge plus
+        if (attaque == Attaque.CHARGE) {
+            return;                                         // la charge suit sa propre trajectoire
+        }
+        if (attaque != null) {
+            locomotion.arreter();                           // attaque engagee : il ne bouge plus
             if (cibleAttaque != null && attaque != Attaque.BALAYAGE_QUEUE && attaqueTick < premierImpact(attaque)) {
                 getLookControl().setLookAt(cibleAttaque, 20.0F, 20.0F);
                 tournerVers(cibleAttaque.position(), 6.0F);
@@ -354,19 +395,13 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             getLookControl().setLookAt(d.regard().x(), d.regard().y() + 1.5, d.regard().z(), 30.0F, 30.0F);
         }
         if (d.destination() == null || d.allure() == Allure.ARRET) {
-            getNavigation().stop();
+            locomotion.arreter();
             if (d.regard() != null) {
-                tournerVers(Instantane.vec3(d.regard()), 4.0F);
+                tournerVers(Instantane.vec3(d.regard()), (float) fr.riviere.spinosaure.cerveau.Pilote.PIVOT_DEG);
             }
             return;
         }
-        Vec3 but = Instantane.vec3(d.destination());
-        if (destination == null || destination.distanceToSqr(but) > 2.25 || getNavigation().isDone() || --prochainChemin <= 0) {
-            destination = but;
-            prochainChemin = 20;
-            getNavigation().moveTo(but.x, but.y, but.z, d.allure().vitesse);
-        }
-        degagerFeuillage();
+        locomotion.aller(Instantane.vec3(d.destination()), d.allure());
     }
 
     private void tournerVers(Vec3 cible, float max) {
@@ -376,31 +411,26 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         yBodyRot = getYRot();
     }
 
-    /** Coince contre des feuilles en poursuivant : il les arrache (si mobGriefing). */
-    private void degagerFeuillage() {
-        if (!horizontalCollision || !ForgeEventFactory.getMobGriefingEvent(level(), this)) {
-            return;
-        }
-        Vec3 avant = Instantane.vec3(Instantane.avant(yBodyRot));
-        BlockPos base = BlockPos.containing(getX() + avant.x * 2.5, getY(), getZ() + avant.z * 2.5);
-        for (BlockPos p : BlockPos.betweenClosed(base.offset(-1, 0, -1), base.offset(1, 4, 1))) {
-            if (level().getBlockState(p).is(BlockTags.LEAVES)) {
-                level().destroyBlock(p, true, this);
-            }
-        }
-    }
-
     // ================================================================== attaques
 
     private static int premierImpact(Attaque a) {
         return a.impacts.length == 0 ? 0 : a.impacts[0];
     }
 
-    private void demarrerAttaque(Attaque a, Player cible) {
+    private void demarrerAttaque(Attaque a, Player cible, fr.riviere.spinosaure.cerveau.Vec visee) {
         attaque = a;
         attaqueTick = 0;
         cibleAttaque = cible;
         chargeTouchee = false;
+        if (a == Attaque.CHARGE) {
+            Vec3 point = visee != null ? Instantane.vec3(visee) : (cible != null ? cible.position() : null);
+            if (point == null) {
+                attaque = null;
+                return;
+            }
+            locomotion.lancerCharge(point);
+            playSound(SoundEvents.RAVAGER_ROAR, 3.0F, 0.8F);   // le signal : on a le temps de s'ecarter
+        }
         if (a != Attaque.CHARGE) {
             triggerAnim("action", a.animation);   // la charge est une allure, pas une action
         }
@@ -424,23 +454,21 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             setDeltaMovement(elan.x * 1.15, 0.55, elan.z * 1.15);
         }
         if (attaque == Attaque.CHARGE) {
-            charger();
+            LivingEntity t = chargeTouchee ? null : locomotion.tickCharge(cibleAttaque);
+            if (t != null) {
+                chargeTouchee = true;
+                blesser(t, Attaque.CHARGE.degats, 2.2);
+            }
+            if (chargeTouchee || locomotion.chargeArrivee() || attaqueTick >= attaque.duree) {
+                locomotion.finCharge();                    // le pilote freine : il ne s'arrete pas net
+                attaque = null;
+                cibleAttaque = null;
+            }
+            return;
         }
         if (attaqueTick >= attaque.duree) {
             attaque = null;
             cibleAttaque = null;
-        }
-    }
-
-    private void charger() {
-        if (cibleAttaque == null || chargeTouchee) {
-            return;
-        }
-        // la course elle-meme suit la decision (destination = la cible, allure CHARGE)
-        if (getBoundingBox().inflate(1.2).intersects(cibleAttaque.getBoundingBox())) {
-            chargeTouchee = true;
-            blesser(cibleAttaque, Attaque.CHARGE.degats, 2.2);
-            attaqueTick = Math.max(attaqueTick, Attaque.CHARGE.duree - 10);   // freine apres l'impact
         }
     }
 
@@ -570,7 +598,14 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controleurs) {
+        // ordre = priorite croissante : une attaque recouvre une animation d'ambiance
         controleurs.add(new AnimationController<>(this, "mouvement", 5, this::mouvement));
+
+        AnimationController<SpinosaureEntity> ambiance = new AnimationController<>(this, "ambiance", 5, e -> PlayState.STOP);
+        for (String nom : AMBIANCES) {
+            ambiance.triggerableAnim(nom, RawAnimation.begin().thenPlay(PREFIXE + nom));
+        }
+        controleurs.add(ambiance);
 
         AnimationController<SpinosaureEntity> action = new AnimationController<>(this, "action", 3, e -> PlayState.STOP);
         for (Attaque a : Attaque.values()) {
@@ -579,16 +614,11 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             }
         }
         controleurs.add(action);
-
-        AnimationController<SpinosaureEntity> ambiance = new AnimationController<>(this, "ambiance", 5, e -> PlayState.STOP);
-        for (String nom : AMBIANCES) {
-            ambiance.triggerableAnim(nom, RawAnimation.begin().thenPlay(PREFIXE + nom));
-        }
-        controleurs.add(ambiance);
     }
 
     private PlayState mouvement(AnimationState<SpinosaureEntity> etat) {
         double v = Math.hypot(getX() - xo, getZ() - zo) * 20.0;          // blocs/s reels
+        double lacet = Mth.wrapDegrees(yBodyRot - yBodyRotO);             // degres/tick, + = a droite
         double e = fr.riviere.spinosaure.SpinosaureMod.ECHELLE;
         Tactique t = tactique();
         String nom;
@@ -604,6 +634,11 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             }
         } else if (!onGround() && getDeltaMovement().y < -0.35) {
             nom = "chute";
+        } else if (v < 0.25 && Math.abs(lacet) > 1.5) {
+            nom = "tourne_sur_place";                                     // pivot sur place
+        } else if (v > 3.0 && Math.abs(lacet) > 2.5) {
+            nom = lacet > 0 ? "virage_serre_droite" : "virage_serre_gauche";   // penche dans le virage
+            nominale = VIRAGE_NOMINALE;
         } else if (v > 0.25) {
             switch (allure()) {
                 case FEUTREE -> { nom = "marche_feutree"; nominale = FEUTREE_NOMINALE; }

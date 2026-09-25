@@ -53,6 +53,16 @@ public final class Cerveau {
     private long errancePlanifiee = Long.MIN_VALUE / 2;
     private boolean renifle;
 
+    /** Centre du territoire : premiere position connue, ou fixe par l'entite (sauvegarde). */
+    private Vec territoire;
+    /** Derniers points d'errance visites : il ne tourne pas en rond. */
+    private final java.util.ArrayDeque<Vec> visites = new java.util.ArrayDeque<>();
+    /** Destinations physiquement bloquees, evitees jusqu'a expiration. */
+    private final List<long[]> interditsExpiration = new ArrayList<>();
+    private final List<Vec> interdits = new ArrayList<>();
+    /** Derniere destination demandee au corps (pour savoir quoi abandonner). */
+    private Vec derniereDestination;
+
     public Cerveau(Reglages r, long graine) {
         this.r = r;
         this.m = new Memoire(r);
@@ -84,6 +94,47 @@ public final class Cerveau {
         changer(Tactique.MAINTIEN, tick);
     }
 
+    public void definirTerritoire(Vec centre) {
+        territoire = centre;
+    }
+
+    public Vec territoire() {
+        return territoire;
+    }
+
+    /**
+     * Le corps n'arrive pas a atteindre la destination demandee malgre saut, recul et
+     * contournement : on la raye pour un moment et on en choisit une autre.
+     */
+    public void destinationBloquee(long tick) {
+        Vec d = derniereDestination;
+        if (d == null) {
+            return;
+        }
+        interdits.add(d);
+        interditsExpiration.add(new long[]{tick + 1200});
+        if (cible != null && (tactique == Tactique.ENGAGEMENT || tactique == Tactique.CONTOURNEMENT
+                || tactique == Tactique.TRAQUE || tactique == Tactique.ACCULE)) {
+            m.marquerInatteignable(cible, tick + r.dureeInatteignable);
+        }
+        if (tactique == Tactique.ERRANCE || tactique == Tactique.ENQUETE) {
+            visites.addLast(d);
+            pointErrance = null;
+        }
+    }
+
+    private boolean interdit(Vec p, long tick) {
+        for (int i = interdits.size() - 1; i >= 0; i--) {
+            if (interditsExpiration.get(i)[0] <= tick) {
+                interdits.remove(i);
+                interditsExpiration.remove(i);
+            } else if (interdits.get(i).distanceH(p) < 5) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Le corps a du lacher (mort, deconnexion, teleportation...). */
     public void priseRompue(long tick) {
         tenu = null;
@@ -93,8 +144,17 @@ public final class Cerveau {
     // ================================================================== reflexion
 
     public Decision penser(Soi soi, List<Joueur> joueurs, List<Evenement> evts) {
+        Decision d = reflechir(soi, joueurs, evts);
+        derniereDestination = d.destination();
+        return d;
+    }
+
+    private Decision reflechir(Soi soi, List<Joueur> joueurs, List<Evenement> evts) {
         long tick = soi.tick();
         m.vieillir(tick);
+        if (territoire == null) {
+            territoire = soi.pos();
+        }
 
         Map<UUID, Joueur> parId = new HashMap<>();
         for (Joueur j : joueurs) {
@@ -181,8 +241,9 @@ public final class Cerveau {
         // entrainer la victime : vers l'eau profonde, sinon a l'oppose de ses allies
         Vec but;
         String ou;
-        if (soi.eauProfonde() != null && !soi.submerge()) {
-            but = soi.eauProfonde();
+        Vec eau = choisirEau(soi, percus, tenu);
+        if (eau != null && !soi.submerge()) {
+            but = eau;
             ou = "vers l'eau profonde";
         } else if (soi.submerge()) {
             but = soi.pos().plus(new Vec(0, -3, 0));
@@ -218,7 +279,8 @@ public final class Cerveau {
         if (!doitFuir && !enRepli) {
             return null;
         }
-        if (soi.eauProfonde() == null && !soi.submerge()) {
+        Vec eau = choisirEau(soi, percus, null);
+        if (eau == null && !soi.submerge()) {
             if (soi.sante() < r.seuilAcculeSansEau) {
                 changer(Tactique.ACCULE, tick);    // pas d'eau : il se bat jusqu'au bout
             }
@@ -234,8 +296,9 @@ public final class Cerveau {
         }
         changer(Tactique.REPLI, tick);
         Allure a = soi.dansEau() ? Allure.NAGE_RAPIDE : Allure.COURSE;
-        return new Decision(Tactique.REPLI, null, soi.eauProfonde(), a, null, null, false,
-                tactiqueDepuis == tick ? "plonge" : null,
+        // (pas d'animation « plonge » ici : elle enfonce le corps de 4 blocs, faite pour
+        //  un animal immobile en surface, elle le ferait traverser le sol en courant)
+        return new Decision(Tactique.REPLI, null, eau, a, null, null, false, null,
                 "repli vers l'eau : " + adversaires + " adversaires, " + Math.round(soi.sante() * 100) + " % de vie");
     }
 
@@ -268,8 +331,9 @@ public final class Cerveau {
         changer(Tactique.ESQUIVE_TIR, tick);
         Vec but;
         String comment;
-        if (soi.eauProfonde() != null || soi.submerge()) {
-            but = soi.submerge() ? soi.pos().plus(new Vec(0, -2, 0)) : soi.eauProfonde();
+        Vec eau = choisirEau(soi, percus, null);
+        if (eau != null || soi.submerge()) {
+            but = soi.submerge() ? soi.pos().plus(new Vec(0, -2, 0)) : eau;
             comment = "plonge pour rompre la ligne de tir";
         } else {
             Vec depuis = tireur != null ? tireur.pos() : centre(percus, null);
@@ -316,9 +380,13 @@ public final class Cerveau {
         changer(Tactique.ERRANCE, tick);
         cible = null;
         if (pointErrance == null || tick >= errancePlanifiee || soi.pos().distanceH(pointErrance) < 2) {
-            Vec base = soi.eauProfonde() != null && alea.nextDouble() < 0.6 ? soi.eauProfonde() : soi.pos();
-            double a = alea.nextDouble() * Math.PI * 2, rr = 6 + alea.nextDouble() * 12;
-            pointErrance = base.plus(new Vec(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+            if (pointErrance != null) {
+                visites.addLast(pointErrance);
+                while (visites.size() > 6) {
+                    visites.removeFirst();
+                }
+            }
+            pointErrance = choisirErrance(soi);
             errancePlanifiee = tick + 200 + alea.nextInt(200);
         }
         return new Decision(Tactique.ERRANCE, null, pointErrance, soi.dansEau() ? Allure.NAGE : Allure.MARCHE,
@@ -344,6 +412,7 @@ public final class Cerveau {
             }
         }
         double d = soi.pos().distanceH(j.pos());
+        Vec devant = interception(soi, j, d > 12 ? Allure.COURSE : Allure.MARCHE);
 
         // 4. un groupe arrive : rugir d'abord, une fois par rencontre
         int proches = compterProches(soi, percus, r.rayonGroupe);
@@ -382,7 +451,7 @@ public final class Cerveau {
         if (a != null) {
             pret.put(a, tick + a.recharge);
             Vec regard = a == Attaque.BALAYAGE_QUEUE ? null : j.pos();
-            return new Decision(tactique, cible, a == Attaque.CHARGE ? j.pos() : null,
+            return new Decision(tactique, cible, a == Attaque.CHARGE ? interception(soi, j, Allure.CHARGE) : null,
                     a == Attaque.CHARGE ? Allure.CHARGE : Allure.ARRET, regard, a, false, null,
                     raisonAttaque(a, soi, j, percus));
         }
@@ -399,12 +468,12 @@ public final class Cerveau {
             return new Decision(Tactique.CONTOURNEMENT, cible, j.pos().plus(lat.fois(r.porteeMorsure * 0.8)),
                     Allure.MARCHE, j.pos(), null, false, null, "contourne le bouclier");
         }
-        Vec but = j.pos();
-        String comment = "fonce sur sa cible";
+        Vec but = devant;
+        String comment = devant.distanceH(j.pos()) > 1.5 ? "coupe la route de sa cible" : "fonce sur sa cible";
         if (allies != null && d < 32) {
             // se placer de l'autre cote de la cible : ses allies doivent la contourner
             Vec cote = j.pos().moins(allies).unitaireH();
-            but = j.pos().plus(cote.fois(r.porteeMorsure * 0.7));
+            but = devant.plus(cote.fois(r.porteeMorsure * 0.7));
             comment = "attaque par le cote oppose a ses allies";
         }
         return new Decision(tactique, cible, but, allure, j.pos(), null, false, null, comment);
@@ -441,8 +510,111 @@ public final class Cerveau {
             double croix = soi.regard().x() * v.z() - soi.regard().z() * v.x();
             anim = croix > 0 ? "marche_regard_fixe_droite" : "marche_regard_fixe_gauche";
         }
-        return new Decision(Tactique.TRAQUE, cible, j.pos(), Allure.FEUTREE, j.pos(), null, false, anim,
+        return new Decision(Tactique.TRAQUE, cible, interception(soi, j, Allure.FEUTREE), Allure.FEUTREE, j.pos(), null, false, anim,
                 "traque une proie qui ne l'a pas vu");
+    }
+
+    // ------------------------------------------------------------------ deplacement
+
+    /**
+     * Ou sera la cible quand il l'atteindra : sa position plus sa vitesse multipliee par
+     * le temps de trajet (plafonne a 1.5 s pour ne pas partir sur une extrapolation folle).
+     * Un joueur qui fuit en ligne droite se fait couper la route au lieu d'etre suivi.
+     */
+    Vec interception(Soi soi, Joueur j, Allure allure) {
+        Vec v = j.vitesse() == null ? Vec.ZERO : new Vec(j.vitesse().x(), 0, j.vitesse().z());
+        if (v.normeH() < 0.02) {
+            return j.pos();
+        }
+        double mienne = Math.max(Pilote.vitesseSol(allure.vitesse), 0.05);
+        double t = Math.min(soi.pos().distanceH(j.pos()) / mienne, 30);
+        return j.pos().plus(v.fois(t));
+    }
+
+    /**
+     * Eau profonde ou se refugier. Pas forcement la plus proche : celle qui l'eloigne des
+     * joueurs, et surtout pas une eau qu'il faudrait atteindre en leur passant au travers.
+     */
+    Vec choisirEau(Soi soi, List<Joueur> percus, UUID ignorer) {
+        List<Vec> candidats = new ArrayList<>();
+        for (PointTerrain p : soi.voisinage()) {
+            if (p.profonde() && !p.danger()) {
+                candidats.add(p.pos());
+            }
+        }
+        if (soi.eauProfonde() != null) {
+            candidats.add(soi.eauProfonde());
+        }
+        Vec best = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (Vec c : candidats) {
+            if (interdit(c, soi.tick())) {
+                continue;
+            }
+            double s = -soi.pos().distanceH(c);
+            for (Joueur j : percus) {
+                if (j.id().equals(ignorer)) {
+                    continue;
+                }
+                s += 1.5 * Math.min(j.pos().distanceH(c), 20) / Math.max(1, percus.size());
+                if (distanceSegment(j.pos(), soi.pos(), c) < 5) {
+                    s -= 30;                    // il faudrait leur passer au travers
+                }
+            }
+            if (s > bestScore) {
+                bestScore = s;
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Point d'errance : il patrouille les berges de son territoire. Jamais une falaise ni de
+     * la lave, pas un point visite recemment, et il revient vers son territoire s'il s'en
+     * eloigne. Sans terrain echantillonne, un point au hasard autour de l'eau.
+     */
+    Vec choisirErrance(Soi soi) {
+        Vec best = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (PointTerrain p : soi.voisinage()) {
+            if (p.danger() || Math.abs(p.denivele()) > 4 || interdit(p.pos(), soi.tick())) {
+                continue;
+            }
+            double s = alea.nextDouble() * 2;
+            if (p.rive()) {
+                s += 3;
+            } else if (p.profonde()) {
+                s += 1.5;
+            }
+            if (territoire != null) {
+                s -= 0.15 * Math.max(0, p.pos().distanceH(territoire) - 32);
+            }
+            for (Vec v : visites) {
+                if (v.distanceH(p.pos()) < 10) {
+                    s -= 4;
+                }
+            }
+            if (s > bestScore) {
+                bestScore = s;
+                best = p.pos();
+            }
+        }
+        if (best != null) {
+            return best;
+        }
+        Vec base = soi.eauProfonde() != null && alea.nextDouble() < 0.6 ? soi.eauProfonde() : soi.pos();
+        double a = alea.nextDouble() * Math.PI * 2, rr = 6 + alea.nextDouble() * 12;
+        return base.plus(new Vec(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+    }
+
+    /** Distance horizontale du point p au segment [a, b]. */
+    static double distanceSegment(Vec p, Vec a, Vec b) {
+        Vec ab = new Vec(b.x() - a.x(), 0, b.z() - a.z());
+        Vec ap = new Vec(p.x() - a.x(), 0, p.z() - a.z());
+        double l2 = ab.scal(ab);
+        double t = l2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ap.scal(ab) / l2));
+        return ap.moins(ab.fois(t)).normeH();
     }
 
     // ------------------------------------------------------------------ utilitaires
