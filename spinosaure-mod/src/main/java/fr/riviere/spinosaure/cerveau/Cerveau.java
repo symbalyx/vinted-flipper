@@ -60,6 +60,9 @@ public final class Cerveau {
     /** Destinations physiquement bloquees, evitees jusqu'a expiration. */
     private final List<long[]> interditsExpiration = new ArrayList<>();
     private final List<Vec> interdits = new ArrayList<>();
+    /** Sens dans lequel il tourne autour de sa proie (+1 / -1), revu toutes les 3 s. */
+    private int sens = 1;
+    private long sensDepuis = Long.MIN_VALUE / 2;
     /** Derniere destination demandee au corps (pour savoir quoi abandonner). */
     private Vec derniereDestination;
 
@@ -161,9 +164,10 @@ public final class Cerveau {
             parId.put(j.id(), j);
         }
         List<Joueur> percus = new ArrayList<>();
+        List<Joueur> observes = new ArrayList<>();
         for (Joueur j : joueurs) {
             if (Perception.percoit(soi, j, r)) {
-                percus.add(j);
+                (j.inoffensif() ? observes : percus).add(j);
             }
         }
         for (Evenement e : evts) {
@@ -171,7 +175,7 @@ public final class Cerveau {
                 Joueur j = parId.get(d.source());
                 boolean atteignable = j == null || (j.atteignable() && !m.inatteignable(j.id(), tick));
                 m.blesse(d.source(), d.montant(), d.aDistance(), atteignable, tick);
-                if (j != null && !percus.contains(j)) {
+                if (j != null && !j.inoffensif() && !percus.contains(j)) {
                     percus.add(j);                       // il sait d'ou vient le coup
                 }
                 if (tenu != null) {
@@ -207,9 +211,43 @@ public final class Cerveau {
             return d;
         }
         if (percus.isEmpty()) {
+            if (!observes.isEmpty() && !(tactique == Tactique.ENQUETE && m.degatsRecents() > 0)) {
+                return observer(soi, observes);
+            }
             return sansPersonne(soi);
         }
         return combat(soi, percus);
+    }
+
+    /**
+     * Joueur en creatif : il ne peut pas le blesser, mais il ne l'ignore pas. Il le fixe,
+     * le suit a distance a pas feutres et se fige des qu'on le regarde. Le comportement
+     * de traque reste visible en creatif ; le combat se teste en survie.
+     */
+    private Decision observer(Soi soi, List<Joueur> observes) {
+        long tick = soi.tick();
+        Joueur j = plusProche(soi, observes);
+        Tactique avant = tactique;
+        double d = soi.pos().distanceH(j.pos());
+        if (Perception.meRegarde(soi, j, r)) {
+            changer(Tactique.FIGE, tick);
+            return new Decision(Tactique.FIGE, j.id(), null, Allure.ARRET, j.pos(), null, false, null,
+                    "se fige sous le regard d'un joueur en creatif");
+        }
+        changer(Tactique.TRAQUE, tick);
+        String anim = null;
+        if (avant == Tactique.ERRANCE || avant == Tactique.ENQUETE) {
+            Vec v = j.pos().moins(soi.pos());
+            anim = soi.regard().x() * v.z() - soi.regard().z() * v.x() > 0
+                    ? "marche_regard_fixe_droite" : "marche_regard_fixe_gauche";
+        }
+        if (d < 14) {
+            return new Decision(Tactique.TRAQUE, j.id(), null, Allure.ARRET, j.pos(), null, false, anim,
+                    "observe un joueur en creatif (il ne l'attaque pas)");
+        }
+        Vec but = j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(14));
+        return new Decision(Tactique.TRAQUE, j.id(), but, Allure.FEUTREE, j.pos(), null, false, anim,
+                "suit un joueur en creatif a distance");
     }
 
     // ------------------------------------------------------------------ 1. maintien
@@ -457,7 +495,8 @@ public final class Cerveau {
         }
 
         Vec allies = centre(percus, j.id());
-        Allure allure = soi.dansEau() ? Allure.NAGE_RAPIDE : (d > 12 ? Allure.COURSE : Allure.MARCHE);
+        // il court jusqu'a portee : la marche a 1.5 bloc/s se lisait comme de l'indifference
+        Allure allure = soi.dansEau() ? Allure.NAGE_RAPIDE : (d > r.porteeMorsure + 1 ? Allure.COURSE : Allure.MARCHE);
         if (j.bouclierLeve() && d <= r.porteeGriffes + 3) {
             // bouclier et griffes en recharge : on passe sur le flanc, du cote sans allie
             Vec lat = soi.pos().moins(j.pos()).unitaireH().perpH();
@@ -467,6 +506,23 @@ public final class Cerveau {
             changer(Tactique.CONTOURNEMENT, tick);
             return new Decision(Tactique.CONTOURNEMENT, cible, j.pos().plus(lat.fois(r.porteeMorsure * 0.8)),
                     Allure.MARCHE, j.pos(), null, false, null, "contourne le bouclier");
+        }
+        if (d <= r.porteeMorsure * 0.9) {
+            // a portee, attaques en recharge : il ne pousse pas contre le joueur (ce qui le
+            // faisait se croire bloque et reculer) ; il tourne autour, cote oppose aux allies
+            Vec rayon = soi.pos().moins(j.pos()).unitaireH();
+            if (rayon == Vec.ZERO) {
+                rayon = soi.regard().fois(-1);
+            }
+            if (tick - sensDepuis > 60) {
+                sens = allies != null && rayon.perpH().scal(allies.moins(j.pos())) > 0 ? -1 : (alea.nextBoolean() ? 1 : -1);
+                sensDepuis = tick;
+            }
+            double pas = Math.toRadians(35) * sens;
+            Vec tourne = new Vec(rayon.x() * Math.cos(pas) - rayon.z() * Math.sin(pas), 0,
+                    rayon.x() * Math.sin(pas) + rayon.z() * Math.cos(pas));
+            return new Decision(tactique, cible, j.pos().plus(tourne.fois(r.porteeMorsure * 0.75)), Allure.MARCHE,
+                    j.pos(), null, false, null, "tourne autour de sa proie en attendant l'ouverture");
         }
         Vec but = devant;
         String comment = devant.distanceH(j.pos()) > 1.5 ? "coupe la route de sa cible" : "fonce sur sa cible";

@@ -84,7 +84,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
      * accelere ou ralentit l'animation selon la vitesse reelle : pas de pieds qui glissent.
      */
     private static final double MARCHE_NOMINALE = 1.08, COURSE_NOMINALE = 5.53, CHARGE_NOMINALE = 8.92,
-            FEUTREE_NOMINALE = 0.23, BOITEUSE_NOMINALE = 0.77, VIRAGE_NOMINALE = 6.1;
+            FEUTREE_NOMINALE = 0.23, BOITEUSE_NOMINALE = 0.77, VIRAGE_NOMINALE = 6.1, EAU_NOMINALE = 0.80;
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
     private final Reglages reglages = Reglages.defaut();
@@ -103,6 +103,8 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     private Player tenu;
     private boolean lacherAutorise;
     private long dernierCombat = Long.MIN_VALUE / 2;
+    private java.util.UUID cibleAnnoncee;
+    private long derniereAnnonce = Long.MIN_VALUE / 2;
 
     public SpinosaureEntity(EntityType<? extends SpinosaureEntity> type, Level level) {
         super(type, level);
@@ -162,6 +164,48 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     @Override
     public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
         return getBoundingBox().inflate(6.0, 2.0, 6.0);
+    }
+
+    // ------------------------------------------------------------------ sons
+    // Sons du ravageur, plus graves : aucun fichier son a fournir. Muet pendant la traque et
+    // l'affut : le silence fait partie de la menace.
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getAmbientSound() {
+        Tactique t = tactique();
+        return t == Tactique.TRAQUE || t == Tactique.FIGE || t == Tactique.AFFUT_EAU ? null : SoundEvents.RAVAGER_AMBIENT;
+    }
+
+    @Override
+    public int getAmbientSoundInterval() {
+        return 240;
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getHurtSound(DamageSource source) {
+        return SoundEvents.RAVAGER_HURT;
+    }
+
+    @Override
+    protected net.minecraft.sounds.SoundEvent getDeathSound() {
+        return SoundEvents.RAVAGER_DEATH;
+    }
+
+    @Override
+    protected void playStepSound(BlockPos pos, net.minecraft.world.level.block.state.BlockState etat) {
+        if (tactique() != Tactique.TRAQUE) {                  // pas feutres : pas de bruit
+            playSound(SoundEvents.RAVAGER_STEP, 0.9F, 0.6F);
+        }
+    }
+
+    @Override
+    protected float getSoundVolume() {
+        return 2.5F;
+    }
+
+    @Override
+    public float getVoicePitch() {
+        return 0.6F + getRandom().nextFloat() * 0.1F;
     }
 
     @Override
@@ -256,7 +300,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     public boolean hurt(DamageSource source, float montant) {
         boolean touche = super.hurt(source, montant);
         if (touche && !level().isClientSide()) {
-            if (source.getEntity() instanceof Player p && !p.isCreative()) {
+            if (source.getEntity() instanceof Player p && !p.isCreative() && !p.isSpectator()) {
                 evenements.add(new Evenement.Degats(p.getUUID(), montant, source.getDirectEntity() instanceof Projectile));
                 dernierCombat = level().getGameTime();
             }
@@ -383,8 +427,23 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (d.attaque() != null && attaque == null) {
             demarrerAttaque(d.attaque(), joueur(d.cible()), d.destination());
         }
-        if (d.tactique() != Tactique.ERRANCE && d.tactique() != Tactique.ENQUETE) {
-            dernierCombat = level().getGameTime();
+        long tick = level().getGameTime();
+        if (enCombat(d.tactique())) {
+            dernierCombat = tick;
+        }
+        // nouvelle cible : il le fait savoir (grognement, et rugissement court s'il est libre)
+        if (d.cible() != null && !d.cible().equals(cibleAnnoncee) && enCombat(d.tactique())) {
+            cibleAnnoncee = d.cible();
+            if (tick - derniereAnnonce > 200) {
+                derniereAnnonce = tick;
+                playSound(SoundEvents.RAVAGER_ROAR, 2.5F, 0.75F);
+                if (attaque == null && d.attaque() == null) {
+                    triggerAnim("ambiance", "hurle_court");
+                }
+            }
+        }
+        if (d.cible() == null) {
+            cibleAnnoncee = null;
         }
     }
 
@@ -446,6 +505,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (a == Attaque.RUGISSEMENT) {
             playSound(SoundEvents.RAVAGER_ROAR, 4.0F, 0.55F);
         }
+        dernierCombat = level().getGameTime();
     }
 
     private void tickAttaque() {
@@ -483,6 +543,13 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
 
     private void frapper(Attaque a) {
         Vec3 avant = Instantane.vec3(Instantane.avant(yBodyRot));
+        switch (a) {
+            case MORSURE, MORSURE_LATERALE, BOND, SAISIE -> playSound(SoundEvents.RAVAGER_ATTACK, 2.0F, 0.7F);
+            case BALAYAGE_QUEUE -> playSound(SoundEvents.PLAYER_ATTACK_SWEEP, 2.5F, 0.5F);
+            case GRIFFES -> playSound(SoundEvents.PLAYER_ATTACK_STRONG, 2.0F, 0.6F);
+            default -> {
+            }
+        }
         switch (a) {
             case MORSURE, MORSURE_LATERALE, BOND -> {
                 LivingEntity v = meilleurDansCone(avant, reglages.porteeMorsure, a == Attaque.MORSURE_LATERALE ? 120 : 70);
@@ -585,10 +652,19 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         }
     }
 
+    /** Tactiques ou il est engage contre quelqu'un (la traque d'un joueur en creatif n'en est pas). */
+    private static boolean enCombat(Tactique t) {
+        return switch (t) {
+            case ENGAGEMENT, CONTOURNEMENT, INTIMIDATION, MAINTIEN, ACCULE, REPLI, REGENERATION, ESQUIVE_TIR -> true;
+            default -> false;
+        };
+    }
+
     private void barre(long tick) {
         barre.setProgress(getHealth() / getMaxHealth());
-        boolean combat = tick - dernierCombat < 200;
-        barre.setVisible(combat);
+        // visible tout le combat et 60 s apres : elle ne clignote plus quand il perd de vue
+        // sa cible une seconde, se replie ou part enqueter
+        barre.setVisible(tick - dernierCombat < 1200);
     }
 
     @Override
@@ -635,11 +711,25 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (isDeadOrDying()) {
             return etat.setAndContinue(RawAnimation.begin().thenPlayAndHold(PREFIXE + (isInWater() ? "mort_eau" : "mort")));
         }
-        if (isInWater()) {
+        if (isInWater() && onGround() && !estSubmerge()) {
+            // pieds au fond, eau peu profonde : il y marche (pas de nage sur place)
+            if (v > 0.25) {
+                nom = "marche_eau_peu_profonde";
+                nominale = EAU_NOMINALE;
+            } else {
+                nom = t == Tactique.AFFUT_EAU ? "affut_eau" : "repos";
+            }
+        } else if (isInWater()) {
+            // (nage_derive_ror, portee de ROR ou le spino flotte a la verticale, cabre le corps
+            //  de 35 degres queue pendante : elle se lisait comme une escalade. Retiree.)
             if (v > 0.3) {
                 nom = allure() == Allure.NAGE_RAPIDE ? "nage_rapide_ror" : (estSubmerge() ? "nage_sous_eau" : "nage_surface");
+            } else if (t == Tactique.AFFUT_EAU) {
+                nom = "affut_eau";
             } else {
-                nom = t == Tactique.AFFUT_EAU ? "affut_eau" : "nage_derive_ror";
+                nom = "nage_surface";                                   // barbote lentement sur place
+                etat.getController().setAnimationSpeed(0.45);
+                return etat.setAndContinue(RawAnimation.begin().thenLoop(PREFIXE + nom));
             }
         } else if (!onGround() && getDeltaMovement().y < -0.35) {
             nom = "chute";

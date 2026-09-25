@@ -80,7 +80,7 @@ final class Instantane {
         long tick = niveau.getGameTime();
         List<Joueur> out = new ArrayList<>();
         List<Player> ps = niveau.getEntitiesOfClass(Player.class, spino.getBoundingBox().inflate(r.porteeVue),
-                p -> p.isAlive() && !p.isSpectator() && !p.isCreative());
+                p -> p.isAlive() && !p.isSpectator());      // creatif inclus : observe, jamais attaque
         for (Player p : ps) {
             UUID id = p.getUUID();
             // un chemin par joueur toutes les 20 ticks, decale selon le joueur
@@ -104,7 +104,7 @@ final class Instantane {
             out.add(new Joueur(id, pos, vec(p.getViewVector(1.0F)),
                     p.getHealth() / p.getMaxHealth(), p.getArmorValue(), arme(p.getMainHandItem().getItem()),
                     p.isBlocking(), p.isCrouching(), p.isSprinting(), p.isInWater(),
-                    visible, atteignable.getOrDefault(id, true), vitesse));
+                    visible, atteignable.getOrDefault(id, true), vitesse, p.isCreative()));
         }
         atteignable.keySet().removeIf(id -> ps.stream().noneMatch(p -> p.getUUID().equals(id)));
         atteignableCalcule.keySet().retainAll(atteignable.keySet());

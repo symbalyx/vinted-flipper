@@ -32,7 +32,7 @@ class CerveauTest {
 
     static Joueur j(UUID id, double x, double z) {
         return new Joueur(id, new Vec(x, 0, z), versOrigine(x, z), 1.0, 10, Arme.MELEE,
-                false, false, false, false, true, true, Vec.ZERO);
+                false, false, false, false, true, true, Vec.ZERO, false);
     }
 
     static Vec versOrigine(double x, double z) {
@@ -42,19 +42,19 @@ class CerveauTest {
     static Joueur avec(Joueur p, String quoi) {
         return switch (quoi) {
             case "bouclier" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    true, p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
+                    true, p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             case "eau" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    p.bouclierLeve(), p.accroupi(), p.sprinte(), true, p.visible(), p.atteignable(), p.vitesse());
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), true, p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             case "perche" -> new Joueur(p.id(), p.pos().plus(new Vec(0, 6, 0)), p.regard(), p.sante(), p.armure(),
-                    Arme.DISTANCE, false, false, false, false, true, false, p.vitesse());
+                    Arme.DISTANCE, false, false, false, false, true, false, p.vitesse(), false);
             case "accroupi" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    false, true, false, p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
+                    false, true, false, p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             case "sprint" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
-                    false, false, true, p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
+                    false, false, true, p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             case "detourne" -> new Joueur(p.id(), p.pos(), p.regard().fois(-1), p.sante(), p.armure(), p.arme(),
-                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             case "blesse" -> new Joueur(p.id(), p.pos(), p.regard(), 0.3, 2, p.arme(),
-                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse());
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             default -> throw new IllegalArgumentException(quoi);
         };
     }
@@ -306,7 +306,7 @@ class CerveauTest {
 
     static Joueur court(Joueur p, Vec vitesse) {
         return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), p.bouclierLeve(),
-                p.accroupi(), true, p.dansEau(), p.visible(), p.atteignable(), vitesse);
+                p.accroupi(), true, p.dansEau(), p.visible(), p.atteignable(), vitesse, false);
     }
 
     @Test
@@ -372,5 +372,50 @@ class CerveauTest {
         c.destinationBloquee(81);                       // le corps n'arrive pas a l'atteindre
         Decision apres = c.penser(soi(84), ps, List.of());
         assertEquals(B, apres.cible(), apres.raison());
+    }
+
+    // ------------------------------------------------------------ retours du premier test en jeu
+
+    static Joueur creatif(Joueur p) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), false, false, false,
+                p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), true);
+    }
+
+    @Test
+    void joueurEnCreatif_ilLObserveSansJamaisLAttaquer() {
+        Cerveau c = cerveau();
+        Joueur spectateur = creatif(avec(j(A, 0, -30), "detourne"));
+        Decision d = c.penser(soi(0), List.of(spectateur), List.of());
+        assertEquals(Tactique.TRAQUE, d.tactique(), d.raison());
+        for (int t = 1; t < 200; t++) {
+            Joueur proche = creatif(j(A, 0, -5));                   // tout pres, il le regarde
+            d = c.penser(soi(t), List.of(proche), List.of());
+            assertNull(d.attaque(), "jamais d'attaque sur un joueur en creatif");
+        }
+        assertEquals(Tactique.FIGE, d.tactique());
+    }
+
+    @Test
+    void aPorteeIlTourneAutourAuLieuDePousserContreLeJoueur() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(j(A, 0, -5));
+        c.penser(soi(0), ps, coups(A, 1, false));                  // morsure tout de suite
+        Decision d = c.penser(soi(4), ps, List.of());               // morsure en recharge
+        assertNull(d.attaque());
+        assertEquals(Allure.MARCHE, d.allure());
+        double r = d.destination().distanceH(new Vec(0, 0, -5));
+        assertTrue(r > 4 && r < 6, "destination sur un cercle autour du joueur : " + d.destination());
+        assertTrue(d.destination().distanceH(Vec.ZERO) > 1, "pas sur place : " + d.raison());
+    }
+
+    @Test
+    void ilCourtJusquAPortee() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(A, 3, -8), "bouclier"));  // pas de charge (bouclier), 8.5 blocs
+        c.penser(soi(0), ps, coups(A, 1, false));
+        Decision d = c.penser(soi(4), List.of(j(A, 3, -8)), List.of());
+        if (d.attaque() == null) {
+            assertEquals(Allure.COURSE, d.allure(), d.raison());
+        }
     }
 }

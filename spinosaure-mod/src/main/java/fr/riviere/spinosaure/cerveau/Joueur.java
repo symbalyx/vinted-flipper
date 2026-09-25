@@ -12,10 +12,11 @@ import java.util.UUID;
  * @param visible     ligne de vue degagee entre le spinosaure et le joueur
  * @param atteignable un chemin terrestre ou aquatique existe jusqu'a lui
  * @param vitesse     deplacement mesure, en blocs par tick (pour l'intercepter)
+ * @param inoffensif  joueur en creatif : il l'observe et le traque, mais ne l'attaque pas
  */
 public record Joueur(UUID id, Vec pos, Vec regard, double sante, double armure, Arme arme,
                      boolean bouclierLeve, boolean accroupi, boolean sprinte, boolean dansEau,
-                     boolean visible, boolean atteignable, Vec vitesse) {
+                     boolean visible, boolean atteignable, Vec vitesse, boolean inoffensif) {
 
     public enum Arme { AUCUNE, MELEE, DISTANCE, TRIDENT }
 

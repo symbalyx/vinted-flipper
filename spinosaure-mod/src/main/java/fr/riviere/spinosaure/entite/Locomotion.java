@@ -152,8 +152,12 @@ final class Locomotion {
                 aller(destination, allure);
             }
         }
-        boolean veut = but != null && spino.position().multiply(1, 0, 1).distanceTo(but.multiply(1, 0, 1)) > 2.5;
         double reste = but == null ? 0 : spino.position().multiply(1, 0, 1).distanceTo(but.multiply(1, 0, 1));
+        // bloque = il VEUT avancer (le pilote commande de la vitesse : pas pendant un pivot ou un
+        // freinage) et il n'est pas deja arrive, rayon d'arrivee = sa demi-largeur + marge
+        // (sinon, colle a un joueur, il se croyait coince et reculait)
+        double arrivee = Math.max(2.5, spino.getBbWidth() / 2 + 2.0);
+        boolean veut = but != null && reste > arrivee && pilote.vitesseCourante() > 0.2 && reculTicks == 0;
         Deblocage.Action a = deblocage.evaluer(reste, veut);
         switch (a) {
             case SAUTER -> {

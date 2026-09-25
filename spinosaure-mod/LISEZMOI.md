@@ -62,7 +62,11 @@ cd spinosaure-mod
 gradlew.bat build        (Windows)
 ./gradlew build          (Mac / Linux)
 ```
-Le jar sort dans `build/libs/spinosaure-0.1.0.jar`.
+Le jar sort dans `build/libs/spinosaure-0.2.0.jar`.
+
+**Tester en survie** (`/gamemode survival`) : comme les mobs vanilla, il n'attaque pas un joueur
+en créatif. En créatif il l'observe seulement : il le fixe, le suit à distance à pas feutrés
+et se fige quand on le regarde.
 
 **Jouer** : Minecraft 1.20.1 + Forge 47.x, et **GeckoLib 4.4.x pour Forge 1.20.1** dans le
 dossier `mods` à côté du jar (le mod en dépend, il n'est pas inclus dedans).
