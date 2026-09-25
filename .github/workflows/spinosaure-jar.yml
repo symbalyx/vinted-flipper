@@ -1,0 +1,36 @@
+name: Spinosaure - construire le jar
+
+on:
+  push:
+    branches: [claude/spinosaure-animations-aquatiques-vqg4qt]
+    paths: ['spinosaure-mod/**', '.github/workflows/spinosaure-jar.yml']
+  workflow_dispatch:
+
+jobs:
+  jar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: spinosaure-mod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+      - name: Compiler, tester et empaqueter
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --stacktrace
+      - name: Publier le jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: spinosaure-jar
+          path: spinosaure-mod/build/libs/*.jar
+      - name: Rapports en cas d'echec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports
+          path: spinosaure-mod/build/reports/

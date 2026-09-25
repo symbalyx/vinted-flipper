@@ -155,6 +155,15 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         this.goalSelector.addGoal(0, new ButCerveau());
     }
 
+    /**
+     * Le modele (13 blocs de long) deborde largement de la boite de collision : sans cet
+     * agrandissement, le museau et la queue disparaitraient quand le centre sort de l'ecran.
+     */
+    @Override
+    public net.minecraft.world.phys.AABB getBoundingBoxForCulling() {
+        return getBoundingBox().inflate(6.0, 2.0, 6.0);
+    }
+
     @Override
     public boolean canBreatheUnderwater() {
         return true;

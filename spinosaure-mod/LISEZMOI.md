@@ -52,18 +52,28 @@ comment un animal de 13 blocs y va :
 
 ## Installer
 
-1. JDK 17, puis dans ce dossier : `./gradlew runClient`.
-2. **Exporter le modèle depuis Blockbench**, avec `RIVIERE_82_SPINO.bbmodel` ouvert :
-   - Fichier → Exporter → *Export Bedrock Geometry* →
-     `src/main/resources/assets/spinosaure/geo/spinosaure.geo.json`
-   - Onglet Animer → Animation → *Export Animations* (toutes cochées) →
-     `src/main/resources/assets/spinosaure/animations/spinosaure.animation.json`
+**Le jar** : il est construit automatiquement par GitHub à chaque modification (onglet
+*Actions* du dépôt, workflow « Spinosaure - construire le jar », artefact `spinosaure-jar`).
 
-   La texture est déjà en place, extraite du `.bbmodel`. Je n'ai pas écrit de
-   convertisseur : l'export de Blockbench est la référence de GeckoLib, et une conversion
-   maison risquait des inversions d'axes invisibles tant qu'on ne lance pas le jeu.
-3. Œuf d'apparition dans l'onglet créatif « Œufs d'apparition ». Apparition naturelle
-   rare dans les rivières et les marais.
+**Le construire soi-même** (JDK 17 requis, rien d'autre : Gradle se télécharge seul) :
+
+```
+cd spinosaure-mod
+gradlew.bat build        (Windows)
+./gradlew build          (Mac / Linux)
+```
+Le jar sort dans `build/libs/spinosaure-0.1.0.jar`.
+
+**Jouer** : Minecraft 1.20.1 + Forge 47.x, et **GeckoLib 4.4.x pour Forge 1.20.1** dans le
+dossier `mods` à côté du jar (le mod en dépend, il n'est pas inclus dedans).
+Œuf d'apparition dans l'onglet créatif « Œufs d'apparition ». Apparition naturelle rare dans
+les rivières et les marais.
+
+**Modèle et animations** : `geo/spinosaure.geo.json` et `animations/spinosaure.animation.json`
+sont générés depuis le `.bbmodel` par `tools/spinosaure-ror-retarget/export_geckolib.py`, qui
+reproduit l'export bedrock de Blockbench (contrôle aller-retour : 384 cubes, écart 0,0001).
+Si le modèle apparaissait en miroir ou déformé en jeu, remplacer ces deux fichiers par un
+export Blockbench (*Export Bedrock Geometry* et *Export Animations*).
 
 ## Régler
 
