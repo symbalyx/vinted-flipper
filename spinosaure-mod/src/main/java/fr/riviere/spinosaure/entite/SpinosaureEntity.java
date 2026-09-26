@@ -271,7 +271,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     }
 
     /** Lecture seule, pour les essais en jeu (GameTest) et le debogage. */
-    public fr.riviere.spinosaure.cerveau.Attaque attaqueEnCours() {
+    public fr.riviere.spinosaure.cerveau.Attaque attaqueActive() {
         return attaque;
     }
 

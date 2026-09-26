@@ -81,8 +81,8 @@ public final class EssaisEnJeu {
         SpinosaureEntity spino = s.spino(32, 56);                   // 44 blocs derriere lui
         h.onEachTick(() -> {
             s.journal(spino, j);
-            if (spino.attaqueEnCours() != null || j.getHealth() < j.getMaxHealth()) {
-                s.resume(spino, j, "FRAPPE a %.0f s, attaque %s".formatted(h.getTick() / 20.0, spino.attaqueEnCours()));
+            if (spino.attaqueActive() != null || j.getHealth() < j.getMaxHealth()) {
+                s.resume(spino, j, "FRAPPE a %.0f s, attaque %s".formatted(h.getTick() / 20.0, spino.attaqueActive()));
                 s.fin();
                 h.succeed();
             } else if (h.getTick() >= 4100) {
@@ -105,7 +105,7 @@ public final class EssaisEnJeu {
         h.onEachTick(() -> {
             regarder(j, spino);
             s.journal(spino, j);
-            if (spino.attaqueEnCours() != null) {
+            if (spino.attaqueActive() != null) {
                 s.resume(spino, j, "a attaque alors qu'on le fixait");
                 s.fin();
                 h.fail("attaque sous le regard");
@@ -130,9 +130,9 @@ public final class EssaisEnJeu {
         SpinosaureEntity spino = s.spino(20, 52);
         h.onEachTick(() -> {
             s.journal(spino, j);
-            if (spino.attaqueEnCours() != null || j.getVehicle() == spino || j.getHealth() < j.getMaxHealth()) {
+            if (spino.attaqueActive() != null || j.getVehicle() == spino || j.getHealth() < j.getMaxHealth()) {
                 s.resume(spino, j, "ATTAQUE DANS L'EAU a %.0f s (%s)".formatted(h.getTick() / 20.0,
-                        j.getVehicle() == spino ? "saisi" : String.valueOf(spino.attaqueEnCours())));
+                        j.getVehicle() == spino ? "saisi" : String.valueOf(spino.attaqueActive())));
                 s.fin();
                 h.succeed();
             } else if (h.getTick() >= 1500) {
@@ -164,7 +164,7 @@ public final class EssaisEnJeu {
                 isole.yHeadRotO = 180F;
             }
             s.journal(spino, isole);
-            if (spino.attaqueEnCours() != null) {
+            if (spino.attaqueActive() != null) {
                 UUID c = spino.cibleActuelle();
                 boolean surIsole = isole.getUUID().equals(c);
                 s.resume(spino, isole, "FRAPPE a %.0f s sur %s".formatted(t / 20.0,
@@ -259,7 +259,7 @@ public final class EssaisEnJeu {
             if (t % 20 == 0) {
                 LOG.info("[ESSAI] {} t={}s tactique={} allure={} dist={} eau={} attaque={} raison={}", nom, t / 20,
                         tac, s.allure(), j == null ? "-" : "%.1f".formatted(s.distanceTo(j)), s.isInWater(),
-                        s.attaqueEnCours(), s.raisonDecision());
+                        s.attaqueActive(), s.raisonDecision());
             }
         }
 
