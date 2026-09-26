@@ -126,6 +126,9 @@ Des panneaux complètent le récit. Ensemble, ils suggèrent des objectifs pour 
   - palette, biomes, coffres et panneaux ;
   - pages des journaux.
 - Vitres, barreaux, barrières et murets reçoivent leurs connexions à la génération : WorldEdit ne les recalcule pas au collage.
+- **Aucun arbre flottant.** Un détecteur suit chaque bloc d'arbre jusqu'au sol, en connexité par faces, arêtes et coins : 0 bloc de tronc ou de feuillage isolé sur 750 000. Ce qui ne rejoint pas un tronc, ce sont des lianes accrochées aux murs.
+- Troncs, branches, racines et palmes sont tracés d'un seul tenant, reliés par les faces : pas de marches en diagonale.
+- Aucune liane sans appui : chaque liane est accrochée à un bloc plein ou à la liane du dessus, et celles qui pendraient dans le vide sont retirées à la génération. Les propagules pendent sous des feuilles de palétuvier.
 - **Pas testé dans un vrai Minecraft**. À vérifier au premier collage : l'orientation des portes, lits et escaliers, et le rendu de la cascade. La cascade est faite d'eau source et se met à couler dès qu'un bloc voisin change.
 
 ## Régénérer ou modifier

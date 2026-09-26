@@ -55,7 +55,7 @@ class Monde:
         else:
             zone[...] = v
 
-    def ellipsoide(self, cx, cy, cz, rx, ry, rz, etat, seulement_air=True, bruit=0.0, rng=None, bas=None):
+    def ellipsoide(self, cx, cy, cz, rx, ry, rz, etat, seulement_air=True, bruit=0.0, rng=None, bas=None, seulement=None):
         """Ellipsoide plein (centre flottant). bruit : fraction de la coquille externe retiree au
         hasard pour un contour irregulier. bas : ne pas descendre sous ce y."""
         rng = rng or self.rng
@@ -74,30 +74,50 @@ class Monde:
         if bruit > 0:
             m &= ~((d > 0.55) & (rng.random(d.shape) < bruit * (d - 0.55) / 0.45))
         zone = self.blocs[y0:y1 + 1, z0:z1 + 1, x0:x1 + 1]
-        if seulement_air:
+        if seulement is not None:
+            m &= np.isin(zone, list(seulement))
+        elif seulement_air:
             m &= zone == self.AIR
         zone[m] = self.P(etat)
 
+    @staticmethod
+    def cellules(a, b):
+        """Cellules d'un segment 3D, reliees par leurs faces (pas seulement par les coins) :
+        un tronc ou une branche en biais reste d'un seul tenant, sans marches en diagonale."""
+        a = np.asarray(a, float); b = np.asarray(b, float)
+        n = int(np.ceil(np.abs(b - a).max() * 3)) + 1
+        out = []
+        for t in np.linspace(0, 1, n):
+            c = tuple(int(v) for v in np.floor(a + (b - a) * t))
+            if out and c == out[-1]:
+                continue
+            if out:
+                p = list(out[-1])
+                # completer axe par axe (x, puis z, puis y) : on s'appuie d'abord a plat, puis on monte
+                for ax in (0, 2, 1):
+                    while p[ax] != c[ax] and sum(p[k] != c[k] for k in range(3)) > 1:
+                        p[ax] += 1 if c[ax] > p[ax] else -1
+                        out.append(tuple(p))
+            out.append(c)
+        return out
+
     def ligne(self, a, b, etat_fn, epaisseur=0.0, seulement_air=False):
-        """Segment 3D de a a b. etat_fn(axe) -> etat (axe 'x', 'y' ou 'z' selon la direction
+        """Segment 3D de a a b, d'un seul tenant. etat_fn(axe) -> etat (axe selon la direction
         dominante). epaisseur : rayon ajoute autour de l'axe."""
         a = np.asarray(a, float); b = np.asarray(b, float)
         d = b - a
-        n = int(np.ceil(np.abs(d).max())) + 1
         axe = 'xyz'[int(np.argmax(np.abs(d)))]
         etat = etat_fn(axe)
         r = int(np.ceil(epaisseur))
-        for t in np.linspace(0, 1, n * (2 if epaisseur else 1)):
-            p = a + d * t
+        for (x, y, z) in self.cellules(a, b):
             if r == 0:
-                self.pose(int(np.floor(p[0])), int(np.floor(p[1])), int(np.floor(p[2])), etat, seulement_air)
+                self.pose(x, y, z, etat, seulement_air)
                 continue
             for dx in range(-r, r + 1):
                 for dy in range(-r, r + 1):
                     for dz in range(-r, r + 1):
                         if dx * dx + dy * dy + dz * dz <= epaisseur * epaisseur + 0.25:
-                            self.pose(int(np.floor(p[0])) + dx, int(np.floor(p[1])) + dy, int(np.floor(p[2])) + dz,
-                                      etat, seulement_air)
+                            self.pose(x + dx, y + dy, z + dz, etat, seulement_air)
 
     # Blocs qui ne sont pas des faces pleines (on ne s'y raccorde pas)
     _NON_PLEIN = re.compile(r'air|water|lava|_pane|iron_bars|fence|_wall$|torch|lantern|sign|vine|lichen|fern|'
@@ -180,6 +200,57 @@ class Monde:
                 j = cache[etat] = self.P(etat)
                 famille[j] = fam
             self.blocs[y, z, x] = j
+
+    def nettoyer_suspendus(self):
+        """Retire ce qui pendrait dans le vide et tomberait au premier bloc voisin modifie :
+        lianes sans appui (on ne garde que les faces reellement accrochees, a un bloc plein ou a
+        la liane du dessus), propagules qui ne pendent pas sous des feuilles de paletuvier.
+        Renvoie (lianes corrigees, lianes retirees, propagules retirees)."""
+        faces = {'north': (0, -1), 'south': (0, 1), 'west': (-1, 0), 'east': (1, 0)}
+        ids_v = {i: n for n, i in self.palette.items() if n.startswith('minecraft:vine[')}
+        pas_appui = re.compile(r'air|water|vine|_pane|bars|fence|torch|lantern|sign|carpet|fern|grass$|flower|door|slab|'
+                               r'stairs|cocoa|lichen|chain|ladder|rail|cobweb|_bed|pot|wire|button|lever|skull|rod|campfire|'
+                               r'trapdoor|propagule|bamboo|kelp|seagrass|lily|sugar|azalea$|mushroom|orchid|light$')
+        cache = {}
+
+        def appui(i):
+            if i not in cache:
+                cache[i] = not pas_appui.search(self.nom(i).split('[')[0].replace('minecraft:', ''))
+            return cache[i]
+        if ids_v:
+            ys, zs, xs = np.nonzero(np.isin(self.blocs, list(ids_v)))
+            ordre = np.argsort(-ys, kind='stable')                 # de haut en bas
+            corrige = retire = 0
+            for y, z, x in zip(ys[ordre], zs[ordre], xs[ordre]):
+                etat = self.nom(self.blocs[y, z, x])
+                garde = []
+                au = self.nom(self.get(x, y + 1, z)) if y + 1 < self.H else ''
+                for f, (dx, dz) in faces.items():
+                    if '%s=true' % f not in etat:
+                        continue
+                    if appui(int(self.get(x + dx, y, z + dz))) or (au.startswith('minecraft:vine[') and '%s=true' % f in au):
+                        garde.append(f)
+                if not garde:
+                    self.blocs[y, z, x] = self.AIR
+                    retire += 1
+                    continue
+                neuf = 'minecraft:vine[east=%s,north=%s,south=%s,up=false,west=%s]' % tuple(
+                    str(f in garde).lower() for f in ('east', 'north', 'south', 'west'))
+                if neuf != etat:
+                    self.blocs[y, z, x] = self.P(neuf)
+                    corrige += 1
+        else:
+            corrige = retire = 0
+        prop = [i for n, i in self.palette.items() if 'propagule' in n]
+        feuilles_m = [i for n, i in self.palette.items() if 'mangrove_leaves' in n]
+        n_prop = 0
+        if prop:
+            ys, zs, xs = np.nonzero(np.isin(self.blocs, prop))
+            for y, z, x in zip(ys, zs, xs):
+                if int(self.get(x, y + 1, z)) not in feuilles_m:
+                    self.blocs[y, z, x] = self.AIR
+                    n_prop += 1
+        return corrige, retire, n_prop
 
     def murs(self, x0, y0, z0, x1, y1, z1, etat):
         self.boite(x0, y0, z0, x1, y1, z0, etat); self.boite(x0, y0, z1, x1, y1, z1, etat)

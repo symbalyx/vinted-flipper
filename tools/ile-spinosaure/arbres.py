@@ -58,6 +58,7 @@ class Foret:
         m = self.m
         etat = tronc(bois)('y')
         centres = []
+        prec = set()
         for k in range(h):
             t = k / max(h - 1, 1)
             r = r0 + (r1 - r0) * t
@@ -66,31 +67,43 @@ class Foret:
             x, z = cx + ox, cz + oz
             centres.append((x, z, r))
             ir = int(math.ceil(r)) + 1
-            for bx in range(int(x) - ir, int(x) + ir + 1):
-                for bz in range(int(z) - ir, int(z) + ir + 1):
-                    if (bx + 0.5 - x) ** 2 + (bz + 0.5 - z) ** 2 <= r * r:
-                        m.pose(bx, y0 + k, bz, etat)
+            disque = {(bx, bz) for bx in range(int(x) - ir, int(x) + ir + 1) for bz in range(int(z) - ir, int(z) + ir + 1)
+                      if (bx + 0.5 - x) ** 2 + (bz + 0.5 - z) ** 2 <= r * r}
+            if not disque:
+                disque = {(int(math.floor(x)), int(math.floor(z)))}
+            if prec and not (disque & prec):
+                # le fut s'est decale : on garde l'etage precedent a cette hauteur aussi, pour que le
+                # tronc reste d'un seul tenant (sinon il ne se touche que par les coins)
+                disque = disque | prec
+            for (bx, bz) in disque:
+                m.pose(bx, y0 + k, bz, etat)
+                if k == 0 and 0 <= bx < m.W and 0 <= bz < m.L:
+                    # ancrage : sur une pente, chaque colonne du pied descend jusqu'au sol
+                    for yy in range(int(self.sol[bz, bx]) - 1, y0):
+                        m.pose(bx, yy, bz, etat)
+            prec = disque
         return centres
 
     def grappe(self, cx, cy, cz, rx, ry, feuille=F_JUNGLE, dessous_vide=True):
         """Grappe de feuilles aplatie et irreguliere : un gros disque et 2-4 sous-grappes."""
         rng = self.rng
         self.P(feuille)
-        self.m.ellipsoide(cx, cy, cz, rx, ry, rx * rng.uniform(0.8, 1.2), feuille, bruit=0.5, rng=rng)
+        self.m.ellipsoide(cx, cy, cz, rx, ry, rx * rng.uniform(0.8, 1.2), feuille, bruit=0.35, rng=rng)
         for _ in range(rng.integers(2, 5)):
             a = rng.uniform(0, 2 * math.pi)
             d = rng.uniform(0.3, 0.8) * rx
             r = rx * rng.uniform(0.45, 0.7)
             self.m.ellipsoide(cx + d * math.cos(a), cy + rng.uniform(-0.3, 1.0) * ry, cz + d * math.sin(a),
-                              r, ry * rng.uniform(0.7, 1.0), r * rng.uniform(0.8, 1.2), feuille, bruit=0.6, rng=rng)
+                              r, ry * rng.uniform(0.7, 1.0), r * rng.uniform(0.8, 1.2), feuille, bruit=0.45, rng=rng)
         # taches de feuilles d'azalee (epiphytes, fleurs) pour casser l'uniformite
         if feuille == F_JUNGLE and rng.random() < 0.5:
             for _ in range(rng.integers(1, 4)):
                 a = rng.uniform(0, 2 * math.pi); d = rng.uniform(0, rx)
                 x, z = int(cx + d * math.cos(a)), int(cz + d * math.sin(a))
-                self.m.ellipsoide(x, cy + ry * 0.6, z, 1.3, 0.9, 1.3,
-                                  self.P(F_AZALEE_FLEUR if rng.random() < 0.4 else F_AZALEE), seulement_air=False,
-                                  rng=rng)
+                # on recolore des feuilles existantes, on n'en ajoute pas (sinon touffes en l'air)
+                self.m.ellipsoide(x, cy + ry * 0.4, z, 1.6, 1.2, 1.6,
+                                  self.P(F_AZALEE_FLEUR if rng.random() < 0.4 else F_AZALEE),
+                                  seulement={self.m.P(feuille)}, rng=rng)
 
     def branche(self, a, b, bois='jungle', epaisseur=0.0):
         self.m.ligne(a, b, tronc(bois, ecorce=True), epaisseur)
@@ -290,13 +303,16 @@ class Foret:
         for i in range(n):
             b = i * 2 * math.pi / n + rng.uniform(-0.2, 0.2)
             L = rng.uniform(6, 8.5)
-            for s in np.linspace(0.8, L, int(L * 3)):
-                t = s / L
-                yy = ty + 1 + 1.6 * t - 4.2 * t * t
-                for lat in ((-0.6, 0.6) if t < 0.6 else (0,)):
-                    px = tx + math.cos(b) * s - math.sin(b) * lat
-                    pz = tz + math.sin(b) * s + math.cos(b) * lat
-                    m.pose(int(math.floor(px)), int(round(yy)), int(math.floor(pz)), self.P(F_JUNGLE), seulement_air=True)
+            # palme = polyligne continue (reliee par les faces), doublee pres du coeur
+            for lat in (-0.6, 0.0, 0.6):
+                pts_f = []
+                for s in np.linspace(0.5, L * (1.0 if lat == 0 else 0.6), 8):
+                    t = s / L
+                    yy = ty + 1 + 1.6 * t - 4.2 * t * t
+                    pts_f.append((tx + math.cos(b) * s - math.sin(b) * lat, yy + 0.5, tz + math.sin(b) * s + math.cos(b) * lat))
+                for p_, q_ in zip(pts_f, pts_f[1:]):
+                    for (cx_, cy_, cz_) in m.cellules(p_, q_):
+                        m.pose(cx_, cy_, cz_, self.P(F_JUNGLE), seulement_air=True)
         # noix de coco
         for face, (dx, dz) in list(DIRS.items())[:int(rng.integers(0, 4))]:
             m.pose(int(math.floor(tx)) - dx, int(ty) - 1, int(math.floor(tz)) - dz, 'minecraft:cocoa[age=2,facing=%s]' % face,
@@ -312,16 +328,18 @@ class Foret:
         self.fut(cx, cz, yb, h, 0.75, 0.6, bois='mangrove', derive=1.0, phase=rng.uniform(0, 6))
         for i in range(int(rng.integers(6, 10))):
             a = rng.uniform(0, 2 * math.pi); R = rng.uniform(3, 5.5)
-            prev = None
-            for s in np.linspace(0, 1, 12):
+            arc = []
+            for s in np.linspace(0, 1, 10):
                 px = cx + math.cos(a) * R * s
                 pz = cz + math.sin(a) * R * s
                 py = yb + 1 - (yb + 1 - (yfond - 1)) * s ** 2.2 + 1.5 * math.sin(s * math.pi)
-                p = (int(math.floor(px)), int(round(py)), int(math.floor(pz)))
-                if p != prev:
-                    etat = 'minecraft:mangrove_roots[waterlogged=%s]' % ('true' if p[1] < eau else 'false')
-                    m.pose(*p, etat)
-                    prev = p
+                arc.append((px, py + 0.5, pz))
+            # racine d'un seul tenant, du tronc jusque dans la vase
+            for p_, q_ in zip(arc, arc[1:]):
+                for (qx, qy, qz) in m.cellules(p_, q_):
+                    if qy < yfond - 1:
+                        continue
+                    m.pose(qx, qy, qz, 'minecraft:mangrove_roots[waterlogged=%s]' % ('true' if qy <= eau else 'false'))
         ty = yb + h
         self.grappe(cx, ty, cz, rng.uniform(3.5, 5), 2.0, F_MANGROVE)
         for _ in range(2):
@@ -363,8 +381,7 @@ class Foret:
         fin = (x + 0.5 + math.cos(a) * L, y0 + 0.5, z + 0.5 + math.sin(a) * L)
         axe = 'x' if abs(math.cos(a)) > abs(math.sin(a)) else 'z'
         etat = 'minecraft:jungle_log[axis=%s]' % axe
-        for s in np.linspace(0, L, int(L * 2)):
-            px, pz = int(math.floor(x + 0.5 + math.cos(a) * s)), int(math.floor(z + 0.5 + math.sin(a) * s))
+        for (px, _, pz) in m.cellules((x + 0.5, 0, z + 0.5), (fin[0], 0, fin[2])):
             if not (0 <= px < m.W and 0 <= pz < m.L):
                 continue
             yy = int(self.sol[pz, px])
@@ -388,9 +405,12 @@ class Foret:
                 if not (0 <= px < m.W and 0 <= pz < m.L):
                     continue
                 y0 = int(self.sol[pz, px])
-                if m.get(px, y0 - 1, pz) == m.AIR or 'water' in m.nom(m.get(px, y0 - 1, pz)):
+                dessous = m.nom(m.get(px, y0 - 1, pz))
+                if m.get(px, y0, pz) != m.AIR or not any(k in dessous for k in ('grass_block', 'dirt', 'podzol', 'moss', 'mud', 'sand')):
                     continue
                 h = int(rng.integers(6, 15))
                 for k in range(h):
+                    if m.get(px, y0 + k, pz) != m.AIR:
+                        break                   # une branche au-dessus : la tige s'arrete (pas de bambou en l'air)
                     f = 'large' if k >= h - 2 else 'small' if k == h - 3 else 'none'
-                    m.pose(px, y0 + k, pz, 'minecraft:bamboo[age=1,leaves=%s,stage=0]' % f, seulement_air=True)
+                    m.pose(px, y0 + k, pz, 'minecraft:bamboo[age=1,leaves=%s,stage=0]' % f)

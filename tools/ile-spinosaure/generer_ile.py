@@ -217,7 +217,9 @@ def planter(m, r, foret, libre, rng):
     terre = lambda x, z: libre[z, x]
     bas = lambda x, z: terre(x, z) and alt(x, z) < 42 and dist_eau[z, x] > 3 and not bambou[z, x]
     # mangrove du delta et du lagon : eau peu profonde
-    mangrove_zone = (r.eau > h) & (r.eau - h <= 3) & (r.zz > 560) & ~r.recif
+    mangrove_zone = (r.eau > h) & (r.eau - h <= 3) & (r.zz > 560) & ~r.recif & np.isin(
+        m.blocs[h.astype(np.int64), np.indices(h.shape)[0], np.indices(h.shape)[1]],
+        [i for n_, i in m.palette.items() if 'sand' in n_ or 'mud' in n_ or 'gravel' in n_ or 'clay' in n_])
     def paletuvier(x, z):
         foret.paletuvier(x, z, SEA)
     libre_eau = libre | mangrove_zone
@@ -477,12 +479,25 @@ def main(sortie):
     for nom, x, z, ray in li.poi:
         if ray:
             libre &= np.hypot(xx - x, zz - z) > ray + 10
+    # le terrain a bouge depuis le debut (plateformes, talus des lieux) : hauteurs a jour, et on
+    # ne plante que sur de la vraie terre, avec de l'air (ou de l'eau pour les paletuviers) au-dessus
+    foret.sol = (r.h + 1).astype(np.int32)
+    hz = r.h.astype(np.int64)
+    zz_, xx_ = np.indices(hz.shape)
+    dessus_ = m.blocs[hz, zz_, xx_]
+    au_dessus = m.blocs[np.minimum(hz + 1, H - 1), zz_, xx_]
+    terre_ids = [i for n_, i in m.palette.items() if any(k in n_ for k in (
+        'grass_block', 'dirt', 'podzol', 'moss_block', 'mud', 'sand', 'gravel', 'clay'))
+        and 'path' not in n_ and 'brick' not in n_ and 'packed' not in n_ and 'sandstone' not in n_]
+    vrai_sol = np.isin(dessus_, terre_ids) & ((au_dessus == m.AIR) | (au_dessus == m.P(EAU)))
+    libre &= vrai_sol
     compte, bambou = planter(m, r, foret, libre, rng)
     journal('arbres : %s' % compte)
     journal('sous-bois et eaux')
     couvert(m, r, rng)
     journal('connexions (vitres, barrieres)')
     m.connecter()
+    journal('suspendus : lianes corrigees / retirees, propagules retirees : %s' % (m.nettoyer_suspendus(),))
     bio, bio_pal = biomes(r, bambou)
     # ------------------------------------------------ ecriture
     journal('ecriture')

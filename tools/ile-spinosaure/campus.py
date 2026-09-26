@@ -274,12 +274,17 @@ class Campus:
                 if rng.random() < 0.85:
                     p(x, 14 + d // 2, z, AIR)
         if self.foret is not None:
-            ox, oz, oy = self.v.ox, self.v.oz, self.v.oy
-            self.v.ligne((73, 6, 50), (79, 30, 30), lambda axe: 'minecraft:jungle_log[axis=%s]' % axe, epaisseur=1.0)
+            # l'arbre est deracine au nord du batiment : galette de racines au sol, fut couche en biais
+            # qui creve le mur nord et le toit, couronne affaissee dans l'atrium
             from arbres import F_JUNGLE
             self.foret.P(F_JUNGLE)
-            self.v.ellipsoide(80, 31, 28, 5, 2.5, 5, F_JUNGLE, bruit=0.5)
-            self.v.ellipsoide(73, 7, 52, 3, 1.5, 3, F_JUNGLE, bruit=0.6)
+            self.v.ellipsoide(80, 0.5, 37, 2.2, 2.6, 1.4, 'minecraft:rooted_dirt', seulement_air=False, bruit=0.4)
+            self.v.boite(78, -3, 36, 81, -2, 39, 'minecraft:dirt')
+            self.v.ligne((79.5, -1.5, 38.5), (71.5, 16.5, 55.5), lambda axe: 'minecraft:jungle_log[axis=%s]' % axe,
+                         epaisseur=1.0)
+            self.v.ellipsoide(70, 15, 57, 5, 2.5, 5, F_JUNGLE, bruit=0.3)
+            self.v.ellipsoide(67, 12, 60, 3.5, 2, 3.5, F_JUNGLE, bruit=0.3)
+            self.v.ellipsoide(73, 9, 55, 3, 1.5, 3, F_JUNGLE, bruit=0.3)
         # ------------------------------------------------ mezzanine (dalle y=6, on marche a y=7)
         MZ = 6
         b(X0 + 1, MZ, Z0 + 1, X1 - 1, MZ, Z0 + 9, 'minecraft:spruce_planks')
