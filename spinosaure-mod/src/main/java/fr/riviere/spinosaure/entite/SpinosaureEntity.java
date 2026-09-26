@@ -299,9 +299,16 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     public void travel(Vec3 entree) {
         if (isEffectiveAi() && isInWater()) {
             // poussee calee pour nager a ~2.7 blocs/s (NAGE) et ~4 blocs/s (NAGE_RAPIDE)
+            double y0 = getY();
             moveRelative(0.05F, entree);
             move(net.minecraft.world.entity.MoverType.SELF, getDeltaMovement());
-            setDeltaMovement(getDeltaMovement().scale(0.9D));
+            Vec3 v = getDeltaMovement().scale(0.9D);
+            // contre une berge franchissable, il se hisse (le vanilla le fait ; notre nage l'avait perdu :
+            // en jeu il restait bloque dans l'angle d'un bassin a bords droits)
+            if (horizontalCollision && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
+                v = new Vec3(v.x, 0.3, v.z);
+            }
+            setDeltaMovement(v);
         } else {
             super.travel(entree);
         }

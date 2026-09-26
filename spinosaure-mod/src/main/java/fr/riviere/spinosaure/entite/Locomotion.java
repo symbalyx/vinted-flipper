@@ -7,9 +7,12 @@ import fr.riviere.spinosaure.cerveau.Pilote;
 import fr.riviere.spinosaure.cerveau.Vec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.pathfinder.Node;
 import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.ForgeEventFactory;
 
@@ -35,6 +38,8 @@ final class Locomotion {
 
     Allure allure = Allure.ARRET;
     private Vec3 destination;
+    /** Le but tel que le cerveau l'a donne, avant ajustement a la place libre. */
+    private Vec3 butDemande;
     private int prochainChemin;
 
     private Vec3 detour;
@@ -58,17 +63,67 @@ final class Locomotion {
         if (detour != null) {
             return;                                  // on finit d'abord de contourner
         }
-        if (destination == null || destination.distanceToSqr(but) > 2.25 || spino.getNavigation().isDone()
-                || --prochainChemin <= 0) {
-            destination = but;
+        if (destination == null || butDemande == null || butDemande.distanceToSqr(but) > 2.25
+                || spino.getNavigation().isDone() || --prochainChemin <= 0) {
+            butDemande = but;
+            destination = placeLibre(but);
             prochainChemin = 20;
-            spino.getNavigation().moveTo(but.x, but.y, but.z, a.vitesse);
+            spino.getNavigation().moveTo(destination.x, destination.y, destination.z, a.vitesse);
         }
+    }
+
+    /**
+     * Le cerveau vise un point (10 blocs derriere toi...) sans savoir si son corps de 3,4 blocs
+     * y tient : colle a un tronc, le chemin s'arrete court, il bute et recule en boucle
+     * (mesure en jeu). On vise donc la place libre la plus proche, cote spinosaure.
+     */
+    private Vec3 placeLibre(Vec3 but) {
+        EntityDimensions dims = spino.getDimensions(spino.getPose());
+        if (tient(dims, but)) {
+            return but;
+        }
+        for (int r = 1; r <= 6; r++) {
+            Vec3 meilleur = null;
+            double dm = Double.MAX_VALUE;
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+                        continue;
+                    }
+                    for (int dy : new int[]{0, 1, -1}) {
+                        Vec3 c = but.add(dx, dy, dz);
+                        if (tient(dims, c)) {
+                            double dd = c.distanceToSqr(spino.position());
+                            if (dd < dm) {
+                                dm = dd;
+                                meilleur = c;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            if (meilleur != null) {
+                return meilleur;
+            }
+        }
+        return but;
+    }
+
+    /** Son corps y tient, pose sur un sol (ou dans l'eau). */
+    private boolean tient(EntityDimensions dims, Vec3 p) {
+        AABB boite = dims.makeBoundingBox(p);
+        if (!spino.level().noCollision(spino, boite)) {
+            return false;
+        }
+        return !spino.level().noCollision(spino, boite.move(0, -1, 0))
+                || spino.level().getFluidState(BlockPos.containing(p)).is(FluidTags.WATER);
     }
 
     void arreter() {
         allure = Allure.ARRET;
         destination = null;
+        butDemande = null;
         detour = null;
         spino.getNavigation().stop();
     }
@@ -138,7 +193,8 @@ final class Locomotion {
         if (reculTicks > 0) {
             reculTicks--;
             spino.getNavigation().stop();
-            Vec3 arriere = Instantane.vec3(Instantane.avant(spino.yBodyRot)).scale(-0.09);
+            // dans l'eau rien ne freine : la meme poussee l'envoyait 10 blocs en arriere
+            Vec3 arriere = Instantane.vec3(Instantane.avant(spino.yBodyRot)).scale(spino.isInWater() ? -0.02 : -0.09);
             spino.setDeltaMovement(spino.getDeltaMovement().add(arriere.x, 0, arriere.z));
             if (reculTicks == 0 && destination != null) {
                 prochainChemin = 0;
@@ -165,6 +221,8 @@ final class Locomotion {
             case SAUTER -> {
                 if (spino.onGround()) {
                     spino.getJumpControl().jump();
+                } else if (spino.isInWater()) {
+                    spino.setDeltaMovement(spino.getDeltaMovement().add(0, 0.3, 0));   // se hisse sur la berge
                 }
                 arracherFeuillage();
             }

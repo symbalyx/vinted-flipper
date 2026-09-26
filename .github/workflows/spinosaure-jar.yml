@@ -54,6 +54,8 @@ jobs:
           grep -E "\[ESSAI\] RESUME|passed|failed|GameTest|Exception|ERROR" essais.log | grep -v DEBUG | tail -120 || true
           echo "----- journal detaille -----"
           grep "\[ESSAI\]" essais.log | tail -700 || true
+          echo "----- resumes -----"
+          grep -o "\[ESSAI\] RESUME.*" essais.log || true
       - name: Rapports en cas d'echec
         if: failure()
         uses: actions/upload-artifact@v4
