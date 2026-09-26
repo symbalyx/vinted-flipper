@@ -39,6 +39,16 @@ public final class Deblocage {
      * @return l'action a entreprendre CE tick (RIEN la plupart du temps)
      */
     public Action evaluer(double distanceBut, boolean veutAvancer) {
+        return evaluer(distanceBut, veutAvancer, 0);
+    }
+
+    /**
+     * @param vitesseAttendue vitesse au sol attendue a l'allure commandee (blocs/tick) : le
+     *                        progres exige sur la fenetre en est une fraction (35 %), borne a
+     *                        PROGRES. Sinon, a pas feutres, il se croyait coince en permanence.
+     */
+    public Action evaluer(double distanceBut, boolean veutAvancer, double vitesseAttendue) {
+        double exige = vitesseAttendue > 0 ? Math.max(0.3, Math.min(PROGRES, 0.35 * vitesseAttendue * FENETRE)) : PROGRES;
         distances.addLast(distanceBut);
         while (distances.size() > FENETRE) {
             distances.removeFirst();
@@ -53,7 +63,7 @@ public final class Deblocage {
         if (distances.size() < FENETRE) {
             return Action.RIEN;
         }
-        if (distances.peekFirst() - distanceBut >= PROGRES) {
+        if (distances.peekFirst() - distanceBut >= exige) {
             // il se rapproche : l'echelle ne retombe qu'apres un moment de progres continu
             if (++calme >= CALME) {
                 niveau = 0;

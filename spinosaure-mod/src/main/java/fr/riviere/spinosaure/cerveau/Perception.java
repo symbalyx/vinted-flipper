@@ -38,6 +38,9 @@ public final class Perception {
         if (soi.submerge() != j.dansEau()) {
             portee *= 0.6;                            // l'interface eau/air etouffe les sons
         }
+        if (j.dansEau() && !j.accroupi()) {
+            portee = Math.max(portee, r.ouieNage);    // les remous portent, quel que soit le milieu
+        }
         return d <= portee;
     }
 

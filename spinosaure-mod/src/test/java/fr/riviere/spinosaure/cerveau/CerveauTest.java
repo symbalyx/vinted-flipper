@@ -434,6 +434,17 @@ class CerveauTest {
     }
 
     @Test
+    void unNageurDansLeDos_ilLeSentAuxRemous() {
+        Cerveau c = cerveau();
+        Joueur nageur = avec(j(A, 0, 32), "eau");                           // 32 blocs, plein dos
+        assertFalse(Perception.voit(soi(0), nageur, Reglages.defaut()));
+        Decision d = c.penser(soi(0), List.of(nageur), List.of());
+        assertEquals(Tactique.AFFUT_EAU, d.tactique(), "les remous le trahissent");
+        Joueur marcheur = j(A, 0, 32);
+        assertNotEquals(Tactique.AFFUT_EAU, cerveau().penser(soi(0), List.of(marcheur), List.of()).tactique());
+    }
+
+    @Test
     void laRancuneLeFaitRevenirSurUneTraceAncienne() {
         Cerveau c = cerveau();
         c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 30, false));

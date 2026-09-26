@@ -158,7 +158,9 @@ final class Locomotion {
         // (sinon, colle a un joueur, il se croyait coince et reculait)
         double arrivee = Math.max(2.5, spino.getBbWidth() / 2 + 2.0);
         boolean veut = but != null && reste > arrivee && pilote.vitesseCourante() > 0.2 && reculTicks == 0;
-        Deblocage.Action a = deblocage.evaluer(reste, veut);
+        // vitesse au sol attendue : ~2.2 x (attribut x multiplicateur)^2 blocs/tick (loi de Minecraft)
+        double s = pilote.vitesseCourante() * spino.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+        Deblocage.Action a = deblocage.evaluer(reste, veut, spino.isInWater() ? 0 : 2.2 * s * s);
         switch (a) {
             case SAUTER -> {
                 if (spino.onGround()) {

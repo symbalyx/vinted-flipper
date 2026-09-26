@@ -15,6 +15,8 @@ public final class Reglages {
     public double coneVue = 220;
     /** Portee a laquelle on entend un joueur selon son allure. */
     public double ouieSprint = 24, ouieMarche = 12, ouieAccroupi = 4;
+    /** Un nageur fait des remous : il le sent de loin, dans le dos, depuis la rive ou sous l'eau. */
+    public double ouieNage = 40;
     /** Au contact on sent toujours, meme dans le dos. */
     public double proximiteSentie = 3.5;
     /** Attention : un joueur percu reste suivi ce nombre de ticks, a portee de vue, meme hors du cone. */

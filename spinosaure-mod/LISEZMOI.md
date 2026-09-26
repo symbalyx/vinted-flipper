@@ -32,6 +32,7 @@ La tension monte avec le temps qu'il passe à te traquer :
 
 | Hors de la jungle | Il n'y va pas. Si tu sors en plaine, il te regarde depuis la lisière et ne te suit pas. L'eau reste son domaine partout. Il n'apparaît qu'en jungle. |
 | Joueur armé (TaCZ) | Il te file et t'observe de plus loin, de préférence à couvert : derrière un tronc, hors de ta ligne de vue, calculé par lancer de rayon. Un canon braqué sur lui à moins de 40 blocs : il disparaît. Jamais de charge de face contre un fusil braqué. |
+| Tu nages | Il sent les remous à 40 blocs, même dans son dos, et se glisse dans l'eau vers toi. Accroupi, tu coules sans bruit. |
 | Coups de feu | Il les entend à 96 blocs et va voir d'où ils viennent. Si le tireur le voit, il est « sous le feu » : il se met à couvert (eau, tronc, relief). |
 | Rechargement | Arme vide : c'est son ouverture. Il frappe même si tu le regardes. |
 | Le « directeur » (*Alien Isolation*) | Sans contact depuis 1 min, il reçoit ta zone approximative (à 16 blocs près) et s'en approche. Après 3 min de pression continue sans frapper, il se retire 80 s « en coulisses », puis revient. |
@@ -54,7 +55,7 @@ comment un animal de 13 blocs y va :
 
 | Comportement | Détail |
 |---|---|
-| Rayon de braquage | 0,7 bloc au pas, 3 blocs en course, 5,3 en charge. Le déplacement vanilla le faisait pivoter de 90° par tick. |
+| Rayon de braquage | 1 bloc au pas, 3 blocs en course, 5,3 en charge. Le déplacement vanilla le faisait pivoter de 90° par tick. |
 | Inertie | Il met 1,6 s pour passer de l'arrêt à la course, et freine progressivement. S'il s'arrête en pleine course, il joue `ralentissement_course_arret`. |
 | Freinage avant les virages | Il lit les nœuds du chemin à venir et ralentit pour ne pas déborder de plus de 1,5 bloc. Il ralentit aussi quand le point visé est dans son cercle de braquage, au lieu d'orbiter autour. |
 | Pivot sur place | Si la destination est derrière lui à l'arrêt, il tourne sur place (`tourne_sur_place`, 90°/s). |

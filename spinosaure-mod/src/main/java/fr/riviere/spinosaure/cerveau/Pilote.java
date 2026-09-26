@@ -71,7 +71,7 @@ public final class Pilote {
         if (mult < 0.05) {
             return PIVOT_DEG;
         }
-        return 7.5 - 3.2 * Math.min(mult / 1.25, 1.0);
+        return 8.5 - 4.2 * Math.min(mult / 1.25, 1.0);
     }
 
     /** Rayon de braquage minimal (blocs) a ce multiplicateur. */
