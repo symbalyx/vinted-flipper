@@ -270,6 +270,19 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         }
     }
 
+    /** Lecture seule, pour les essais en jeu (GameTest) et le debogage. */
+    public fr.riviere.spinosaure.cerveau.Attaque attaqueEnCours() {
+        return attaque;
+    }
+
+    public java.util.UUID cibleActuelle() {
+        return cerveau.cible();
+    }
+
+    public String raisonDecision() {
+        return decision == null ? "" : decision.raison();
+    }
+
     public Tactique tactique() {
         return Tactique.values()[entityData.get(TACTIQUE)];
     }

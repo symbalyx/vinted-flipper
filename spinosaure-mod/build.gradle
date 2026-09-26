@@ -33,6 +33,11 @@ minecraft {
         server {
             args '--nogui'
         }
+        // essais dans un vrai serveur sans ecran : ./gradlew runGameTestServer
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            property 'forge.logging.console.level', 'info'
+        }
     }
 }
 

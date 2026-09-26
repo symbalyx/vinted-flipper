@@ -42,6 +42,18 @@ jobs:
           git add dist/
           git diff --cached --quiet || git commit -m "Jar du spinosaure construit par GitHub Actions [skip ci]"
           git push
+      - name: Essais en jeu (serveur Minecraft sans ecran, GameTest)
+        id: essais
+        continue-on-error: true
+        run: |
+          ./gradlew runGameTestServer --no-daemon 2>&1 | tee essais.log
+          exit ${PIPESTATUS[0]}
+      - name: Bilan des essais en jeu
+        if: always()
+        run: |
+          grep -E "\[ESSAI\] RESUME|passed|failed|GameTest|Exception|ERROR" essais.log | grep -v DEBUG | tail -120 || true
+          echo "----- journal detaille -----"
+          grep "\[ESSAI\]" essais.log | tail -700 || true
       - name: Rapports en cas d'echec
         if: failure()
         uses: actions/upload-artifact@v4
