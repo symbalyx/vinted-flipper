@@ -54,6 +54,8 @@ class CerveauTest {
                     false, false, true, p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             case "detourne" -> new Joueur(p.id(), p.pos(), p.regard().fois(-1), p.sante(), p.armure(), p.arme(),
                     p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
+            case "cache" -> new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(),
+                    p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), false, p.atteignable(), p.vitesse(), p.inoffensif());
             case "blesse" -> new Joueur(p.id(), p.pos(), p.regard(), 0.3, 2, p.arme(),
                     p.bouclierLeve(), p.accroupi(), p.sprinte(), p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), p.inoffensif());
             default -> throw new IllegalArgumentException(quoi);
@@ -394,12 +396,41 @@ class CerveauTest {
     @Test
     void perdDeVue_vaVoirLaDerniereTracePuisRenifle() {
         Cerveau c = cerveau();
-        c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 1, false));
+        c.penser(soi(0), List.of(avec(j(A, 0, -20), "detourne")), List.of());
         Decision d = c.penser(soi(40), List.of(), List.of());
         assertEquals(Tactique.ENQUETE, d.tactique());
         assertEquals(new Vec(0, 0, -20), d.destination());
         Soi arrive = new Soi(new Vec(0, 0, -19), NORD, 1, 300, false, false, null, false, 200);
         assertEquals("renifle_piste_sol", c.penser(arrive, List.of(), List.of()).animation());
+    }
+
+    @Test
+    void blesseDeLoin_finitDeSEffacerAvantDAllerVoir() {
+        Cerveau c = cerveau();
+        c.penser(soi(0), List.of(j(A, 0, -20)), coups(A, 1, false));
+        Decision d = c.penser(soi(40), List.of(), List.of());
+        assertEquals(Tactique.DISPARITION, d.tactique(), "il se derobe, il ne revient pas aussitot");
+    }
+
+    @Test
+    void tournerLaTete_nePerdPasLaProie_maisSeCacherSi() {
+        Cerveau c = cerveau();
+        c.penser(soi(0), List.of(avec(j(A, 0, -20), "detourne")), List.of());   // vu devant lui
+        Joueur derriere = avec(j(A, 0, 30), "detourne");                        // a decouvert, dans son dos
+        Decision d = c.penser(soi(40), List.of(derriere), List.of());
+        assertNotEquals(Tactique.ENQUETE, d.tactique(), "hors du cone mais a decouvert : toujours suivi");
+        Joueur cache = avec(avec(j(A, 0, 30), "detourne"), "cache");
+        d = c.penser(soi(80), List.of(cache), List.of());
+        assertEquals(Tactique.ENQUETE, d.tactique(), "cache : il perd sa trace et va voir");
+    }
+
+    @Test
+    void unNageur_ilQuitteLaBergePourLEau() {
+        Cerveau c = cerveau();
+        Joueur nageur = avec(j(A, 0, -20), "eau");
+        Decision d = c.penser(soi(0), List.of(nageur), List.of());
+        assertEquals(Tactique.AFFUT_EAU, d.tactique(), "l'eau est son domaine : il ne reste pas a observer depuis la rive");
+        assertEquals(nageur.pos(), d.destination());
     }
 
     @Test

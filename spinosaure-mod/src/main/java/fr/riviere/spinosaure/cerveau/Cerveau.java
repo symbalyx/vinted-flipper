@@ -33,6 +33,8 @@ public final class Cerveau {
     private final Memoire m;
     private final Random alea;
     private final Map<Attaque, Long> pret = new EnumMap<>(Attaque.class);
+    /** Dernier tick ou chaque joueur a ete reellement vu ou entendu (attention, voir penser). */
+    private final Map<UUID, Long> vuLe = new HashMap<>();
 
     private Tactique tactique = Tactique.ERRANCE;
     private long tactiqueDepuis;
@@ -181,10 +183,24 @@ public final class Cerveau {
         List<Joueur> percus = new ArrayList<>();
         List<Joueur> observes = new ArrayList<>();
         for (Joueur j : joueurs) {
-            if (Perception.percoit(soi, j, r)) {
+            boolean percu = Perception.percoit(soi, j, r);
+            if (percu) {
+                vuLe.put(j.id(), tick);
+            } else {
+                // l'attention : un predateur ne perd pas sa proie parce qu'il tourne la tete. Un
+                // joueur vu il y a moins de `attention` ticks, toujours a decouvert (ligne de vue
+                // degagee) et a portee, reste suivi meme hors du cone de vision. Sans cela, en jeu,
+                // il basculait sans arret entre observer et « aller voir » des qu'il se detournait.
+                // Se cacher (couper la ligne de vue) fait toujours perdre sa trace.
+                Long vu = vuLe.get(j.id());
+                percu = vu != null && tick - vu <= r.attention && j.visible()
+                        && soi.pos().distance(j.pos()) <= r.porteeVue * (j.accroupi() ? 0.5 : 1.0);
+            }
+            if (percu) {
                 (j.inoffensif() ? observes : percus).add(j);
             }
         }
+        vuLe.values().removeIf(v -> tick - v > r.attention * 4);
         for (Evenement e : evts) {
             if (e instanceof Evenement.Degats d) {
                 Joueur j = parId.get(d.source());
@@ -412,6 +428,12 @@ public final class Cerveau {
     private Decision sansPersonne(Soi soi, List<Joueur> tous) {
         long tick = soi.tick();
         figeDepuis = -1;
+        // il vient de s'effacer : il finit de disparaitre, il ne revient pas aussitot « voir »
+        if (tick < disparaitJusqua && derniereDestination != null) {
+            changer(Tactique.DISPARITION, tick);
+            return new Decision(Tactique.DISPARITION, null, derniereDestination,
+                    soi.dansEau() ? Allure.NAGE_RAPIDE : Allure.COURSE, null, null, false, null, "finit de s'effacer");
+        }
         Memoire.Trace piste = null;
         UUID pisteId = null;
         for (Map.Entry<UUID, Memoire.Trace> e : m.toutes()) {
@@ -634,6 +656,13 @@ public final class Cerveau {
             Vec sous = new Vec(j.pos().x(), Math.min(j.pos().y(), soi.pos().y()) - 1.5, j.pos().z());
             return new Decision(Tactique.AFFUT_EAU, cible, sous, Allure.NAGE, j.pos(), null, false, null,
                     "approche sous l'eau, sans remous");
+        }
+        // il est sur la berge et tu nages : il se glisse dans l'eau, sans bruit (en jeu, il se
+        // contentait de t'observer depuis la rive faute d'etre deja dans l'eau)
+        if (j.dansEau() && j.atteignable() && !m.inatteignable(j.id(), tick)) {
+            changer(Tactique.AFFUT_EAU, tick);
+            return new Decision(Tactique.AFFUT_EAU, cible, j.pos(), d > 12 ? Allure.MARCHE : Allure.FEUTREE, j.pos(),
+                    null, false, null, "tu nages : il se glisse dans l'eau");
         }
 
         int phase = t.tension < r.phaseFilature ? 1 : (t.tension < r.phaseFrappe ? 2 : 3);

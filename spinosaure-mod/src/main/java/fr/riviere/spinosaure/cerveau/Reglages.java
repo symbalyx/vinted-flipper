@@ -17,6 +17,8 @@ public final class Reglages {
     public double ouieSprint = 24, ouieMarche = 12, ouieAccroupi = 4;
     /** Au contact on sent toujours, meme dans le dos. */
     public double proximiteSentie = 3.5;
+    /** Attention : un joueur percu reste suivi ce nombre de ticks, a portee de vue, meme hors du cone. */
+    public long attention = 300;
     /** Sous l'eau, la vue vers la surface est reduite a cette fraction. */
     public double vueDepuisEau = 0.5;
     /** Duree pendant laquelle une position vue reste exploitable. */

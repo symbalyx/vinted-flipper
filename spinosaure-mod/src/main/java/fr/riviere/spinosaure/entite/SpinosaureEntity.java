@@ -279,6 +279,10 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         return cerveau.cible();
     }
 
+    public fr.riviere.spinosaure.cerveau.Vec destinationDecision() {
+        return decision == null ? null : decision.destination();
+    }
+
     public String raisonDecision() {
         return decision == null ? "" : decision.raison();
     }

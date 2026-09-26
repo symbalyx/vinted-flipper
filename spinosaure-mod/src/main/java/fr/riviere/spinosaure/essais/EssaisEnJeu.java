@@ -158,7 +158,7 @@ public final class EssaisEnJeu {
         h.onEachTick(() -> {
             long t = h.getTick();
             if (t == 400) {
-                Vec3 p = h.absoluteVec(new Vec3(8.5, SOL, 6.5));   // il s'ecarte vers le coin nord-ouest
+                Vec3 p = h.absoluteVec(new Vec3(14.5, SOL, 34.5));  // il s'ecarte : 27 blocs du groupe, a portee du spinosaure
                 isole.moveTo(p.x, p.y, p.z, 180F, 0F);
                 isole.setYHeadRot(180F);
                 isole.yHeadRotO = 180F;
@@ -274,9 +274,14 @@ public final class EssaisEnJeu {
                 derniere = tac;
             }
             if (t % 20 == 0) {
-                LOG.info("[ESSAI] {} t={}s tactique={} allure={} dist={} eau={} attaque={} raison={}", nom, t / 20,
-                        tac, s.allure(), j == null ? "-" : "%.1f".formatted(s.distanceTo(j)), s.isInWater(),
-                        s.attaqueActive(), s.raisonDecision());
+                Vec3 o = h.absoluteVec(Vec3.ZERO);
+                var dest = s.destinationDecision();
+                LOG.info("[ESSAI] {} t={}s tactique={} allure={} dist={} eau={} attaque={} pos=({},{}) but={} nav={} v={} raison={}",
+                        nom, t / 20, tac, s.allure(), j == null ? "-" : "%.1f".formatted(s.distanceTo(j)), s.isInWater(),
+                        s.attaqueActive(), "%.0f".formatted(s.getX() - o.x), "%.0f".formatted(s.getZ() - o.z),
+                        dest == null ? "-" : "(%.0f,%.0f)".formatted(dest.x() - o.x, dest.z() - o.z),
+                        s.getNavigation().isDone() ? "fini" : "en_cours",
+                        "%.2f".formatted(s.getDeltaMovement().horizontalDistance()), s.raisonDecision());
             }
         }
 
