@@ -212,10 +212,21 @@ public final class EssaisEnJeu {
             BlockPos a = h.absolutePos(new BlockPos(0, 0, 0));
             BlockPos b = h.absolutePos(new BlockPos(63, 19, 63));
             CommandSourceStack src = serveur.createCommandSourceStack().withSuppressedOutput().withLevel(h.getLevel());
-            serveur.getCommands().performPrefixedCommand(src, "fillbiome %d %d %d %d %d %d minecraft:jungle".formatted(
-                    Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ()),
-                    Math.max(a.getX(), b.getX()), Math.max(a.getY(), b.getY()), Math.max(a.getZ(), b.getZ())));
-            LOG.info("[ESSAI] ===== {} =====", nom);
+            // /fillbiome est limite a 32 768 blocs par appel : l'arene (64 x 20 x 64) se fait par tranches
+            int x0 = Math.min(a.getX(), b.getX()), x1 = Math.max(a.getX(), b.getX());
+            int y0 = Math.min(a.getY(), b.getY()), y1 = Math.max(a.getY(), b.getY());
+            int z0 = Math.min(a.getZ(), b.getZ()), z1 = Math.max(a.getZ(), b.getZ());
+            int ok = 0;
+            for (int z = z0; z <= z1; z += 16) {
+                ok += serveur.getCommands().performPrefixedCommand(src, "fillbiome %d %d %d %d %d %d minecraft:jungle".formatted(
+                        x0, y0, z, x1, y1, Math.min(z + 15, z1)));
+            }
+            boolean jungle = h.getLevel().getBiome(h.absolutePos(new BlockPos(32, SOL, 32)))
+                    .is(net.minecraft.tags.BiomeTags.IS_JUNGLE);
+            LOG.info("[ESSAI] ===== {} ===== (biome jungle pose : {}, commandes {})", nom, jungle, ok);
+            if (!jungle) {
+                h.fail("l'arene n'est pas en jungle");
+            }
         }
 
         SpinosaureEntity spino(int x, int z) {
@@ -242,6 +253,12 @@ public final class EssaisEnJeu {
 
         void journal(SpinosaureEntity s, ServerPlayer j) {
             long t = h.getTick();
+            // un faux joueur n'est pas anime par le serveur : on met a jour son etat (dans l'eau, au sol)
+            for (ServerPlayer p : joueurs) {
+                if (p.isAlive() && p.getVehicle() == null) {
+                    p.baseTick();
+                }
+            }
             Tactique tac = s.tactique();
             temps.merge(tac, 1, Integer::sum);
             if (j != null) {
