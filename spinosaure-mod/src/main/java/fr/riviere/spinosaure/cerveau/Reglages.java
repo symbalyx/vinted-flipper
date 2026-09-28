@@ -81,6 +81,9 @@ public final class Reglages {
     public double distanceDisparition = 24;
     public double distanceObservation = 28;
     public double distanceFilature = 16, distanceFilatureProche = 10;
+    /** Rayon d'arrivee a un poste : le meme que celui de la locomotion (demi-largeur + 2), sinon
+     *  le cerveau le croyait en route pendant que la locomotion le jugeait arrive, et il restait fige. */
+    public double arrivee = 4.0;
     /** Frappe eclair : au plus 2 attaques ou 6 s, puis il disparait. */
     public long dureeFrappe = 120;
     public int attaquesParFrappe = 2;

@@ -693,7 +693,7 @@ public final class Cerveau {
         if (!j.dansDomaine()) {
             changer(Tactique.OBSERVATION, tick);
             Vec poste = posteObservation(soi, j, true);
-            boolean arrive = poste == null || poste.distanceH(soi.pos()) < 3;
+            boolean arrive = poste == null || poste.distanceH(soi.pos()) < r.arrivee;
             return new Decision(Tactique.OBSERVATION, cible, arrive ? null : poste, arrive ? Allure.ARRET : Allure.FEUTREE,
                     j.pos(), null, false, null, "reste a l'oree de la jungle et te regarde");
         }
@@ -734,7 +734,7 @@ public final class Cerveau {
         if (phase == 1 || (!isole && t.tension < r.tensionGroupe)) {
             changer(Tactique.OBSERVATION, tick);
             Vec poste = posteObservation(soi, j, false);
-            if (poste.distanceH(soi.pos()) < 3) {
+            if (poste.distanceH(soi.pos()) < r.arrivee) {
                 if (anim == null && tick - dernierePose > 400 && alea.nextInt(3) == 0) {
                     anim = "tete_inclinee_fixe";                     // la tete qui se penche...
                     dernierePose = tick;
@@ -752,7 +752,7 @@ public final class Cerveau {
         Vec dos = new Vec(j.regard().x(), 0, j.regard().z()).unitaireH();
         Vec poste = dos == Vec.ZERO ? j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(recul))
                 : j.pos().moins(dos.fois(recul));
-        if (poste.distanceH(soi.pos()) < 2.5) {
+        if (poste.distanceH(soi.pos()) < r.arrivee) {
             return new Decision(Tactique.FILATURE, cible, null, Allure.ARRET, j.pos(), null, false, anim,
                     phase == 3 ? "juste derriere toi, il attend l'ouverture" : "te suit, derriere toi");
         }

@@ -214,6 +214,12 @@ final class Locomotion {
         // freinage) et il n'est pas deja arrive, rayon d'arrivee = sa demi-largeur + marge
         // (sinon, colle a un joueur, il se croyait coince et reculait)
         double arrivee = Math.max(2.5, spino.getBbWidth() / 2 + 2.0);
+        // pas de chemin (navigation terminee loin du but) : il avance droit vers le but et le
+        // deblocage s'occupe des obstacles ; sinon il restait plante, sans vitesse commandee,
+        // donc sans que le deblocage ne se declenche jamais (mesure en jeu)
+        if (but != null && reste > arrivee && reculTicks == 0 && spino.getNavigation().isDone()) {
+            spino.getMoveControl().setWantedPosition(but.x, but.y, but.z, allure.vitesse);
+        }
         boolean veut = but != null && reste > arrivee && pilote.vitesseCourante() > 0.2 && reculTicks == 0;
         // vitesse au sol attendue : ~2.2 x (attribut x multiplicateur)^2 blocs/tick (loi de Minecraft)
         double s = pilote.vitesseCourante() * spino.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
