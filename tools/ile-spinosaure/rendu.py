@@ -40,7 +40,7 @@ COULEURS = [
     (r'black_concrete', (8, 10, 15)), (r'cyan_concrete', (21, 119, 136)), (r'yellow_concrete', (240, 175, 21)),
     (r'red_concrete', (142, 32, 32)), (r'green_concrete', (73, 91, 36)), (r'orange_concrete', (224, 97, 1)),
     (r'blue_concrete', (44, 46, 143)), (r'brown_concrete', (96, 60, 32)), (r'lime_concrete', (94, 169, 24)),
-    (r'white_terracotta', (210, 178, 161)), (r'light_gray_terracotta', (135, 107, 98)), (r'terracotta', (152, 94, 68)),
+    (r'green_terracotta', (76, 83, 42)), (r'lime_terracotta', (103, 117, 53)), (r'brown_terracotta', (77, 51, 36)), (r'white_terracotta', (210, 178, 161)), (r'light_gray_terracotta', (135, 107, 98)), (r'terracotta', (152, 94, 68)),
     (r'quartz', (234, 230, 222)), (r'polished_andesite', (132, 134, 133)),
     (r'iron_block', (220, 220, 220)), (r'iron_bars', (110, 110, 110)), (r'chain', (60, 60, 70)), (r'anvil', (70, 70, 70)),
     (r'oxidized', (80, 160, 130)), (r'copper', (180, 110, 80)), (r'weathered', (100, 150, 110)), (r'exposed', (160, 125, 95)),

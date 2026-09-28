@@ -114,9 +114,27 @@ class Relief:
         rayon = 292 + 70 * (n.fbm(140, 4, 3) - 0.5) + 30 * (n.fbm(60, 2, 31) - 0.5)
         c = (rayon - d) / 40.0                              # > 0 : terre
         self.c = c
-        # fond marin puis plaine
-        h = np.where(c < 0, SEA - 3 - np.minimum(34, -c * 16), 0.0)
-        plaine = SEA + 2 + 5 * lisse(0, 1.2, c) + 16 * (n.fbm(90, 5, 4) - 0.38) * lisse(0.2, 2.0, c)
+        # ------------------------------------------------ cote et fond marin
+        # plage en pente douce : le fond remonte jusqu'a la ligne d'eau et la terre repart de la,
+        # au meme niveau (avant : le fond s'arretait 3 blocs sous l'eau et la terre commencait
+        # 2 blocs au-dessus, soit un mur de 5 blocs sur tout le tour de l'ile)
+        plateau = SEA - 0.4 + 5.0 * np.maximum(c, -1.0)                 # 0 a -5 : la plage immergee
+        large = SEA - 5.4 - np.minimum(26, np.maximum(-c - 1.0, 0) * 10)  # puis le tombant
+        fond = np.where(c > -1, plateau, large)
+        # relief du fond : ondulations et bancs de sable, pitons rocheux au large
+        fond += 2.4 * (n.fbm(22, 3, 60) - 0.5) * lisse(0.3, 1.2, -c)
+        self.pitons = np.clip(n.fbm(38, 3, 61) - 0.58, 0, 1) * 34 * lisse(1.0, 2.2, -c)
+        fond += self.pitons
+        fond = np.where(c < -0.5, np.minimum(fond, SEA - 3), fond)
+        # crevasses : failles etroites (6 a 10 blocs) et profondes (jusqu'a 18 blocs de plus),
+        # sinueuses, dans certaines zones du large
+        faille = np.abs(n.fbm(120, 3, 62) - 0.5)
+        zone_f = lisse(0.46, 0.56, n.fbm(200, 2, 63)) * lisse(1.1, 1.8, -c)
+        creux = np.clip(1 - faille / 0.013, 0, 1) ** 0.5 * zone_f
+        fond -= 18 * creux
+        self.crevasse = (creux > 0.25) & (c < 0)
+        h = np.where(c < 0, fond, 0.0)
+        plaine = SEA - 0.4 + 7.4 * lisse(0, 1.2, c) + 16 * (n.fbm(90, 5, 4) - 0.38) * lisse(0.2, 2.0, c)
         # vallons doux
         plaine += 7 * (np.abs(n.fbm(60, 3, 5) - 0.5) * 2) * lisse(0.5, 2.5, c)
         # collines : quelques bosses franches dans la plaine (20-30 blocs)
@@ -202,10 +220,41 @@ class Relief:
         gx, gz = 178.0, 612.0
         dg = np.hypot(xx - gx, (zz - gz) * 1.2) * (1 + 0.35 * (n.fbm(45, 2, 35) - 0.5))
         lagon = (dg < 70) & (c < 2.2)
-        h = np.where(lagon, np.minimum(h, SEA - 2 - 3 * n.fbm(20, 2, 12)), h)
+        # fond en pente depuis le bord, puis une plage autour : on y entre et on en sort a pied
+        h = np.where(lagon, np.minimum(h, SEA - 0.4 - np.minimum((70 - dg) * 0.3, 1.6 + 3 * n.fbm(20, 2, 12))), h)
+        rive_l = (dg >= 70) & (dg < 92) & (c < 2.6)
+        h = np.where(rive_l, np.minimum(h, SEA - 0.4 + (dg - 70) * 0.35), h)
         recif = (np.abs(dg - 82) < 3 + 3 * n.fbm(15, 2, 13)) & (n.fbm(25, 2, 14) > 0.42) & (c < 0.4)
-        h = np.where(recif, np.maximum(h, SEA - 1 + 2.5 * (n.fbm(8, 2, 15) > 0.6)), h)
+        # la crete du recif affleure (1 bloc sous l'eau, par endroits a fleur) : pas un muret
+        h = np.where(recif, np.maximum(h, SEA - 1 + 1 * (n.fbm(8, 2, 15) > 0.62)), h)
         self.lagon, self.recif = lagon, recif
+        # ------------------------------------------------ gouffres (trous bleus) dans la mer
+        # puits circulaires a parois verticales, jusqu'a 4 blocs du fond du monde : un repaire
+        # ou il descend et d'ou il remonte sans prevenir. Un dans le lagon, les autres au large.
+        g = np.random.default_rng(71)
+        self.gouffres = []
+        cand = [(150.0, 640.0)]                       # le trou bleu du lagon
+        essais = 0
+        while len(cand) < 7 and essais < 4000:
+            essais += 1
+            px, pz = float(g.uniform(30, W - 30)), float(g.uniform(30, L - 30))
+            cc = c[int(pz), int(px)]
+            if not (-2.6 < cc < -0.9) or lagon[int(pz), int(px)]:
+                continue
+            # en pleine eau : pas sur le pied du volcan ni sur un haut-fond
+            zone_g = h[max(0, int(pz) - 20):int(pz) + 21, max(0, int(px) - 20):int(px) + 21]
+            if zone_g.max() > SEA - 5:
+                continue
+            if all(math.hypot(px - qx, pz - qz) > 110 for qx, qz in cand):
+                cand.append((px, pz))
+        for i, (px, pz) in enumerate(cand):
+            R = float(g.uniform(9, 14)) if i else 11.0
+            dg_ = np.hypot(xx - px, zz - pz) * (1 + 0.18 * (n.fbm(10, 2, 70 + i) - 0.5))
+            bas = 4 + int(g.integers(0, 4))
+            # une corniche a mi-hauteur sur un cote (la ou il se tient), puis le puits
+            h = np.where(dg_ < R + 3, np.minimum(h, np.maximum(bas + 14, h - 3)), h)
+            h = np.where(dg_ < R, bas + 2 * (dg_ / R) ** 4, h)
+            self.gouffres.append((int(px), int(pz), R, bas))
         # ------------------------------------------------ plate-forme du campus
         ox, oz = self.CAMPUS
         G = SEA + 5

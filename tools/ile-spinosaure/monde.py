@@ -12,6 +12,9 @@ import nbt
 OPPOSES = {'north': 'south', 'south': 'north', 'east': 'west', 'west': 'east'}
 
 
+
+PANNEAUX = False
+
 class Monde:
     def __init__(self, W, H, L, graine=1):
         self.W, self.H, self.L = W, H, L
@@ -263,6 +266,10 @@ class Monde:
 
     # ------------------------------------------------------------ entites de blocs
     def panneau(self, x, y, z, facing, lignes, mural=True, bois='oak'):
+        """Plus de panneaux sur l'ile (retires a la demande : ils cassaient l'ambiance). Les
+        appels restent dans les lieux ; mettre PANNEAUX a True pour les retrouver."""
+        if not PANNEAUX:
+            return
         lignes = (list(lignes) + ['', '', '', ''])[:4]
         if mural:
             self.pose(x, y, z, 'minecraft:%s_wall_sign[facing=%s,waterlogged=false]' % (bois, facing))
@@ -283,6 +290,7 @@ class Monde:
         else:
             self.pose(x, y, z, 'minecraft:barrel[facing=%s,open=false]' % facing)
         items = []
+        objets = [o for o in objets if not o[0].startswith('journal:')]     # plus de journaux
         for i, obj in enumerate(objets):
             o, n = obj[0], obj[1]
             c = {'Slot': nbt.Byte(i), 'id': nbt.String(o), 'Count': nbt.Byte(n)}

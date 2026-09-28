@@ -27,6 +27,7 @@ import numpy as np
 
 from arbres import Foret, F_JUNGLE
 from campus import Campus
+from grottes import Grottes
 from lieux import Lieux
 from monde import Monde, Decale
 from relief import Relief, catmull, distance_polyligne
@@ -75,6 +76,28 @@ def remplir(m, r):
                                 np.where(n2[sous_eau] > 0.6, P('minecraft:clay'), P('minecraft:mud')))
     dessus[fond_mer] = np.where(n1[fond_mer] > 0.66, P('minecraft:gravel'), P('minecraft:sand'))
     sous[fond_mer] = P('minecraft:sand')
+    # fond marin travaille : sable pres des cotes, puis gravier, argile et vase au large ;
+    # roche nue sur les pitons, les parois des crevasses et des gouffres
+    prof = eau - h
+    large = fond_mer & (prof > 8)
+    dessus[large] = np.where(n2[large] > 0.62, P('minecraft:clay'),
+                             np.where(n1[large] > 0.52, P('minecraft:gravel'),
+                                      np.where(n3[large] > 0.6, P('minecraft:mud'), P('minecraft:sand'))))
+    sous[large] = P('minecraft:gravel')
+    roc_ids = np.array([P('minecraft:stone'), P('minecraft:andesite'), P('minecraft:tuff'), P('minecraft:mossy_cobblestone'),
+                        P('minecraft:cobblestone'), P('minecraft:stone')], np.uint16)
+    roc = fond_mer & ((r.pitons > 2.5) | (r.pente > 1.4) | r.crevasse)
+    dessus[roc] = roc_ids[(n1[roc] * 61 + n2[roc] * 17).astype(int) % len(roc_ids)]
+    sous[roc] = P('minecraft:stone')
+    fond_crev = r.crevasse & (prof > 14)
+    dessus[fond_crev] = np.where(n2[fond_crev] > 0.5, P('minecraft:gravel'), P('minecraft:tuff'))
+    for gx, gz, R, bas in r.gouffres:
+        dg = np.hypot(r.xx - gx, r.zz - gz)
+        paroi = (dg < R + 2) & sous_eau
+        dessus[paroi] = np.where(n1[paroi] > 0.5, P('minecraft:deepslate'), P('minecraft:tuff'))
+        sous[paroi] = P('minecraft:deepslate')
+        fond_g = (dg < R * 0.7) & sous_eau
+        dessus[fond_g] = np.where(n2[fond_g] > 0.55, P('minecraft:gravel'), P('minecraft:mud'))
     # volcan : cendres et roches, basalte et tuf en altitude
     v_haut = volcan & (h > SEA + 40) & ~sous_eau
     dessus[v_haut & (n2 > 0.5)] = P('minecraft:coarse_dirt')
@@ -232,8 +255,9 @@ def planter(m, r, foret, libre, rng):
     essai(10, 3, 0.9, 4, foret.canopee, lambda x, z: terre(x, z) and alt(x, z) < 55 and dist_eau[z, x] > 2)
     # berges et plages : palmiers
     essai(7, 2, 0.6, 2, foret.palmier, lambda x, z: terre(x, z) and alt(x, z) <= 4 and dist_eau[z, x] <= 6)
-    essai(8, 2, 0.5, 3, foret.jeune, lambda x, z: terre(x, z) and alt(x, z) < 70)
-    essai(7, 2, 0.3, 2, foret.buisson, lambda x, z: terre(x, z) and alt(x, z) < 75)
+    # etage bas plus fourni (jeunes arbres, buissons) : il masque la vue sans fermer le passage
+    essai(6, 2, 0.7, 3, foret.jeune, lambda x, z: terre(x, z) and alt(x, z) < 70)
+    essai(5, 1, 0.6, 2, foret.buisson, lambda x, z: terre(x, z) and alt(x, z) < 75)
     essai(26, 6, 0.35, 3, foret.souche, bas)
     for gz in range(45, L, 90):
         for gx in range(45, W, 90):
@@ -260,16 +284,19 @@ def couvert(m, r, rng):
     gf_b, gf_h = m.P('minecraft:large_fern[half=lower]'), m.P('minecraft:large_fern[half=upper]')
     ght_b, ght_h = m.P('minecraft:tall_grass[half=lower]'), m.P('minecraft:tall_grass[half=upper]')
     choix = np.full(h.shape, -1, np.int32)
-    choix[libre & (u < 0.22)] = herbe
-    choix[libre & (u >= 0.22) & (u < 0.36)] = fougere
-    choix[libre & (u >= 0.36) & (u < 0.37)] = m.P('minecraft:melon')
-    choix[libre & (u >= 0.37) & (u < 0.375)] = m.P('minecraft:azalea')
-    choix[libre & (u >= 0.375) & (u < 0.378)] = m.P('minecraft:blue_orchid')
-    choix[libre & (u >= 0.378) & (u < 0.381)] = m.P('minecraft:brown_mushroom')
+    # sous-bois dense (~80 % du sol couvert, un quart en plantes de 2 blocs) : a hauteur
+    # d'yeux on ne voit plus a 50 blocs sous les arbres. Tout se traverse (herbes, fougeres).
+    choix[libre & (u < 0.30)] = herbe
+    choix[libre & (u >= 0.30) & (u < 0.46)] = fougere
+    choix[libre & (u >= 0.46) & (u < 0.47)] = m.P('minecraft:melon')
+    choix[libre & (u >= 0.47) & (u < 0.49)] = m.P('minecraft:azalea')
+    choix[libre & (u >= 0.49) & (u < 0.495)] = m.P('minecraft:flowering_azalea')
+    choix[libre & (u >= 0.495) & (u < 0.498)] = m.P('minecraft:blue_orchid')
+    choix[libre & (u >= 0.498) & (u < 0.501)] = m.P('minecraft:brown_mushroom')
     k = choix >= 0
     m.blocs[h[k] + 1, zz[k], xx[k]] = choix[k]
-    double = libre & (dessus2 == m.AIR) & (u >= 0.40) & (u < 0.46)
-    haute = libre & (dessus2 == m.AIR) & (u >= 0.46) & (u < 0.50)
+    double = libre & (dessus2 == m.AIR) & (u >= 0.52) & (u < 0.66)
+    haute = libre & (dessus2 == m.AIR) & (u >= 0.66) & (u < 0.80)
     for msk, b_, h_ in ((double, gf_b, gf_h), (haute, ght_b, ght_h)):
         m.blocs[h[msk] + 1, zz[msk], xx[msk]] = b_
         m.blocs[h[msk] + 2, zz[msk], xx[msk]] = h_
@@ -458,18 +485,52 @@ def main(sortie):
     pi.trace([(ox - 6, oz + 110), (serres[0] + 22, serres[1])], 1.6)
     pi.trace([camp, cimet], 1.2)
     li.checkpoint(*check)
-    # poteaux indicateurs aux carrefours et vehicules abandonnes le long des pistes
-    li.poteau_indicateur(porte[0] + 4, porte[1] + 22, [('south', 'PONTON', 'sud'), ('east', 'PISTE AVION', 'est'),
-                                                      ('west', 'DELTA', 'sud-ouest'), ('north', 'CAMPUS', 'portail')])
-    li.poteau_indicateur(camp[0] + 5, camp[1] - 5, [('north', 'PHARE', 'nord'), ('east', 'VOLCAN', 'observatoire'),
-                                                   ('south', 'CAMPUS', 'sud'), ('west', 'CIMETIERE', '')])
-    li.poteau_indicateur(tour[0] + 6, tour[1] + 6, [('north', 'TEMPLE', 'HELICO'), ('south', 'MINE', 'LAGON'),
-                                                   ('east', 'LAC', 'CAMPUS')])
-    li.poteau_indicateur(relais[0] - 6, relais[1] + 4, [('east', 'VILLAGE', 'pecheurs'), ('north', 'VOLIERE', ''),
-                                                       ('west', 'CAMPUS', '')])
-    li.poteau_indicateur(372, 596, [('south', 'STATION', 'DELTA'), ('west', 'BUNKER', ''), ('east', 'PONTON', '')])
+    # vehicules abandonnes le long des pistes (plus de poteaux indicateurs : pas de panneaux)
     li.jeep(560, 548, 'east'); li.jeep(300, 372, 'west', renversee=True); li.jeep(446, 290, 'north')
     li.jeep(640, 470, 'south', renversee=True); li.jeep(200, 470, 'north')
+    # ------------------------------------------------ grottes, gouffres et nids
+    journal('grottes')
+    zz, xx = r.zz, r.xx
+    protege = (xx >= campus_x0 - 24) & (xx <= campus_x1 + 24) & (zz >= campus_z0 - 24) & (zz <= campus_z1 + 24)
+    for nom, x, z, ray in li.poi:
+        protege |= np.hypot(xx - x, zz - z) < max(ray, 12) + 16
+    pm = pi.masque.copy()
+    for _ in range(4):
+        p2 = pm.copy(); p2[1:] |= pm[:-1]; p2[:-1] |= pm[1:]; p2[:, 1:] |= pm[:, :-1]; p2[:, :-1] |= pm[:, 1:]; pm = p2
+    protege |= pm | r.cratere | r.canyon_haut | r.canyon_bas
+    gr = Grottes(m, r, rng, protege, SEA)
+    gr.creuser()
+    gr.decorer()
+    n_nids = gr.nids_dans_les_salles(3)
+    # nids sur des berges isolees : sol au ras de l'eau d'une riviere, loin de tout lieu
+    berge = (r.h == SEA) & (r.eau <= r.h) & ~protege
+    voisin = np.zeros_like(berge)
+    riv = r.riviere | r.lac
+    voisin[1:] |= riv[:-1]; voisin[:-1] |= riv[1:]; voisin[:, 1:] |= riv[:, :-1]; voisin[:, :-1] |= riv[:, 1:]
+    bz, bx = np.nonzero(berge & voisin)
+    poses = []
+    for k in rng.permutation(len(bz)):
+        x, z = int(bx[k]), int(bz[k])
+        if any(math.hypot(x - a, z - b) < 150 for a, b in poses):
+            continue
+        # a 4 blocs de l'eau, vers la terre : la cuvette ne doit pas tomber dans la riviere
+        tx, tz = x, z
+        for dx, dz in ((4, 0), (-4, 0), (0, 4), (0, -4)):
+            if 0 <= x + dx < W and 0 <= z + dz < L and not riv[z + dz, x + dx] and r.eau[z + dz, x + dx] <= r.h[z + dz, x + dx] \
+                    and not riv[z - dz // 4, x - dx // 4]:
+                tx, tz = x + dx, z + dz
+                break
+        if (tx, tz) == (x, z) or protege[tz - 6:tz + 7, tx - 6:tx + 7].any():
+            continue
+        gr.nid(tx, int(r.h[tz, tx]) + 1, tz, 'Nid (berge)')
+        poses.append((tx, tz))
+        if len(poses) >= 2:
+            break
+    for nom, x, y, z in gr.nids:
+        li.ajoute(nom, x, z, 7)
+    carte_grottes = np.stack([gr.creuse.any(axis=0), (gr.creuse & (m.blocs == m.P(EAU))).any(axis=0)])
+    journal('grottes : %d salles, %d entrees et gouffres, %d nids, %d blocs creuses'
+            % (len(gr.salles), len(gr.entrees), len(gr.nids), int(gr.creuse.sum())))
     # ------------------------------------------------ foret
     journal('foret')
     libre = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 1.6) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
@@ -502,7 +563,9 @@ def main(sortie):
     # ------------------------------------------------ ecriture
     journal('ecriture')
     meta = {'W': W, 'H': H, 'L': L, 'SEA': SEA, 'coller_y': 63 - SEA, 'campus': [ox, G, oz],
-            'lieux': [(n, x, z) for n, x, z, _ in li.poi]}
+            'lieux': [(n, x, z) for n, x, z, _ in li.poi],
+            'entrees_grottes': [(int(x), int(r.h[z, x]), int(z)) for x, z in gr.entrees],
+            'trous_bleus': [(int(x), int(z), round(float(R)), int(bas)) for x, z, R, bas in r.gouffres]}
     json.dump(meta, open(os.path.join(sortie, 'site_b_v2.json'), 'w'), ensure_ascii=False, indent=1)
     taille = m.ecrire(os.path.join(sortie, 'site_b_v2.schem'), biomes=bio, bio_palette=bio_pal, nom='Site B v2')
     journal('site_b_v2.schem : %.1f Mo' % (taille / 1e6))
@@ -511,6 +574,7 @@ def main(sortie):
             t = m.ecrire(os.path.join(sortie, 'site_b_v2_%d_%d.schem' % (i, j)), 384 * i, 384 * j, 384 * (i + 1), 384 * (j + 1),
                          biomes=bio, bio_palette=bio_pal, nom='Site B v2 tuile %d-%d' % (i, j))
             journal('tuile %d-%d : %.1f Mo' % (i, j, t / 1e6))
+    np.save(os.path.join(sortie, 'grottes.npy'), carte_grottes)
     return m, r, li, meta
 
 

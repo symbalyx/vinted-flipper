@@ -125,34 +125,140 @@ class Lieux:
 
     # ------------------------------------------------------------------ helicoptere abattu
     def helicoptere(self, x, z):
-        m, rng = self.m, self.rng
-        y = self.sol(x, z) + 1
-        # cellule couchee sur le flanc, cockpit ecrase
-        for i in range(-6, 7):
-            for j in range(-2, 3):
-                for dy in range(0, 4):
-                    if (j in (-2, 2) or dy in (0, 3)) and not (i > 3 and dy == 3):
-                        m.pose(x + i, y + dy, z + j, 'minecraft:gray_concrete' if (i + dy) % 5 else 'minecraft:yellow_concrete')
-            if i > 3:
-                for j in (-1, 0, 1):
-                    m.pose(x + i, y + 2, z + j, 'minecraft:black_stained_glass')
-        m.boite(x - 3, y + 1, z - 1, x + 2, y + 2, z + 1, AIR)
-        for i in range(7, 22):
-            m.pose(x - i, y + 2 + (i > 18), z + (i // 6), 'minecraft:gray_concrete')
-        m.pose(x - 21, y + 3, z + 3, 'minecraft:iron_bars'); m.pose(x - 21, y + 4, z + 3, 'minecraft:iron_bars')
-        for a in range(0, 360, 90):
-            for d in range(1, 9):
-                m.pose(x + int(round(math.cos(math.radians(a + 20)) * d)), y + 4,
-                       z + int(round(math.sin(math.radians(a + 20)) * d)) + (d > 6), 'minecraft:smooth_stone_slab[type=bottom,waterlogged=false]')
-        m.pose(x, y + 4, z, 'minecraft:iron_block')
-        # sillon arrache dans la jungle
-        for i in range(10, 40):
+        """Helicoptere de transport militaire abattu, couche sur le flanc gauche au bout d'un
+        sillon arrache dans la jungle. Modele en coordonnees propres (u : longueur, nez vers +u ;
+        v : de gauche a droite ; w : hauteur), puis couche : v devient la hauteur, w l'horizontale.
+        La porte cargo droite, ouverte, regarde le ciel : on y entre par le dessus."""
+        m, rng, k = self.m, self.rng, self.k
+        OLIVE, OLIVE2 = 'minecraft:green_terracotta', 'minecraft:moss_block'
+        GRIS, NOIR = 'minecraft:gray_concrete', 'minecraft:black_concrete'
+        VITRE = 'minecraft:gray_stained_glass'
+        cel = {}
+
+        def met(u, v, w, e):
+            cel[(int(round(u)), int(round(v)), int(round(w)))] = e
+
+        # ---- fuselage : sections elliptiques, cabine large, nez effile, poutre de queue fine
+        for u10 in range(-150, 91, 5):
+            u = u10 / 10
+            if u >= -3:
+                a_, b_ = 2.9, 2.8                       # demi-largeur, demi-hauteur de la cabine
+                if u > 5:
+                    t = (u - 5) / 4
+                    a_, b_ = 2.9 * (1 - 0.55 * t * t), 2.8 * (1 - 0.45 * t)
+                wc = 2.8
+            else:
+                t = (-3 - u) / 12
+                a_, b_ = 1.5 - 0.6 * t, 1.6 - 0.6 * t
+                wc = 3.6 + 0.8 * t
+            for v in range(-4, 5):
+                for w in range(-1, 8):
+                    q = (v / a_) ** 2 + ((w - wc) / b_) ** 2
+                    if q <= 1.0:
+                        coque = q > (0.55 if u >= -3 else 0.2)
+                        if not coque:
+                            met(u, v, w, 'AIR')
+                            continue
+                        e = OLIVE
+                        if u > 4.5 and w > wc - 0.5:
+                            e = VITRE                       # verriere du cockpit
+                        elif u > 7.5:
+                            e = NOIR                        # nez
+                        elif u >= -3 and abs(w - wc) < 1.0 and v * v > 4 and int(u) % 3 == 0:
+                            e = VITRE                       # hublots de la cabine
+                        elif -3 <= u <= -2.5 or (u < -3 and int(u) % 4 == 0):
+                            e = GRIS                        # jonctions
+                        met(u, v, w, e)
+        # ---- porte cargo droite (v > 0) grande ouverte, porte coulissante reculee sur la coque
+        for u in range(-2, 3):
+            for w in range(1, 5):
+                met(u, 3, w, 'AIR'); met(u, 2, w, 'AIR')
+        for u in range(-6, -2):
+            for w in range(1, 5):
+                met(u, 4, w, OLIVE2 if (u + w) % 3 == 0 else OLIVE)
+        # ---- carter moteur et mat du rotor sur le dos
+        for u in range(-3, 3):
+            for v in (-1, 0, 1):
+                met(u, v, 6, GRIS)
+                met(u, v, 7, GRIS if abs(v) < 1 or u in (-3, 2) else NOIR)
+        met(-4, -1, 6, NOIR); met(-4, 1, 6, NOIR)                # tuyeres
+        met(0, 0, 8, 'minecraft:iron_block'); met(0, 0, 9, 'minecraft:iron_block')
+        # ---- deriviere : derive, stabilisateur, rotor de queue
+        for w in range(4, 10):
+            for u in range(-16, -13 + (w < 6)):
+                met(u, 0, w, OLIVE)
+        for v in range(-3, 4):
+            met(-15, v, 4, OLIVE)
+        # ---- roues (train fixe) : on les voit en l'air, cote gauche contre le sol
+        for (u, v) in ((3, -2), (3, 2), (-13, 0)):
+            met(u, v, -1, NOIR); met(u, v, -2, NOIR)
+
+        # couche sur le flanc gauche : la hauteur devient v (+4 au-dessus du sol), w part vers +z
+        y0 = self.sol(x, z)
+        for (u, v, w), e in cel.items():
+            px, py, pz = x + u, y0 + 4 + v, z + w - 3
+            if e == 'AIR':
+                if py > y0:
+                    m.pose(px, py, pz, AIR)
+            else:
+                m.pose(px, py, pz, e)
+        # le nez s'est enfonce : terre retournee autour
+        for dz in range(-3, 6):
+            for dx in range(7, 13):
+                yy = self.sol(x + dx, z + dz)
+                if rng.random() < 0.6:
+                    m.pose(x + dx, yy + 1, z + dz, 'minecraft:coarse_dirt', seulement_air=True)
+        # ---- rotor principal casse : une pale plantee dans le sol, une tordue, deux arrachees
+        mx, my, mz = x, y0 + 4, z + 6                # mat (couche : il pointe vers +z)
+        pale = 'minecraft:polished_blackstone_brick_wall'
+        for i in range(1, 11):                        # plantee en biais dans le sol, vers l'est
+            m.pose(mx + i, max(my - i // 2, self.sol(mx + i, mz + 2) + 1), mz + 2, pale)
+        for i in range(1, 7):                         # tordue vers le haut
+            m.pose(mx - i // 2, my + i, mz + 1, pale)
+        for i in range(0, 5):                         # pale arrachee, tombee plus loin
+            px, pz = x - 9 + i, z + 11
+            m.pose(px, self.sol(px, pz) + 1, pz, pale)
+        # rotor de queue arrache, a 10 blocs
+        tx, tz = x - 24, z + 5
+        ty = self.sol(tx, tz) + 1
+        for (dx, dy) in ((0, 0), (1, 1), (-1, 1), (0, 2), (1, -0), (0, 1)):
+            m.pose(tx + dx, ty + dy, tz, 'minecraft:iron_bars')
+        m.pose(tx, ty, tz + 1, 'minecraft:iron_block')
+        # ---- degats : trous dans la coque, traces de brulure, fumee qui monte encore du moteur
+        coque = [c_ for c_, e in cel.items() if e in (OLIVE, OLIVE2, GRIS) and c_[1] >= 1]   # flanc du dessus
+        for i in rng.choice(len(coque), 22, replace=False):
+            u, v, w = coque[i]
+            m.pose(x + u, y0 + 4 + v, z + w - 3, rng.choice([NOIR, 'minecraft:coal_block', AIR, 'minecraft:blackstone']))
+        m.pose(x - 1, y0 + 4, z + 3, 'minecraft:campfire[facing=north,lit=true,signal_fire=true,waterlogged=false]')
+        m.pose(x - 1, y0 + 3, z + 3, 'minecraft:hay_block[axis=y]')
+        # ---- soute : fret renverse, civiere, sangles, sang (le flanc gauche est devenu le sol)
+        ys = y0 + 2                               # le flanc gauche, devenu plancher, est en y0 + 1
+        for (u, w) in ((-2, 1), (1, 2), (2, 4)):
+            m.pose(x + u, ys, z + w - 3, 'minecraft:barrel[facing=up,open=false]')
+        m.pose(x - 1, ys, z - 1, 'minecraft:white_wool'); m.pose(x, ys, z - 1, 'minecraft:white_wool')
+        m.pose(x + 2, ys + 1, z + 1, 'minecraft:chain[axis=x,waterlogged=false]')
+        m.pose(x - 2, ys + 1, z, 'minecraft:chain[axis=z,waterlogged=false]')
+        m.coffre(x, ys, z + 1, 'east', [('minecraft:crossbow', 1), ('minecraft:arrow', 20),
+                                                          ('minecraft:golden_apple', 1), ('minecraft:flint_and_steel', 1),
+                                                          ('minecraft:spyglass', 1), ('minecraft:cooked_beef', 6)])
+        self.k.sang([(x - 1, ys, z), (x + 3, ys, z + 2), (x - 4, self.sol(x - 4, z + 7) + 1, z + 7)], 0.7)
+        # ---- sillon : terre arrachee, arbres brises et couches, debris
+        for i in range(10, 46):
             px, pz = x + i, z - i // 3
-            m.pose(px, self.sol(px, pz), pz, 'minecraft:coarse_dirt')
-        m.coffre(x - 1, y + 1, z, 'east', [('minecraft:crossbow', 1), ('minecraft:arrow', 20), ('minecraft:golden_apple', 1),
-                                           ('minecraft:flint_and_steel', 1)])
-        m.panneau(x + 3, y + 1, z - 3, 'north', ['VOL 21', "Il n'a pas", "touche l'appareil.", "Il a attendu."], mural=False)
-        self.ajoute('Helicoptere abattu', x, z, 24)
+            for d in (-2, -1, 0, 1, 2):
+                if rng.random() < 0.8:
+                    m.pose(px, self.sol(px, pz + d), pz + d, 'minecraft:coarse_dirt' if rng.random() < 0.7 else 'minecraft:rooted_dirt')
+                m.boite(px, self.sol(px, pz + d) + 1, pz + d, px, self.sol(px, pz + d) + 6, pz + d, AIR)
+            if i % 9 == 0:
+                # tronc casse net et sa partie couchee
+                yy = self.sol(px, pz + 3) + 1
+                m.boite(px, yy, pz + 3, px, yy + 2, pz + 3, 'minecraft:jungle_log[axis=y]')
+                for j in range(1, 7):
+                    m.pose(px + j, self.sol(px + j, pz + 4) + 1, pz + 4, 'minecraft:jungle_log[axis=x]')
+            if i % 7 == 3:
+                m.pose(px, self.sol(px, pz) + 1, pz, rng.choice(['minecraft:iron_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]',
+                                                                  GRIS, OLIVE, 'minecraft:iron_bars']))
+        self.ajoute('Helicoptere abattu', x, z, 26)
 
     # ------------------------------------------------------------------ campement abandonne
     def campement(self, x, z):
@@ -179,40 +285,24 @@ class Lieux:
 
     # ------------------------------------------------------------------ bungalows sur pilotis
     def bungalows(self, pts):
-        m, k, SEA = self.m, self.k, self.r.SEA
+        """Bungalows de chercheurs sur pilotis au bord du lagon : meme charpente que les maisons
+        du village, toit de bambou, escalier jusqu'au sol."""
+        m, SEA = self.m, self.r.SEA
         for n, (x, z) in enumerate(pts):
             y = max(self.sol(x, z), SEA) + 4
-            v = Decale(m, x - 3, y, z - 3)
-            kv = Kit(v, self.rng)
-            for (dx, dz) in ((0, 0), (6, 0), (0, 6), (6, 6)):
-                for yy in range(self.sol(x - 3 + dx, z - 3 + dz) - y, 0):
-                    v.pose(dx, yy, dz, 'minecraft:stripped_jungle_log[axis=y]')
-            v.boite(0, -1, 0, 6, -1, 6, 'minecraft:jungle_planks')
-            v.boite(0, 0, 0, 6, 3, 6, 'minecraft:bamboo_planks')
-            v.boite(1, 0, 1, 5, 3, 5, AIR)
-            for (a, b) in ((0, 0), (6, 0), (0, 6), (6, 6)):
-                v.boite(a, 0, b, a, 3, b, 'minecraft:stripped_jungle_log[axis=y]')
-            v.boite(2, 1, 0, 4, 2, 0, 'minecraft:glass_pane'); v.boite(0, 1, 2, 0, 2, 4, 'minecraft:glass_pane')
-            v.boite(6, 1, 2, 6, 2, 4, 'minecraft:glass_pane')
-            v.boite(3, 0, 6, 3, 1, 6, AIR)
-            kv.porte(3, 0, 6, 'south', 'jungle', ouverte=n == 1)
-            for zz in range(-1, 8):
-                d = min(zz + 1, 7 - zz)
-                v.boite(-1, 4 + d // 2, zz, 7, 4 + d // 2, zz, esc('bamboo_mosaic', 'south' if zz < 3 else 'north')
-                        if d % 2 == 0 else dalle('bamboo_mosaic', 'top'))
-            v.boite(0, 4, 0, 6, 5, 0, 'minecraft:bamboo_planks'); v.boite(0, 4, 6, 6, 5, 6, 'minecraft:bamboo_planks')
-            kv.lit(1, 0, 4, 'north', ['white', 'yellow', 'cyan'][n % 3])
-            v.pose(5, 0, 1, 'minecraft:barrel[facing=up,open=false]')
-            kv.bureau(4, 0, 3, 'east', 1, 'jungle', ecrans=False)
-            kv.lanterne(3, 3, 3)
-            # escalier d'acces
-            for i in range(0, 5):
-                v.boite(3, -1 - i, 7 + i, 3, -1 - i, 7 + i, esc('jungle', 'north'))
-            if n == 2:
-                v.coffre(5, 0, 2, 'west', [('journal:bungalow', 1), ('minecraft:cooked_cod', 6), ('minecraft:fishing_rod', 1)])
-                v.panneau(1, 1, 1, 'south', ['Il nage sous', 'le ponton. On', 'voit la voile', 'depasser.'], mural=False)
-            kv.veilleuses(1, 1, 5, 5, 0, 3, 3)
-            self.ajoute('Bungalow', x, z, 8)
+            self.maison(x - 3, y, z - 3, 7, 7, 'jungle', n % 2 == 0, [0, 3, 1][n % 3], 'bamboo_mosaic',
+                        ['white', 'yellow', 'cyan'][n % 3],
+                        [('minecraft:cooked_cod', 6), ('minecraft:fishing_rod', 1), ('minecraft:spyglass', 1)] if n == 2 else None)
+            # escalier de la veranda jusqu'au sol (ou jusqu'a l'eau)
+            vx = x - 3 - 2 if n % 2 == 0 else x - 3 + 8
+            for i in range(0, 6):
+                zz = z - 3 + 7 + i
+                yy = y - 1 - i
+                if yy <= self.sol(vx, zz):
+                    break
+                m.pose(vx, yy + 1, zz, esc('jungle', 'north'))
+                m.pose(vx, yy, zz, 'minecraft:jungle_planks')
+            self.ajoute('Bungalow', x, z, 10)
 
     # ------------------------------------------------------------------ relais radio
     def relais(self, x, z):
@@ -561,92 +651,227 @@ class Lieux:
         k.veilleuses(x - 3, z - 3, x + 3, z + 3, y0 + 1, 3, 3)
         self.ajoute('Phare', x, z, 16)
 
-    # ================================================================== temple en ruine
+    # ================================================================== temple maya en ruine
     def temple(self, x, z):
-        """Pyramide a degres envahie par la jungle ; escalier au sud, sanctuaire au sommet,
-        galerie basse (2 blocs : il ne peut pas y entrer) vers la chambre du tresor."""
+        """Pyramide maya a degres (facon Tikal) : 8 terrasses en talud-tablero a angles rentrants,
+        escalier central raide borde de rampes et gardé par deux tetes de serpent, sanctuaire au
+        sommet (murs epais, trois portes, voute en encorbellement, frise), crete ajouree sur le
+        toit. Devant : place et steles. A cote : un cenote (puits noye) et un nid sur sa corniche.
+        Dedans : galerie basse (2 blocs, il n'y entre pas) vers la chambre du tresor."""
         m, k, rng = self.m, self.k, self.rng
-        B = 17                      # demi-base
+        N, HT, B = 8, 4, 21                     # terrasses, hauteur d'une terrasse, demi-base
         y0 = self.sol_moyen(x - B, z - B, x + B, z + B)
-        self.plateforme(x - B - 4, z - B - 4, x + B + 4, z + B + 10, y0, 'minecraft:mossy_cobblestone', 'minecraft:stone', 40)
-        mat = ['minecraft:mossy_stone_bricks', 'minecraft:stone_bricks', 'minecraft:cracked_stone_bricks',
-               'minecraft:mossy_cobblestone', 'minecraft:mossy_stone_bricks']
-        ids = [m.P(e) for e in mat]
-        niveaux = 6
-        for n in range(niveaux):
-            b = B - n * 3
-            ya, yb = y0 + 1 + n * 4, y0 + 4 + n * 4
-            zone_b = m.blocs[ya:yb + 1, z - b:z + b + 1, x - b:x + b + 1]
-            zone_b[...] = np.array(ids, np.uint16)[rng.integers(0, len(ids), zone_b.shape)]
-            # corniche sculptee
-            for i in range(-b, b + 1, 4):
-                for (px, pz) in ((x + i, z - b), (x + i, z + b), (x - b, z + i), (x + b, z + i)):
-                    m.pose(px, yb, pz, 'minecraft:chiseled_stone_bricks')
-        top = y0 + niveaux * 4
-        # escalier monumental au sud (pente 4/3 : une marche par bloc, paliers)
-        for i in range(niveaux * 4):
-            zz = z + (B - (niveaux - 1) * 3) + (niveaux * 4 - 1 - i)
-            m.boite(x - 3, y0 + 1 + i, zz, x + 3, y0 + 1 + i, zz, esc('mossy_stone_brick', 'north'))
-            m.boite(x - 3, y0 + 2 + i, zz, x + 3, y0 + 5 + i, zz, AIR)
-            m.boite(x - 3, y0 + 1, zz, x + 3, y0 + i, zz, 'minecraft:stone_bricks')
-            for s in (-4, 4):
-                m.pose(x + s, y0 + 1 + i, zz, 'minecraft:mossy_stone_brick_wall')
-        # sanctuaire au sommet : 4 piliers, linteau, autel
-        b = B - niveaux * 3 + 2
-        for (dx, dz) in ((-b, -b), (b, -b), (-b, b), (b, b)):
-            m.boite(x + dx, top + 1, z + dz, x + dx, top + 5, z + dz, 'minecraft:chiseled_stone_bricks')
-        m.boite(x - b, top + 6, z - b, x + b, top + 6, z + b, 'minecraft:mossy_stone_bricks')
-        m.boite(x - b + 1, top + 6, z - b + 1, x + b - 1, top + 6, z + b - 1, AIR)
-        m.boite(x - 1, top + 1, z - 1, x + 1, top + 1, z + 1, 'minecraft:polished_andesite')
-        m.pose(x, top + 2, z, 'minecraft:lantern[hanging=false,waterlogged=false]')
-        m.panneau(x, top + 2, z + 1, 'south', ['Ils le priaient', 'bien avant nous.', 'La voile au-dessus', "de l'eau."], mural=False)
-        # fresque en os sur la face nord du sanctuaire : silhouette a voile
-        for (dx, dy) in ((-3, 1), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 2), (3, 2), (-1, 2), (0, 2), (0, 3), (-1, 3),
-                         (1, 2), (-2, 2), (4, 2)):
-            m.pose(x + dx, top + 1 + dy, z - (B - niveaux * 3 + 2), 'minecraft:bone_block[axis=y]')
-        # galerie basse vers la chambre, depuis la face est
+        Htot = N * HT
+        bt = B - (N - 1) * 2                    # demi-cote de la plate-forme sommitale (7)
+        z_esc = z + bt + Htot + 1               # pied de l'escalier (il deborde vers le sud)
+        self.plateforme(x - B - 6, z - B - 6, x + B + 6, z_esc + 16, y0, 'minecraft:mossy_cobblestone', 'minecraft:stone', 60)
+        pierre = ['minecraft:stone_bricks', 'minecraft:stone_bricks', 'minecraft:cracked_stone_bricks', 'minecraft:mossy_stone_bricks',
+                  'minecraft:andesite', 'minecraft:polished_andesite', 'minecraft:mossy_cobblestone', 'minecraft:stone']
+        ids = np.array([m.P(e) for e in pierre], np.uint16)
+        mousse = np.array([m.P('minecraft:mossy_stone_bricks'), m.P('minecraft:mossy_cobblestone'), m.P('minecraft:moss_block')], np.uint16)
+
+        def masse(x0, y0_, z0, x1, y1, z1, frac_mousse=0.25):
+            zone = m.blocs[y0_:y1 + 1, z0:z1 + 1, x0:x1 + 1]
+            zone[...] = ids[rng.integers(0, len(ids), zone.shape)]
+            mo = rng.random(zone.shape) < frac_mousse
+            zone[mo] = mousse[rng.integers(0, len(mousse), int(mo.sum()))]
+
+        # ---- les terrasses : talud (pente), tablero (panneau vertical a bandeau en retrait), corniche
+        for n in range(N):
+            b = B - n * 2
+            ya = y0 + 1 + n * HT
+            masse(x - b + 1, ya, z - b + 1, x + b - 1, ya + HT - 1, z + b - 1, 0.35 - n * 0.03)
+            anneau = []
+            for i in range(-b, b + 1):
+                anneau += [(x + i, z - b, 'north'), (x + i, z + b, 'south'), (x - b, z + i, 'west'), (x + b, z + i, 'east')]
+            for (px, pz, face) in anneau:
+                coin = abs(px - x) == b and abs(pz - z) == b
+                if coin:
+                    continue                      # angles rentrants
+                # talud : marche inclinee vers l'exterieur (le dos de la marche vers le centre)
+                m.pose(px, ya, pz, esc('mossy_stone_brick' if rng.random() < 0.5 else 'stone_brick', OPP[face]))
+                m.pose(px, ya + 1, pz, pierre[rng.integers(0, 4)])
+                # bandeau en retrait : un bloc sur deux, laisse en creux (ombre du tablero)
+                if (px + pz) % 2 == 0:
+                    m.pose(px, ya + 2, pz, 'minecraft:chiseled_stone_bricks' if (px * 3 + pz) % 7 == 0 else pierre[rng.integers(0, 3)])
+                m.pose(px, ya + 3, pz, 'minecraft:polished_andesite' if rng.random() < 0.7 else 'minecraft:mossy_stone_bricks')
+            for (sx, sz) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+                m.boite(x + sx * (b - 1), ya, z + sz * (b - 1), x + sx * (b - 1), ya + HT - 1, z + sz * (b - 1), pierre[rng.integers(0, 4)])
+        top = y0 + Htot
+        # ---- escalier central : 9 de large, une marche par bloc, rampes (alfardas) de chaque cote
+        for i in range(Htot):
+            yy = y0 + 1 + i
+            zz = z_esc - i
+            m.boite(x - 4, yy, zz, x + 4, yy, zz, esc('stone_brick' if rng.random() < 0.7 else 'mossy_stone_brick', 'north'))
+            m.boite(x - 4, y0 + 1, zz, x + 4, yy - 1, zz, 'minecraft:stone_bricks')
+            m.boite(x - 4, yy + 1, zz, x + 4, yy + 4, zz, AIR)
+            for sx in (-5, 5):
+                m.boite(x + sx, y0 + 1, zz, x + sx, yy + 1, zz, 'minecraft:polished_andesite')
+                m.pose(x + sx, yy + 2, zz, 'minecraft:andesite_wall')
+        # marches usees ou manquantes
+        for _ in range(10):
+            i = int(rng.integers(2, Htot - 2)); dx = int(rng.integers(-4, 5))
+            m.pose(x + dx, y0 + 1 + i, z_esc - i, rng.choice(['minecraft:mossy_cobblestone', 'minecraft:moss_block', 'minecraft:cracked_stone_bricks']))
+        # tetes de serpent au pied des rampes : gueule ouverte vers le sud
+        for sx in (-6, 6):
+            hx, hz, hy = x + sx, z_esc + 1, y0 + 1
+            m.boite(hx - 1, hy, hz - 1, hx + 1, hy + 2, hz + 1, 'minecraft:mossy_stone_bricks')
+            m.boite(hx - 1, hy + 1, hz + 1, hx + 1, hy + 1, hz + 1, AIR)                   # gueule
+            m.pose(hx - 1, hy + 2, hz + 1, 'minecraft:chiseled_stone_bricks'); m.pose(hx + 1, hy + 2, hz + 1, 'minecraft:chiseled_stone_bricks')
+            m.pose(hx, hy, hz + 2, 'minecraft:stone_brick_slab[type=bottom,waterlogged=false]')   # machoire
+        # ---- sanctuaire : 13 x 9, murs de 2, trois portes au sud, voute en encorbellement, frise
+        ts = top + 1
+        masse(x - 6, ts, z - 4, x + 6, ts + 6, z + 4, 0.15)
+        m.boite(x - 4, ts, z - 2, x + 4, ts + 3, z + 2, AIR)                # la salle
+        m.boite(x - 3, ts + 4, z - 1, x + 3, ts + 4, z + 1, AIR)            # encorbellement
+        m.boite(x - 2, ts + 5, z, x + 2, ts + 5, z, AIR)
+        for dxp in (-3, 0, 3):
+            m.boite(x + dxp, ts, z + 3, x + dxp, ts + 2, z + 4, AIR)        # portes (murs epais)
+        for i in range(-6, 7):                                             # frise sculptee
+            if i % 2 == 0:
+                m.pose(x + i, ts + 5, z + 4, 'minecraft:chiseled_stone_bricks')
+                m.pose(x + i, ts + 5, z - 4, 'minecraft:chiseled_stone_bricks')
+        m.boite(x - 7, ts + 6, z - 5, x + 7, ts + 6, z + 5, 'minecraft:polished_andesite')   # corniche du toit
+        # ---- crete faitiere ajouree (cresteria), en retrait vers l'arriere
+        for j in range(9):
+            demi = 5 - j // 3
+            yy = ts + 7 + j
+            m.boite(x - demi, yy, z - 2, x + demi, yy, z - 1, 'minecraft:stone_bricks' if j % 3 else 'minecraft:polished_andesite')
+            if j in (1, 2, 4, 5):
+                for hx in range(x - demi + 1, x + demi, 3):
+                    m.pose(hx, yy, z - 2, AIR); m.pose(hx, yy, z - 1, AIR)       # jours de la crete
+        m.pose(x, ts + 16, z - 2, 'minecraft:chiseled_stone_bricks'); m.pose(x, ts + 16, z - 1, 'minecraft:chiseled_stone_bricks')
+        # autel et fresque en os dans le sanctuaire
+        m.boite(x - 1, ts, z - 2, x + 1, ts, z - 2, 'minecraft:polished_andesite')
+        m.pose(x, ts + 1, z - 2, 'minecraft:skeleton_skull[rotation=0]')
+        for (dx, dy) in ((-3, 1), (-2, 1), (-1, 1), (0, 1), (1, 1), (2, 2), (3, 2), (-1, 2), (0, 2), (0, 3), (1, 2), (-2, 2)):
+            m.pose(x + dx, ts + dy, z - 3, 'minecraft:bone_block[axis=y]')
+        # ---- galerie basse vers la chambre du tresor, depuis la face est
         yb = y0 + 1
         m.boite(x + 2, yb, z - 1, x + B + 1, yb + 1, z, AIR)
         m.boite(x - 4, yb, z - 4, x + 4, yb + 3, z + 4, AIR)
         for (dx, dz) in ((-4, -4), (4, -4), (-4, 4), (4, 4)):
             m.boite(x + dx, yb, z + dz, x + dx, yb + 3, z + dz, 'minecraft:chiseled_stone_bricks')
         m.coffre(x, yb, z - 3, 'south', [('minecraft:gold_ingot', 8), ('minecraft:emerald', 5), ('minecraft:golden_apple', 2),
-                                         ('journal:temple', 1), ('minecraft:experience_bottle', 8), ('minecraft:diamond', 3)])
+                                         ('minecraft:experience_bottle', 8), ('minecraft:diamond', 3)])
         for (dx, dz) in ((-3, 3), (3, 3), (-3, -3), (3, -3)):
             m.pose(x + dx, yb, z + dz, 'minecraft:skeleton_skull[rotation=%d]' % rng.integers(0, 16))
-        k.torche_murale(x - 3, yb + 2, z, 'east')
         m.pose(x + 1, yb, z + 2, 'minecraft:bone_block[axis=x]'); m.pose(x + 2, yb, z + 2, 'minecraft:bone_block[axis=x]')
         k.toiles(x - 3, yb, z - 3, x + 3, yb + 3, z + 3, 8)
-        # ruine : effondrements et vegetation
-        for _ in range(4):
-            cx, cz = x + int(rng.choice([-B + 2, B - 2])), z + int(rng.integers(-B, B))
-            m.ellipsoide(cx, top - int(rng.integers(6, 16)), cz, rng.uniform(2, 4), rng.uniform(2, 3), rng.uniform(2, 4), AIR,
-                         seulement_air=False)
-        for _ in range(22):
-            cx, cz = x + int(rng.integers(-B - 2, B + 3)), z + int(rng.integers(-B - 2, B + 3))
-            for yy in range(top + 7, y0, -1):
-                if m.get(cx, yy, cz) != m.AIR:
-                    m.pose(cx, yy + 1, cz, ['minecraft:moss_carpet', 'minecraft:fern', 'minecraft:azalea'][rng.integers(0, 3)],
-                           seulement_air=True)
-                    break
+        # ---- ruine : pans effondres, vegetation sur les gradins, lianes
+        for _ in range(5):
+            n_ = int(rng.integers(1, N - 1)); b = B - n_ * 2
+            cx = x + int(rng.choice([-b, b])); cz = z + int(rng.integers(-b, b))
+            if abs(cx - x) < 7:
+                continue
+            m.ellipsoide(cx, y0 + n_ * HT + 2, cz, rng.uniform(2, 3.5), rng.uniform(2, 3), rng.uniform(2, 3.5), AIR, seulement_air=False)
+            for _ in range(6):                                                  # eboulis au pied
+                ex, ez = cx + int(rng.integers(-5, 6)), cz + int(rng.integers(-5, 6))
+                if abs(ex - x) > B or abs(ez - z) > B:
+                    m.pose(ex, self.sol(ex, ez) + 1, ez, rng.choice(['minecraft:mossy_cobblestone', 'minecraft:cobblestone',
+                                                                     'minecraft:mossy_stone_brick_slab[type=bottom,waterlogged=false]']))
+        for n_ in range(N):
+            b = B - n_ * 2 - 1
+            ya = y0 + (n_ + 1) * HT + 1
+            for _ in range(int(rng.integers(3, 7))):
+                px, pz = x + int(rng.integers(-b, b + 1)), z + int(rng.integers(-b, b + 1))
+                if abs(px - x) <= 5 and pz > z:
+                    continue                                                    # pas sur l'escalier
+                if m.get(px, ya, pz) == m.AIR and m.get(px, ya - 1, pz) != m.AIR:
+                    m.pose(px, ya, pz, rng.choice(['minecraft:moss_carpet', 'minecraft:fern', 'minecraft:azalea',
+                                                   'minecraft:flowering_azalea', 'minecraft:jungle_leaves[distance=1,persistent=true,waterlogged=false]']))
         from arbres import vigne
-        for _ in range(140):
+        for _ in range(260):
             face = ['north', 'south', 'east', 'west'][rng.integers(0, 4)]
-            n_ = int(rng.integers(0, niveaux)); b = B - n_ * 3
-            i = int(rng.integers(-b, b + 1))
+            n_ = int(rng.integers(0, N)); b = B - n_ * 2
+            i = int(rng.integers(-b + 1, b))
+            if face == 'south' and abs(i) <= 6:
+                continue
             px, pz = {'north': (x + i, z + b + 1), 'south': (x + i, z - b - 1), 'west': (x + b + 1, z + i), 'east': (x - b - 1, z + i)}[face]
-            for yy in range(y0 + 4 + n_ * 4, y0 + n_ * 4, -1):
+            px, pz = {'north': (x + i, z - b - 1), 'south': (x + i, z + b + 1), 'west': (x - b - 1, z + i), 'east': (x + b + 1, z + i)}[face]
+            att = OPP[face]
+            for yy in range(y0 + (n_ + 1) * HT, y0 + n_ * HT, -1):
                 if m.get(px, yy, pz) == m.AIR:
-                    m.pose(px, yy, pz, vigne(face))
-        # statues renversees le long de l'allee
-        for i, s in enumerate((-1, 1, -1, 1)):
-            px, pz = x + s * 7, z + B + 4 + i * 2
-            if i % 2:
-                m.boite(px, y0 + 1, pz, px, y0 + 3, pz, 'minecraft:chiseled_stone_bricks')
-                m.pose(px, y0 + 4, pz, 'minecraft:mossy_stone_brick_wall')
-            else:
-                m.boite(px - 2, y0 + 1, pz, px, y0 + 1, pz, 'minecraft:mossy_stone_bricks')
-        self.ajoute('Temple en ruine', x, z, B + 8)
+                    m.pose(px, yy, pz, vigne(att))
+        # ---- la place : steles et autels ronds
+        for i, sx in enumerate((-12, -7, 7, 12)):
+            px, pz = x + sx, z_esc + 9
+            m.boite(px, y0 + 1, pz, px + 1, y0 + 4, pz, 'minecraft:polished_andesite')
+            m.pose(px, y0 + 3, pz, 'minecraft:chiseled_stone_bricks'); m.pose(px + 1, y0 + 2, pz, 'minecraft:chiseled_stone_bricks')
+            m.pose(px + (i % 2), y0 + 5, pz, 'minecraft:mossy_stone_brick_wall')
+            m.pose(px, y0 + 1, pz + 2, 'minecraft:andesite_slab[type=bottom,waterlogged=false]')
+            m.pose(px + 1, y0 + 1, pz + 2, 'minecraft:andesite_slab[type=bottom,waterlogged=false]')
+            if i == 2:
+                m.boite(px, y0 + 1, pz, px + 1, y0 + 4, pz, AIR)                 # stele renversee
+                m.boite(px - 3, y0 + 1, pz + 1, px, y0 + 1, pz + 1, 'minecraft:polished_andesite')
+        self.ajoute('Temple maya en ruine', x, z, B + 13)
+        self.ajoute('', x, z_esc + 8, 16)                                     # la place et les steles
+        self.cenote(x - B - 20, z + 4)
+
+    def cenote(self, x, z):
+        """Puits naturel noye : parois verticales, eau 12 blocs sous le bord, racines et lianes
+        pendantes, corniche avec un nid a 2 blocs au-dessus de l'eau."""
+        m, r, rng = self.m, self.r, self.rng
+        R = 9
+        if not (R + 4 <= x < r.W - R - 4 and R + 4 <= z < r.L - R - 4):
+            return
+        zone_e = r.eau[z - R - 3:z + R + 4, x - R - 3:x + R + 4] > r.h[z - R - 3:z + R + 4, x - R - 3:x + R + 4]
+        if zone_e.any():
+            return
+        y_bord = int(r.h[z - R - 3:z + R + 4, x - R - 3:x + R + 4].min())
+        eau_y = y_bord - 12
+        fond = eau_y - 9
+        if fond < 4:
+            return
+        from arbres import vigne
+        for dz in range(-R - 1, R + 2):
+            for dx in range(-R - 1, R + 2):
+                d = math.hypot(dx, dz) * (1 + 0.08 * math.sin(math.atan2(dz, dx) * 5))
+                px, pz = x + dx, z + dz
+                if d <= R:
+                    hs = int(r.h[pz, px])
+                    m.boite(px, fond, pz, px, fond, pz, 'minecraft:gravel')
+                    m.boite(px, fond + 1, pz, px, eau_y, pz, EAU)
+                    m.boite(px, eau_y + 1, pz, px, hs + 8, pz, AIR)
+                    r.h[pz, px] = fond; r.eau[pz, px] = eau_y
+                elif d <= R + 1.2:
+                    hs = int(r.h[pz, px])
+                    m.boite(px, fond, pz, px, hs - 1, pz, 'minecraft:stone' if rng.random() < 0.6 else 'minecraft:tuff')
+        # corniche au nord-est, avec le nid
+        cx, cz = x + R - 3, z - R + 3
+        for dz in range(-3, 4):
+            for dx in range(-3, 4):
+                if math.hypot(dx, dz) <= 3.3:
+                    m.boite(cx + dx, fond, cz + dz, cx + dx, eau_y + 1, cz + dz, 'minecraft:stone')
+                    r.h[cz + dz, cx + dx] = eau_y + 1; r.eau[cz + dz, cx + dx] = -1
+        self.nid_simple(cx, eau_y + 2, cz)
+        # lianes qui pendent le long des parois, du bord jusqu'a l'eau pour certaines
+        for _ in range(90):
+            a = rng.uniform(0, 2 * math.pi)
+            ca, sa = math.cos(a), math.sin(a)
+            px, pz = x + int(round(ca * (R - 0.6))), z + int(round(sa * (R - 0.6)))
+            att = ('east' if ca > 0 else 'west') if abs(ca) > abs(sa) else ('south' if sa > 0 else 'north')
+            ddx, ddz = {'east': (1, 0), 'west': (-1, 0), 'south': (0, 1), 'north': (0, -1)}[att]
+            for k_ in range(int(rng.integers(3, 13))):
+                yy = y_bord - k_
+                if yy <= eau_y or m.get(px, yy, pz) != m.AIR or m.get(px + ddx, yy, pz + ddz) == m.AIR:
+                    break
+                m.pose(px, yy, pz, vigne(att))
+        self.ajoute('Cenote', x, z, R + 4)
+
+    def nid_simple(self, x, y, z):
+        """Nid de spinosaure : cuvette de vase, couronne de racines tressees, oeufs, ossements."""
+        m, rng = self.m, self.rng
+        for dz in range(-3, 4):
+            for dx in range(-3, 4):
+                d = math.hypot(dx, dz)
+                if d <= 2.2:
+                    m.pose(x + dx, y - 1, z + dz, 'minecraft:mud')
+                elif d <= 3.3:
+                    m.pose(x + dx, y, z + dz, 'minecraft:mangrove_roots[waterlogged=false]')
+        for (dx, dz) in ((0, 0), (1, 0), (0, 1), (-1, 0)):
+            m.pose(x + dx, y, z + dz, 'minecraft:sniffer_egg[hatch=%d]' % rng.integers(0, 2))
+        m.pose(x + 1, y, z - 1, 'minecraft:bone_block[axis=x]')
 
     # ================================================================== enclos des herbivores
     def enclos_herbivores(self, x0, z0, x1, z1):
@@ -714,13 +939,135 @@ class Lieux:
         m.panneau(cx, yc, cz - 2, 'north', ['Il ne reste', 'rien. Il est entre', "par l'eau et", 'ressorti par la.'], mural=False)
         self.ajoute('Enclos des herbivores', cx, cz, 0)
 
+    # ================================================================== maison sur pilotis
+    def maison(self, hx, yp, hz, Lx, Lz, bois, porte_ouest, variante, toit='dark_oak', couleur_lit='white', coffre=None):
+        """Maison de pecheur sur pilotis. Plancher en (hx..hx+Lx-1, yp, hz..hz+Lz-1).
+        Charpente apparente (poteaux et sabliere en rondins ecorces), bardage de planches,
+        fenetres a volets, veranda couverte avec garde-corps du cote de la porte, toit a deux
+        pans debordant avec pignons, cheminee de pierre, interieur meuble. variante : 0 intacte,
+        1 porte arrachee et griffures, 2 toit creve, 3 fenetres brisees et toiles."""
+        m, rng = self.m, self.rng
+        v = Decale(m, hx, yp, hz)
+        kv = Kit(v, rng)
+        LOG = 'minecraft:stripped_%s_log[axis=%%s]' % bois
+        PL = 'minecraft:%s_planks' % bois
+        # ---- pilotis et contreventement
+        px_ = [0, Lx // 2, Lx - 1]
+        for dx in px_:
+            for dz in (0, Lz - 1):
+                for yy in range(self.sol(hx + dx, hz + dz) - yp - 2, 0):
+                    v.pose(dx, yy, dz, LOG % 'y')
+        v.boite(0, -1, 0, Lx - 1, -1, 0, LOG % 'x'); v.boite(0, -1, Lz - 1, Lx - 1, -1, Lz - 1, LOG % 'x')
+        # ---- plancher, veranda
+        v.boite(0, 0, 0, Lx - 1, 0, Lz - 1, PL)
+        vx0, vx1 = (-2, -1) if porte_ouest else (Lx, Lx + 1)
+        v.boite(vx0, 0, 0, vx1, 0, Lz - 1, PL)
+        bord = vx0 if porte_ouest else vx1
+        for dz in range(Lz):
+            if dz not in (Lz // 2 - 1, Lz // 2):
+                v.pose(bord, 1, dz, 'minecraft:%s_fence' % bois)
+        for dz in (0, Lz - 1):
+            v.boite(bord, 1, dz, bord, 3, dz, LOG % 'y')
+            for yy in range(self.sol(hx + bord, hz + dz) - yp - 2, 0):
+                v.pose(bord, yy, dz, LOG % 'y')
+        # auvent de la veranda
+        v.boite(vx0, 4, -1, vx1, 4, Lz, 'minecraft:%s_slab[type=bottom,waterlogged=false]' % toit)
+        # ---- murs : bardage, poteaux, sabliere
+        v.boite(0, 1, 0, Lx - 1, 3, Lz - 1, PL)
+        v.boite(1, 1, 1, Lx - 2, 3, Lz - 2, AIR)
+        for dx in px_:
+            for dz in (0, Lz - 1):
+                v.boite(dx, 1, dz, dx, 3, dz, LOG % 'y')
+        v.boite(0, 4, 0, Lx - 1, 4, 0, LOG % 'x'); v.boite(0, 4, Lz - 1, Lx - 1, 4, Lz - 1, LOG % 'x')
+        v.boite(0, 4, 0, 0, 4, Lz - 1, LOG % 'z'); v.boite(Lx - 1, 4, 0, Lx - 1, 4, Lz - 1, LOG % 'z')
+        v.boite(1, 4, Lz // 2, Lx - 2, 4, Lz // 2, LOG % 'x')              # entrait (on y pend la lanterne)
+        # ---- fenetres a volets (murs nord et sud)
+        brisees = variante == 3
+        for wx in (2, Lx - 3):
+            for wz, face, ext in ((0, 'north', -1), (Lz - 1, 'south', Lz)):
+                v.pose(wx, 2, wz, AIR if (brisees and rng.random() < 0.7) else 'minecraft:glass_pane')
+                for sx in (-1, 1):
+                    if rng.random() < 0.85:
+                        v.pose(wx + sx, 2, ext, 'minecraft:%s_trapdoor[facing=%s,half=top,open=true,powered=false,waterlogged=false]'
+                               % (bois, face))
+        # ---- porte (cote veranda)
+        dxp = 0 if porte_ouest else Lx - 1
+        v.boite(dxp, 1, Lz // 2, dxp, 2, Lz // 2, AIR)
+        if variante != 1:
+            kv.porte(dxp, 1, Lz // 2, 'west' if porte_ouest else 'east', bois, ouverte=rng.random() < 0.5)
+        else:
+            # porte arrachee, jetee sur la veranda ; trois griffures dans le bardage
+            v.pose(vx0 + (1 if porte_ouest else 0), 1, Lz // 2 + 1, 'minecraft:%s_trapdoor[facing=north,half=bottom,open=false,powered=false,waterlogged=false]' % bois)
+            gz = Lz - 1
+            for i, gx in enumerate((Lx // 2 - 1, Lx // 2, Lx // 2 + 1)):
+                v.boite(gx, 1 + i % 2, gz, gx, 2 + i % 2, gz, AIR)
+        # ---- toit a deux pans (faitage selon x), debord d'un bloc, pignons fermes
+        for zz in range(-1, Lz + 1):
+            d = min(zz + 1, Lz - zz)                     # 1 au bord, croit vers le faitage
+            yr = 4 + d
+            milieu = (Lz % 2 == 1 and zz == Lz // 2) or (Lz % 2 == 0 and zz in (Lz // 2 - 1, Lz // 2))
+            etat = ('minecraft:%s_slab[type=bottom,waterlogged=false]' % toit) if milieu else esc(toit, 'south' if zz < Lz / 2 else 'north')
+            v.boite(-1, yr, zz, Lx, yr, zz, etat)
+            if 0 <= zz < Lz:
+                for gx in (0, Lx - 1):
+                    v.boite(gx, 5, zz, gx, yr - 1, zz, PL)                 # pignons
+        # mousse sur le toit
+        for _ in range(Lx):
+            tx, tz = int(rng.integers(-1, Lx + 1)), int(rng.integers(-1, Lz + 1))
+            d = min(tz + 1, Lz - tz)
+            v.pose(tx, 5 + d, tz, 'minecraft:moss_carpet', seulement_air=True)
+        if variante == 2:
+            # toit creve (arbre tombe ou autre chose) : trou et gravats a l'interieur
+            cx = Lx // 2
+            for zz in range(0, Lz // 2 + 1):
+                for xx in (cx - 1, cx, cx + 1):
+                    v.pose(xx, 4 + min(zz + 1, Lz - zz), zz, AIR)
+            for xx, zz in ((cx, 1), (cx + 1, 2), (cx - 1, 2)):
+                v.pose(xx, 1, zz, 'minecraft:%s_slab[type=bottom,waterlogged=false]' % toit)
+        # ---- cheminee de pierre, cote oppose a la porte
+        cx = Lx - 2 if porte_ouest else 1
+        ch = Lz - 2
+        haut = 4 + min(ch + 1, Lz - ch) + 2
+        v.boite(cx, 1, ch, cx, haut, ch, 'minecraft:cobblestone')
+        v.pose(cx, haut + 1, ch, 'minecraft:cobblestone_wall')
+        v.pose(cx, 1, ch - 1, 'minecraft:smoker[facing=%s,lit=false]' % ('west' if porte_ouest else 'east'))
+        # ---- interieur
+        lx_ = 1 if porte_ouest else Lx - 2
+        kv.lit(Lx - 2 if porte_ouest else 1, 1, 1, 'north' if False else 'south', couleur_lit)
+        tx = Lx // 2
+        kv.table(tx, 1, Lz // 2 + (1 if Lz > 6 else 0), 'spruce')
+        kv.chaise(tx - 1, 1, Lz // 2 + (1 if Lz > 6 else 0), 'east', bois)
+        kv.chaise(tx + 1, 1, Lz // 2 + (1 if Lz > 6 else 0), 'west', bois)
+        v.pose(lx_, 1, 1, 'minecraft:barrel[facing=up,open=false]')
+        v.pose(lx_, 2, 1, 'minecraft:%s_trapdoor[facing=%s,half=top,open=false,powered=false,waterlogged=false]'
+               % (bois, 'east' if porte_ouest else 'west'))
+        v.pose(lx_, 1, Lz - 2, 'minecraft:cauldron')
+        v.pose(Lx // 2, 1, 1, 'minecraft:%s_carpet' % ['brown', 'red', 'green', 'blue', 'cyan', 'orange'][variante % 6], seulement_air=True)
+        v.pose(Lx // 2 - 1, 1, Lz - 2, 'minecraft:%s_carpet' % ['brown', 'red', 'green', 'blue', 'cyan', 'orange'][variante % 6], seulement_air=True)
+        kv.lanterne(Lx // 2, 3, Lz // 2)
+        if coffre:
+            v.coffre(lx_, 1, 2, 'east' if porte_ouest else 'west', coffre)
+        if variante == 3:
+            kv.toiles(1, 1, 1, Lx - 2, 3, Lz - 2, 4)
+        kv.veilleuses(1, 1, Lx - 2, Lz - 2, 3, 3, 3)
+        # ---- dehors : lierre sur un pignon, filets et nasses sur la veranda
+        from arbres import vigne
+        gx, face = (Lx, 'west') if porte_ouest else (-1, 'east')       # pignon oppose a la porte
+        for zz in range(Lz):
+            if rng.random() < 0.55:
+                for yy in range(4, int(rng.integers(0, 4)), -1):
+                    v.pose(gx, yy, zz, vigne(face), seulement_air=True)
+        v.pose(vx1 if porte_ouest else vx0, 1, 0, 'minecraft:barrel[facing=up,open=false]')
+        v.pose(vx1 if porte_ouest else vx0, 1, Lz - 1, 'minecraft:dried_kelp_block')
+
     # ================================================================== village de pecheurs
     def village(self, x, z, n=6):
-        """Maisons sur pilotis alignees le long d'un ponton, sechoirs, barques, chapelle."""
+        """Maisons sur pilotis de part et d'autre d'un ponton ; veranda sur le ponton, sechoirs,
+        barques. Chaque maison differe (taille, bois, toit, etat d'abandon)."""
         m, k, rng, SEA = self.m, self.k, self.rng, self.r.SEA
         yp = SEA + 2
-        # ponton principal (nord-sud) et appontements
-        for dz in range(-n * 7, 8):
+        # ponton principal (nord-sud)
+        for dz in range(-(n // 2) * 14 - 6, 8):
             for dx in (-1, 0, 1):
                 m.pose(x + dx, yp, z + dz, 'minecraft:spruce_planks')
             if dz % 5 == 0:
@@ -730,42 +1077,24 @@ class Lieux:
                 if dz % 5:
                     m.pose(x + dx, yp + 1, z + dz, 'minecraft:spruce_fence')
         bois = ['spruce', 'jungle', 'mangrove', 'dark_oak', 'spruce', 'jungle']
+        toits = ['dark_oak', 'spruce', 'mangrove', 'spruce', 'mangrove', 'dark_oak']
+        tailles = [(8, 7), (7, 6), (9, 7), (7, 7), (8, 6), (9, 7)]
+        variantes = [0, 1, 3, 2, 0, 3]
         for i in range(n):
+            zc = z - 6 - (i // 2) * 14
             cote = -1 if i % 2 else 1
-            hx = x + cote * 4 - (7 if cote < 0 else 0)
-            hz = z - i * 7 - 6
-            bw = bois[i % len(bois)]
-            v = Decale(m, hx, yp, hz)
-            kv = Kit(v, rng)
-            for (dx, dz) in ((0, 0), (6, 0), (0, 5), (6, 5)):
-                for yy in range(self.sol(hx + dx, hz + dz) - yp - 2, 0):
-                    v.pose(dx, yy, dz, 'minecraft:stripped_%s_log[axis=y]' % bw)
-            v.boite(0, 0, 0, 6, 0, 5, 'minecraft:%s_planks' % bw)
-            v.boite(0, 1, 0, 6, 3, 5, 'minecraft:%s_planks' % bw); v.boite(1, 1, 1, 5, 3, 4, AIR)
-            for (a, b) in ((0, 0), (6, 0), (0, 5), (6, 5)):
-                v.boite(a, 1, b, a, 3, b, 'minecraft:stripped_%s_log[axis=y]' % bw)
-            v.boite(2, 2, 0, 4, 2, 0, 'minecraft:glass_pane'); v.boite(2, 2, 5, 4, 2, 5, 'minecraft:glass_pane')
-            porte_x = 6 if cote < 0 else 0
-            v.boite(porte_x, 1, 2, porte_x, 2, 2, AIR)
-            kv.porte(porte_x, 1, 2, 'east' if cote < 0 else 'west', bw, ouverte=rng.random() < 0.4)
-            for zz in range(-1, 7):
-                d = min(zz + 1, 6 - zz)
-                v.boite(-1, 4 + d // 2, zz, 7, 4 + d // 2, zz, esc(bw, 'south' if zz < 3 else 'north') if d % 2 == 0
-                        else dalle(bw, 'top'))
-            v.boite(0, 4, 0, 6, 4, 0, 'minecraft:%s_planks' % bw); v.boite(0, 4, 5, 6, 4, 5, 'minecraft:%s_planks' % bw)
-            kv.lit(2, 1, 3, 'north', ['white', 'brown', 'blue', 'green', 'yellow', 'gray'][i])
-            v.pose(4, 1, 1, 'minecraft:barrel[facing=up,open=false]')
-            v.pose(5, 1, 4, 'minecraft:furnace[facing=west,lit=false]' if i % 2 else 'minecraft:crafting_table')
-            kv.lanterne(3, 3, 3)
-            kv.veilleuses(1, 2, 5, 4, 1, 3, 3)
-            if i == 3:
-                v.coffre(1, 1, 1, 'south', [('minecraft:fishing_rod', 1), ('minecraft:cooked_salmon', 8), ('minecraft:oak_boat', 1),
-                                           ('minecraft:crossbow', 1), ('minecraft:arrow', 16)])
-                v.panneau(3, 2, 4, 'north', ['On a remonte', 'les filets vides.', 'Dechiquetes.', "Il chasse ici."])
-            # passerelle vers le ponton
-            for dx in range(1, 4):
-                px = hx + (7 + dx - 1 if cote < 0 else -dx)
-                m.pose(px, yp, hz + 2, 'minecraft:spruce_planks'); m.pose(px, yp, hz + 3, 'minecraft:spruce_planks')
+            Lx, Lz = tailles[i % len(tailles)]
+            hx = x + 5 if cote > 0 else x - 5 - (Lx - 1)
+            hz = zc - Lz + 1
+            coffre = ([('minecraft:fishing_rod', 1), ('minecraft:cooked_salmon', 8), ('minecraft:oak_boat', 1),
+                       ('minecraft:crossbow', 1), ('minecraft:arrow', 16)] if i == 3 else None)
+            self.maison(hx, yp, hz, Lx, Lz, bois[i % 6], cote > 0, variantes[i % 6], toits[i % 6],
+                        ['white', 'brown', 'blue', 'green', 'yellow', 'gray'][i], coffre)
+            # passage entre le ponton et la veranda : on ouvre le garde-corps
+            for dz in (Lz // 2 - 1, Lz // 2):
+                for dx in (2, 3, 4):
+                    m.pose(x + dx * cote, yp, hz + dz, 'minecraft:spruce_planks')
+                    m.pose(x + dx * cote, yp + 1, hz + dz, AIR)
         # sechoirs a poisson et barques
         for i in range(4):
             sx, sz = x + 6 + i * 3, z + 4
@@ -774,14 +1103,14 @@ class Lieux:
             m.pose(sx, y + 3, sz, 'minecraft:spruce_slab[type=bottom,waterlogged=false]')
             m.pose(sx + 1, y + 2, sz, 'minecraft:dried_kelp_block')
         for i in range(3):
-            bx, bz = x + (5 if i % 2 else -6), z - 4 - i * 12
+            bx, bz = x + (5 if i % 2 else -6), z + 2 + i * 3
             for j in range(5):
                 m.pose(bx, SEA, bz + j, 'minecraft:spruce_planks'); m.pose(bx + 1, SEA, bz + j, 'minecraft:spruce_planks')
                 if j in (0, 4):
                     continue
                 m.pose(bx - 1, SEA + 1, bz + j, 'minecraft:spruce_slab[type=bottom,waterlogged=false]')
                 m.pose(bx + 2, SEA + 1, bz + j, 'minecraft:spruce_slab[type=bottom,waterlogged=false]')
-        self.ajoute('Village de pecheurs', x, z - n * 3, 18)
+        self.ajoute('Village de pecheurs', x, z - (n // 2) * 5, 20)
 
     # ================================================================== observatoire du volcan
     def observatoire(self, x, z):
