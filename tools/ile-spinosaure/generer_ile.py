@@ -28,6 +28,7 @@ import numpy as np
 from arbres import Foret, F_JUNGLE
 from campus import Campus
 from grottes import Grottes
+import details
 from lieux import Lieux
 from monde import Monde, Decale
 from relief import Relief, catmull, distance_polyligne
@@ -114,7 +115,8 @@ def remplir(m, r):
     coraux = ['minecraft:brain_coral_block', 'minecraft:tube_coral_block', 'minecraft:horn_coral_block',
               'minecraft:fire_coral_block', 'minecraft:bubble_coral_block']
     ids_c = np.array([P(c) for c in coraux], np.uint16)
-    dessus[rec] = ids_c[(n1[rec] * 997).astype(int) % 5]
+    secteur = ((r.xx // 9 + r.zz // 7) % 5).astype(int)                    # des colonies, pas des confettis
+    dessus[rec] = ids_c[secteur[rec]]
     # strates de la roche (visible dans les falaises et le canyon)
     strates = np.array([P('minecraft:stone'), P('minecraft:stone'), P('minecraft:andesite'), P('minecraft:stone'),
                         P('minecraft:tuff'), P('minecraft:stone'), P('minecraft:granite'), P('minecraft:stone'),
@@ -494,40 +496,39 @@ def main(sortie):
     protege = (xx >= campus_x0 - 24) & (xx <= campus_x1 + 24) & (zz >= campus_z0 - 24) & (zz <= campus_z1 + 24)
     for nom, x, z, ray in li.poi:
         protege |= np.hypot(xx - x, zz - z) < max(ray, 12) + 16
+    protege_lieux = protege.copy()                 # lieux et campus seulement (pour les falaises)
+    protege_dur = protege | r.cratere | r.canyon_haut | r.canyon_bas
     pm = pi.masque.copy()
     for _ in range(4):
         p2 = pm.copy(); p2[1:] |= pm[:-1]; p2[:-1] |= pm[1:]; p2[:, 1:] |= pm[:, :-1]; p2[:, :-1] |= pm[:, 1:]; pm = p2
     protege |= pm | r.cratere | r.canyon_haut | r.canyon_bas
-    gr = Grottes(m, r, rng, protege, SEA)
+    gr = Grottes(m, r, rng, protege, SEA, protege_dur)
+    # l'antre d'abord (et sa gaine de roche) : depuis le trou bleu du lagon, un tunnel noye
+    # remonte jusqu'a une salle seche ; les autres reseaux ne pourront pas y deboucher
+    gx_, gz_, gR_, _ = r.gouffres[0]
+    antre = gr.antre(gx_, gz_, gR_)
     gr.creuser()
+    gr.rugosite()
+    gr.noyer()
     gr.decorer()
-    n_nids = gr.nids_dans_les_salles(3)
-    # nids sur des berges isolees : sol au ras de l'eau d'une riviere, loin de tout lieu
-    berge = (r.h == SEA) & (r.eau <= r.h) & ~protege
-    voisin = np.zeros_like(berge)
-    riv = r.riviere | r.lac
-    voisin[1:] |= riv[:-1]; voisin[:-1] |= riv[1:]; voisin[:, 1:] |= riv[:, :-1]; voisin[:, :-1] |= riv[:, 1:]
-    bz, bx = np.nonzero(berge & voisin)
-    poses = []
-    for k in rng.permutation(len(bz)):
-        x, z = int(bx[k]), int(bz[k])
-        if any(math.hypot(x - a, z - b) < 150 for a, b in poses):
-            continue
-        # a 4 blocs de l'eau, vers la terre : la cuvette ne doit pas tomber dans la riviere
-        tx, tz = x, z
-        for dx, dz in ((4, 0), (-4, 0), (0, 4), (0, -4)):
-            if 0 <= x + dx < W and 0 <= z + dz < L and not riv[z + dz, x + dx] and r.eau[z + dz, x + dx] <= r.h[z + dz, x + dx] \
-                    and not riv[z - dz // 4, x - dx // 4]:
-                tx, tz = x + dx, z + dz
-                break
-        if (tx, tz) == (x, z) or protege[tz - 6:tz + 7, tx - 6:tx + 7].any():
-            continue
-        gr.nid(tx, int(r.h[tz, tx]) + 1, tz, 'Nid (berge)')
-        poses.append((tx, tz))
-        if len(poses) >= 2:
-            break
+    gr.formations()
+    gr.porches_rocheux()
+    gr.nids_dans_les_salles(2)
+    gr.nid_antre()
+    if antre:
+        li.ajoute('Antre (acces en plongee par le trou bleu du lagon)', antre[0], antre[2], 0)
+    # un nid perche sur la levre du cratere : le dernier endroit ou l'on irait le chercher
+    dv = np.hypot(xx - r.VOLCAN[0], zz - r.VOLCAN[1])
+    levre = (dv > 44) & (dv < 60) & (r.pente < 0.9) & ~protege & (r.eau <= r.h)
+    lz_, lx_ = np.nonzero(levre)
+    if len(lz_):
+        k = int(rng.integers(0, len(lz_)))
+        gr.nid(int(lx_[k]), int(r.h[lz_[k], lx_[k]]) + 1, int(lz_[k]), 'Nid (flanc du volcan)')
     for nom, x, y, z in gr.nids:
         li.ajoute(nom, x, z, 7)
+    for (x, z) in gr.entrees:
+        li.ajoute('', x, z, 4)                         # porche degage : pas d'arbre plante dessus
+    journal('falaises en volume : %d blocs ronges ou ajoutes' % details.falaises(m, r, protege_lieux, rng))
     carte_grottes = np.stack([gr.creuse.any(axis=0), (gr.creuse & (m.blocs == m.P(EAU))).any(axis=0)])
     journal('grottes : %d salles, %d entrees et gouffres, %d nids, %d blocs creuses'
             % (len(gr.salles), len(gr.entrees), len(gr.nids), int(gr.creuse.sum())))
@@ -556,6 +557,7 @@ def main(sortie):
     journal('arbres : %s' % compte)
     journal('sous-bois et eaux')
     couvert(m, r, rng)
+    journal('recif en volume : %d blocs de corail' % details.recif(m, r, rng))
     journal('connexions (vitres, barrieres)')
     m.connecter()
     journal('suspendus : lianes corrigees / retirees, propagules retirees : %s' % (m.nettoyer_suspendus(),))

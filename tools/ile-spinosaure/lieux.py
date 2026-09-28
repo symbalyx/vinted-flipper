@@ -55,17 +55,10 @@ class Lieux:
                 for dx in (-2, 2):
                     m.pose(x + dx, y + 1, z + dz, 'minecraft:spruce_fence')
         k.lanterne(x - 2, y + 2, z + 27, suspendue=False); k.lanterne(x + 2, y + 2, z + 27, suspendue=False)
-        # bateau a moteur echoue contre le ponton (coque de chene sombre, cabine)
-        bx, bz = x + 4, z + 14
-        for i in range(10):
-            lg = 2 if 2 <= i <= 7 else 1
-            for j in range(-lg, lg + 1):
-                m.pose(bx + j, SEA, bz + i, 'minecraft:dark_oak_planks')
-                if abs(j) == lg:
-                    m.pose(bx + j, SEA + 1, bz + i, 'minecraft:dark_oak_slab[type=bottom,waterlogged=false]')
-        m.boite(bx - 1, SEA + 1, bz + 4, bx + 1, SEA + 3, bz + 6, 'minecraft:white_concrete')
-        m.boite(bx - 1, SEA + 2, bz + 4, bx + 1, SEA + 2, bz + 4, 'minecraft:glass_pane')
-        m.boite(bx, SEA + 1, bz + 5, bx, SEA + 2, bz + 5, AIR)
+        # bateau de peche echoue contre le ponton, couche sur le flanc, a demi rempli d'eau
+        bx, bz = x + 5, z + 14
+        self.navire(bx, self.sol(bx, bz), bz, math.pi / 2 + 0.25, 13, 2.6, 3.2, 'bois', gite=math.radians(-18),
+                    tangage=math.radians(4), dechirure=False)
         # abri et coffre de depart a terre
         ys = self.sol(x, z - 10) + 1
         v = Decale(m, x - 4, ys, z - 16)
@@ -334,28 +327,174 @@ class Lieux:
         self.ajoute('Relais radio', x, z, 12)
 
     # ------------------------------------------------------------------ epave sur le recif
-    def epave(self, x, z):
-        m, SEA = self.m, self.r.SEA
-        # coque inclinee (gite de ~20 degres), echouee, a demi immergee
-        for i in range(-12, 13):
-            larg = int(round(4 * math.sqrt(max(0, 1 - (i / 13) ** 2)))) + 1
-            for j in range(-larg, larg + 1):
-                for dy in range(-3, 3):
-                    bord = abs(j) == larg or dy == -3
-                    if not bord:
+    def navire(self, x, y_quille, z, cap, L, B, D, style, gite=0.0, tangage=0.0, dechirure=True, rupture=False):
+        """Coque de navire en volume : etrave effilee, coque en V arrondi (plus large en haut),
+        tonture (pont releve a l'avant et a l'arriere), pont, bastingage, ecoutilles, timonerie
+        a l'arriere, cheminee et mat. Modele en coordonnees propres (u : de la poupe a la proue,
+        v : babord-tribord, w : de la quille au pont) echantillonne au demi-bloc, puis incline
+        (gite autour de u, tangage autour de v) et oriente (cap).
+        style 'acier' : caboteur rouille ; 'bois' : bateau de peche.
+        Sous le niveau de la mer, l'interieur est noye, la coque se couvre de concretions."""
+        m, rng, SEA = self.m, self.rng, self.r.SEA
+        cg, sg = math.cos(gite), math.sin(gite)
+        cp, sp = math.cos(tangage), math.sin(tangage)
+        cc, sc = math.cos(cap), math.sin(cap)
+        demiL = L / 2
+        proue = L * 0.28
+
+        def larg(u, w):
+            if u > demiL - proue:
+                t = (u - (demiL - proue)) / proue
+                pl = max(0.0, 1 - t * t) ** 0.6
+            elif u < -demiL + 2:
+                pl = 0.85 + 0.15 * (u + demiL) / 2
+            else:
+                pl = 1.0
+            return B * pl * (max(w, 0.0) / D) ** 0.45 if w < D else B * pl
+
+        def pont(u):
+            return D + 1.2 * (u / demiL) ** 2
+
+        def monde(u, v, w):
+            if rupture and u < -L * 0.1:
+                u2 = u - 2.5                                      # la poupe s'est detachee et a glisse
+                w2 = w - 1.5 - (u + L * 0.1) * 0.12
+            else:
+                u2, w2 = u, w
+            v1 = v * cg - w2 * sg
+            w1 = v * sg + w2 * cg
+            u1 = u2 * cp - w1 * sp
+            w3 = u2 * sp + w1 * cp
+            return (int(round(x + u1 * cc - v1 * sc)), int(round(y_quille + w3)), int(round(z + u1 * sc + v1 * cc)))
+
+        if style == 'acier':
+            coque_h = ['minecraft:red_terracotta', 'minecraft:brown_terracotta', 'minecraft:red_terracotta', 'minecraft:exposed_copper',
+                       'minecraft:weathered_copper']
+            coque_b = ['minecraft:weathered_copper', 'minecraft:oxidized_copper', 'minecraft:brown_terracotta', 'minecraft:black_terracotta']
+            ponts = ['minecraft:spruce_planks'] * 8 + ['minecraft:dark_oak_planks', AIR]
+            rambarde = 'minecraft:iron_bars'
+        else:
+            coque_h = ['minecraft:dark_oak_planks', 'minecraft:spruce_planks', 'minecraft:dark_oak_planks', 'minecraft:white_terracotta']
+            coque_b = ['minecraft:dark_oak_planks', 'minecraft:mossy_cobblestone', 'minecraft:dark_oak_planks']
+            ponts = ['minecraft:spruce_planks'] * 8 + ['minecraft:oak_planks', AIR]
+            rambarde = 'minecraft:dark_oak_fence'
+        pas = 0.5
+        us = np.arange(-demiL, demiL + 0.01, pas)
+        coque, interieur, plancher = {}, set(), {}
+        for u in us:
+            hp = pont(u)
+            for w in np.arange(0, hp + 0.01, pas):
+                b = larg(u, w)
+                for v in np.arange(-B - 1, B + 1.01, pas):
+                    if abs(v) > b:
                         continue
-                    yy = SEA + dy + int(round(j * 0.35))
-                    m.pose(x + j, yy, z + i, 'minecraft:dark_oak_planks' if (i + dy) % 4 else 'minecraft:stripped_dark_oak_log[axis=z]')
-            if -8 < i < 6 and i % 3 == 0:
-                for j in range(-larg + 1, larg):
-                    m.pose(x + j, SEA + 1 + int(round(j * 0.35)), z + i, 'minecraft:dark_oak_slab[type=bottom,waterlogged=false]')
-        for yy in range(SEA - 2, SEA + 14):
-            m.pose(x + int((yy - SEA) * 0.35), yy, z - 2, 'minecraft:stripped_dark_oak_log[axis=y]')
-        for i in range(-4, 5):
-            m.pose(x + 3 + i, SEA + 10, z - 2, 'minecraft:white_wool' if i % 3 else 'minecraft:light_gray_wool')
-        m.coffre(x, SEA - 1, z + 4, 'north', [('minecraft:gold_ingot', 6), ('minecraft:compass', 1), ('minecraft:nautilus_shell', 2),
-                                              ('minecraft:trident', 1)])
-        self.ajoute('Epave', x, z, 16)
+                    p = monde(u, v, w)
+                    if abs(v) > b - 1.0 or w < 1.0:
+                        coque[p] = (u, v, w)
+                    else:
+                        interieur.add(p)
+            # pont
+            for v in np.arange(-B, B + 0.01, pas):
+                if abs(v) <= larg(u, hp):
+                    plancher[monde(u, v, hp)] = (u, v)
+        # dechirure : grand trou dans le bordage, a l'avant tribord (le choc sur le recif)
+        trou = set()
+        if dechirure:
+            for p, (u, v, w) in coque.items():
+                if v > 0 and demiL * 0.15 < u < demiL * 0.55 and 0.8 < w < D * 0.7 and \
+                        ((u - demiL * 0.35) / (demiL * 0.22)) ** 2 + ((w - D * 0.4) / (D * 0.33)) ** 2 < 1:
+                    trou.add(p)
+        # interieur (eau sous la mer), puis coque, puis pont
+        for p in interieur:
+            if p not in coque:
+                m.pose(p[0], p[1], p[2], EAU if p[1] <= SEA else AIR)
+        for p, (u, v, w) in coque.items():
+            if p in trou:
+                m.pose(p[0], p[1], p[2], EAU if p[1] <= SEA else AIR)
+                continue
+            # plaques de rouille / d'oxydation continues (pas un tirage bloc par bloc)
+            tache = math.sin(u * 0.55 + w * 1.1 + v * 0.3) + math.sin(u * 0.21 - w * 0.7 + 2.0)
+            if p[1] <= SEA:
+                e = coque_b[0] if tache > 0.3 else (coque_b[1] if tache > -0.6 else coque_b[2])
+            else:
+                e = coque_h[0] if tache > 0.2 else (coque_h[1] if tache > -0.8 else coque_h[3])
+                if style == 'acier' and 1.5 < w < 2.3:
+                    e = 'minecraft:black_terracotta'                      # la ligne de flottaison peinte
+            m.pose(p[0], p[1], p[2], e)
+        ecoutilles = [(-demiL * 0.1, demiL * 0.25), (demiL * 0.3, demiL * 0.5)]
+        for p, (u, v) in plancher.items():
+            if any(a < u < b for a, b in ecoutilles) and abs(v) < B * 0.5:
+                continue                                                   # ecoutilles ouvertes sur les cales
+            e = ponts[int(rng.integers(0, len(ponts)))]
+            if p[1] <= SEA and e != AIR:
+                e = 'minecraft:dark_oak_planks'
+            m.pose(p[0], p[1], p[2], e if e != AIR else (EAU if p[1] <= SEA else AIR))
+        # bastingage
+        for u in us[::2]:
+            if u < -demiL + 1:
+                continue
+            for sgn in (-1, 1):
+                p = monde(u, sgn * (larg(u, pont(u)) - 0.3), pont(u) + 1)
+                if rng.random() < 0.8:
+                    m.pose(p[0], p[1], p[2], rambarde, seulement_air=True)
+        # timonerie a l'arriere, cheminee, mat
+        tu0, tu1 = -demiL + 1.5, -demiL + (7 if style == 'acier' else 4.5)
+        th = 4 if style == 'acier' else 3
+        for u in np.arange(tu0, tu1 + 0.01, pas):
+            bb = larg(u, pont(u)) - 1.2
+            for v in np.arange(-bb, bb + 0.01, pas):
+                for w in np.arange(pont(u) + 0.5, pont(u) + th + 0.51, pas):
+                    p = monde(u, v, w)
+                    bord = abs(v) > bb - 0.6 or u < tu0 + 0.6 or u > tu1 - 0.6 or w > pont(u) + th
+                    if not bord:
+                        m.pose(p[0], p[1], p[2], EAU if p[1] <= SEA else AIR)
+                        continue
+                    fenetre = w > pont(u) + th - 1.6 and w < pont(u) + th - 0.4 and u > tu1 - 0.6 and abs(v) < bb - 0.8
+                    if fenetre:
+                        e = AIR if rng.random() < 0.5 else 'minecraft:glass_pane'
+                    elif w > pont(u) + th:
+                        e = 'minecraft:light_gray_concrete' if style == 'acier' else 'minecraft:spruce_planks'
+                    else:
+                        e = 'minecraft:white_terracotta' if (style != 'acier' or math.sin(u * 0.9 + w) > -0.5) \
+                            else 'minecraft:light_gray_concrete'
+                    m.pose(p[0], p[1], p[2], e)
+        if style == 'acier':
+            cu = tu0 + 1.5
+            for w in np.arange(pont(cu) + th + 1, pont(cu) + th + 5, pas):
+                for a in range(0, 360, 30):
+                    p = monde(cu + 0.9 * math.cos(math.radians(a)), 0.9 * math.sin(math.radians(a)), w)
+                    m.pose(p[0], p[1], p[2], 'minecraft:black_concrete' if w > pont(cu) + th + 3.5 else 'minecraft:red_concrete')
+        mu = demiL * 0.45
+        hm = 9 if style == 'acier' else 7
+        for w in np.arange(pont(mu), pont(mu) + hm, pas):
+            p = monde(mu + (w - pont(mu)) * (0.25 if w > pont(mu) + hm * 0.6 else 0), 0, w)   # tete du mat pliee
+            m.pose(p[0], p[1], p[2], 'minecraft:stripped_spruce_log[axis=y]' if style == 'bois' else 'minecraft:chain[axis=y,waterlogged=false]')
+        for v in np.arange(-B * 0.7, B * 0.7 + 0.01, pas):
+            p = monde(mu, v, pont(mu) + hm * 0.55)
+            m.pose(p[0], p[1], p[2], 'minecraft:chain[axis=x,waterlogged=false]' if abs(cc) < 0.7 else 'minecraft:chain[axis=z,waterlogged=false]')
+        # concretions sur la coque immergee
+        for p in list(coque)[::7]:
+            if p[1] < SEA - 1 and rng.random() < 0.4:
+                for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if m.get(p[0] + dx, p[1], p[2] + dz) == m.P(EAU):
+                        f = {(1, 0): 'east', (-1, 0): 'west', (0, 1): 'south', (0, -1): 'north'}[(dx, dz)]
+                        m.pose(p[0] + dx, p[1], p[2] + dz, 'minecraft:%s_coral_wall_fan[facing=%s,waterlogged=true]'
+                               % (rng.choice(['brain', 'tube', 'horn', 'fire', 'bubble']), f))
+                        break
+        return monde
+
+    def epave(self, x, z):
+        """Caboteur rouille echoue sur le recif : etrave montee sur le recif, poupe dans l'eau
+        profonde et detachee, gite de 25 degres, flanc tribord eventre, cales noyees."""
+        m, r, SEA = self.m, self.r, self.r.SEA
+        # orientation : l'etrave vers la terre (vers le centre du lagon)
+        cap = math.atan2(612 - z, 178 - x)
+        fond = int(np.median(r.h[z - 6:z + 7, x - 6:x + 7]))
+        self.navire(x, fond - 1, z, cap, 30, 4.5, 6.5, 'acier', gite=math.radians(25), tangage=math.radians(-6),
+                    dechirure=True, rupture=True)
+        m.coffre(x, fond + 2, z, 'north', [('minecraft:gold_ingot', 6), ('minecraft:compass', 1), ('minecraft:nautilus_shell', 2),
+                                           ('minecraft:trident', 1)])
+        self.ajoute('Epave', x, z, 20)
 
     # ------------------------------------------------------------------ repaire sur l'ilot du lac
     def repaire(self, x, z):
@@ -384,7 +523,7 @@ class Lieux:
                 m.pose(x + i, y, z + s, 'minecraft:end_rod[facing=up]')
                 m.pose(x + i, y + 1, z + s * 2, 'minecraft:end_rod[facing=up]')
         m.pose(x - 1, y, z, 'minecraft:skeleton_skull[rotation=4]')
-        self.ajoute('Repaire', x, z, 10)
+        self.ajoute('Ilot aux carcasses', x, z, 10)
 
     # ------------------------------------------------------------------ grotte derriere la cascade
     def grotte(self, x, z, dx, dz, y):
@@ -824,19 +963,32 @@ class Lieux:
         if fond < 4:
             return
         from arbres import vigne
-        for dz in range(-R - 1, R + 2):
-            for dx in range(-R - 1, R + 2):
-                d = math.hypot(dx, dz) * (1 + 0.08 * math.sin(math.atan2(dz, dx) * 5))
+        # parois irregulieres : le rayon varie avec l'angle et la hauteur (niches, surplombs,
+        # rebords), et la levre du haut avance au-dessus du vide
+        Rmax = R + 3
+        roche = ['minecraft:stone', 'minecraft:tuff', 'minecraft:stone', 'minecraft:andesite', 'minecraft:mossy_cobblestone']
+        for dz in range(-Rmax - 1, Rmax + 2):
+            for dx in range(-Rmax - 1, Rmax + 2):
                 px, pz = x + dx, z + dz
-                if d <= R:
-                    hs = int(r.h[pz, px])
-                    m.boite(px, fond, pz, px, fond, pz, 'minecraft:gravel')
-                    m.boite(px, fond + 1, pz, px, eau_y, pz, EAU)
-                    m.boite(px, eau_y + 1, pz, px, hs + 8, pz, AIR)
+                d = math.hypot(dx, dz)
+                th = math.atan2(dz, dx)
+                if d > Rmax + 1:
+                    continue
+                hs = int(r.h[pz, px])
+                for yy in range(fond, hs + 1):
+                    Ry = R + 1.6 * math.sin(3 * th + 0.35 * yy) + 0.9 * math.sin(7 * th - 0.23 * yy + 1)
+                    if yy >= y_bord - 2:
+                        Ry -= 2.0                                  # la levre en surplomb
+                    if (yy - eau_y) in (3, 4, 8):
+                        Ry -= 1.3                                  # rebords
+                    if d <= Ry:
+                        m.pose(px, yy, pz, 'minecraft:gravel' if yy == fond else (EAU if yy <= eau_y else AIR))
+                    else:
+                        m.pose(px, yy, pz, roche[int(abs(math.sin(px * 3.1 + yy * 1.7 + pz * 2.3)) * 5) % 5]
+                               if yy < hs - 1 or d <= Rmax - 1 else m.nom(m.get(px, yy, pz)))
+                if d <= R - 2.5:
+                    m.boite(px, hs + 1, pz, px, hs + 8, pz, AIR)
                     r.h[pz, px] = fond; r.eau[pz, px] = eau_y
-                elif d <= R + 1.2:
-                    hs = int(r.h[pz, px])
-                    m.boite(px, fond, pz, px, hs - 1, pz, 'minecraft:stone' if rng.random() < 0.6 else 'minecraft:tuff')
         # corniche au nord-est, avec le nid
         cx, cz = x + R - 3, z - R + 3
         for dz in range(-3, 4):
@@ -1170,6 +1322,9 @@ class Lieux:
         for yy in range(y0 + 1, yp + 1):
             m.pose(x - 12, yy, z, 'minecraft:ladder[facing=west,waterlogged=false]')
             m.pose(x - 11, yy, z, 'minecraft:stripped_spruce_log[axis=y]')
+        # un nid de spinosaure sous le dome eventre, parmi les nids d'oiseaux : inattendu
+        self.nid_simple(x + 4, self.sol(x + 4, z - 5) + 1, z - 5)
+        self.ajoute('Nid (sous le dome de la voliere)', x + 4, z - 5, 0)
         # nids et os
         for _ in range(6):
             px, pz = x + int(rng.integers(-12, 13)), z + int(rng.integers(-12, 13))

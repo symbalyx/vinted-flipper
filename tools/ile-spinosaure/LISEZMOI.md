@@ -28,13 +28,13 @@ Réglages conseillés pour l'événement :
 
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
-Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `village.jpg`, `helicoptere.jpg`, `fond_marin.jpg`.
+Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe).
 
 ## Les lieux
 
 | Lieu | x, z | Ce qu'on y trouve |
 |---|---|---|
-| **Ponton d'arrivée** (départ) | 533, 603 | Ponton, bateau échoué, abri avec le coffre de départ (carte vierge, boussole, arbalète, barque). La route mène au campus. |
+| **Ponton d'arrivée** (départ) | 533, 603 | Ponton, bateau de pêche couché sur le flanc et à demi rempli d'eau, abri avec le coffre de départ (carte vierge, boussole, arbalète, barque). La route mène au campus. |
 | **Campus Site B** | 455–600, 345–480 | Voir plus bas |
 | Checkpoint | 519, 511 | Barrière cassée, guérite, sacs de sable, projecteur |
 | Piste d'atterrissage | 546–626, 522 | Piste, hangar, manche à air |
@@ -42,7 +42,7 @@ Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries s�
 | Relais radio | 617, 450 | Local technique, mât haubané de 40 blocs |
 | Village de pêcheurs | 655, 402 | Six maisons sur pilotis, toutes différentes : charpente apparente, volets, véranda couverte sur le ponton, toit à débord, cheminée, intérieur meublé. L'une a perdu sa porte et porte des griffures, une autre a le toit crevé. Ponton, séchoirs, barques. |
 | Serres | 406, 476 | Trois serres voûtées, carreaux brisés, plantes |
-| Lac central et **Repaire** | 342, 434 | Îlot couvert d'os et de carcasses, accessible seulement à la nage |
+| Lac central et îlot aux carcasses | 342, 434 | Îlot couvert d'os, accessible seulement à la nage. C'est là que tout le monde le cherchera : ce n'est que l'endroit où il mange. |
 | Affût | 268, 434 | Poste de chasse sur pilotis au bord du lac |
 | Enclos des herbivores | 358, 321 | Clôture électrique arrachée, carcasses, tour d'observation |
 | Campement abandonné | 408, 238 | Tentes, feu, traces de sang |
@@ -59,34 +59,41 @@ Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries s�
 | Mine abandonnée | 202, 450 | Galerie boisée de 50 blocs, rails, minerai, salle du fond |
 | Bunker | 265, 523 | Abri à demi enterré : couchettes, armurerie, vivres |
 | Bungalows | 239, 568 | Trois cabanes sur pilotis au bord du lagon, toit de bambou, escalier jusqu'au sol |
-| Épave | 83, 608 | Bateau échoué sur le récif corallien |
+| Épave | 83, 608 | Caboteur rouillé de 30 blocs échoué sur le récif : étrave montée sur le corail, gîte de 25°, flanc tribord éventré, cales noyées, poupe brisée et affaissée, timonerie, cheminée, mât plié, coraux sur la coque |
 | Station du delta | 336, 642 | Passerelle dans la mangrove, labo de terrain |
 
 Des jeeps abandonnées jalonnent les pistes. Il n'y a **aucun panneau** : la carte se découvre en explorant.
 
-### Nids
+### Nids et antre
 
-Six nids de spinosaure : une cuvette de vase, une couronne de racines tressées, des œufs (œufs de renifleur) et des restes de repas. Autant d'objectifs ou de points de rendez-vous.
+Sept nids : une cuvette de vase, une couronne de racines tressées, des œufs (œufs de renifleur) et des restes de repas. Ils sont volontairement **là où on ne les attend pas** : pas au bord des rivières.
 
 | Nid | x, z |
 |---|---|
-| Corniche du cénote | 186, 273 (en bas du puits) |
-| Grotte sous le volcan (ouest) | 551, 257 |
-| Grotte sous le volcan | 608, 240 |
-| Grotte sous le volcan (est) | 681, 223 |
-| Berge du delta | 301, 633 |
-| Berge du bras est | 644, 359 |
+| **Antre** : salle sèche au bout d'un tunnel noyé, sans autre issue. On n'y entre qu'**en plongeant dans le trou bleu du lagon** (150, 640), par une galerie ouverte à 12 blocs sous la surface. | 210, 487 |
+| Sous le dôme éventré de la volière, parmi les nids d'oiseaux | 444, 154 |
+| Perché sur le flanc du volcan, en plein découvert | 613, 231 |
+| Grotte de l'est, sous le volcan | 693, 232 |
+| Grotte de l'ouest | 209, 515 |
+| Corniche du cénote, en bas du puits | 186, 273 |
+
+L'antre est entouré d'une gaine de roche : aucune autre galerie n'y débouche. Contrôlé par un remplissage 3D depuis le nid : la seule issue est le trou bleu.
 
 ### Grottes
 
-Une dizaine de réseaux de galeries sous les collines, le volcan et la crête ouest, avec 75 salles :
+Une douzaine de réseaux de galeries sous les collines, le volcan et la crête ouest, avec 84 salles :
 - des galeries principales de 6 à 9 blocs de diamètre : **le spinosaure y passe** ;
 - des boyaux de 3 blocs, où seuls les joueurs passent ;
 - des lacs souterrains au fond des parties basses ;
-- des stalactites et stalagmites, de la mousse, des racines et lianes des cavernes, du lichen luisant rare, des toiles dans les boyaux, des ossements.
+- des parois irrégulières, taillées par un bruit 3D : niches, surplombs, rebords, bosses ;
+- des colonnes de stalactites qui rejoignent le sol, des stalagmites et stalactites de toutes tailles, des blocs éboulés ;
+- une salle sur trois envahie par la végétation : mousse, azalées, grandes feuilles près de l'eau ;
+- des racines et lianes des cavernes, des baies luisantes rares, du lichen, des toiles dans les boyaux, des ossements.
 
-13 entrées (x, z) :
-(521, 126), (136, 261), (691, 197), (618, 112), (164, 395), (103, 335), (609, 249), (182, 523), (458, 199), (422, 441), (410, 523), (462, 280), (684, 280). Deux d'entre elles sont des **gouffres** verticaux ouverts dans la jungle : on tombe dedans si on ne regarde pas où l'on marche.
+Les entrées sont des **porches** : une lèvre de roche en surplomb au-dessus de la descente, avec racines pendantes et rochers éboulés autour. Leurs abords sont dégagés d'arbres.
+
+14 entrées (x, z) :
+(663, 127), (540, 266), (662, 238), (109, 399), (554, 102), (113, 284), (507, 181), (182, 524), (173, 221), (427, 205), (191, 384), (413, 523), (422, 431), (471, 109). Deux d'entre elles sont des **gouffres** verticaux ouverts dans la jungle : on tombe dedans si on ne regarde pas où l'on marche.
 
 ### Le campus
 
@@ -124,6 +131,8 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 - Rivière principale : de la cascade au lac central, puis en delta à mangrove au sud, avec un affluent et un bras vers l'est.
 - Lagon et récif de corail au sud-ouest, plages de sable.
 - **Plages en pente douce tout autour de l'île** : le fond remonte jusqu'à la ligne d'eau et la terre repart de là. On sort de l'eau à pied partout, lagon compris ; seules les falaises du volcan et de la crête font exception, volontairement.
+- **Falaises au bord de l'eau** (cratère, gorges, trous bleus, crevasses, pointes rocheuses) : elles ne tombent plus en mur droit. Un bruit 3D les ronge et les fait déborder : niches, surplombs sous la lèvre, bancs horizontaux, éperons, et un talus d'éboulis au pied qui remonte sous l'eau. Près de 89 000 blocs retravaillés. Le rideau de la cascade n'est pas touché.
+- **Barrière de corail en volume** : dômes, tables en champignon, tours et arches de corail, par colonies de couleur, avec des gorgones, des éventails sur les flancs et des concombres de mer. D'autres pâtés isolés parsèment le lagon.
 - **Fond marin travaillé** : plage immergée puis tombant, bancs et rides de sable, gravier, argile et vase au large, pitons rocheux, **crevasses** étroites et sinueuses jusqu'à 18 blocs plus bas, forêts de kelp. **Sept trous bleus**, des puits à parois verticales jusqu'à 4 blocs du fond du monde, dont un dans le lagon : x, z = (150, 640), (712, 405), (708, 588), (79, 162), (32, 486), (287, 66), (495, 725).
 - **Toutes les eaux libres sont au niveau de la mer** et forment un seul réseau : c'est son territoire.
 - **Jungle à étages** :
@@ -139,22 +148,22 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 
 ## Vérifié, et pas vérifié
 
-- Chaque état de bloc (565) est contrôlé contre les données Minecraft 1.20 de minecraft-data : 0 erreur.
+- Chaque état de bloc (611) est contrôlé contre les données Minecraft 1.20 de minecraft-data : 0 erreur.
 - Les fichiers portent le champ `BiomePaletteMax` exigé par WorldEdit 7.2.15 : sans lui, `//schem load` échouait avec « Unknown error ».
 - **Côtes** : sur tout le tour de l'île, la terre au bord de la mer est au niveau de l'eau (0 bloc à escalader pour sortir de l'eau). Mesuré sur la carte des hauteurs.
-- **Grottes** : 5 blocs de roche au moins entre le plafond et la surface, hors entrées. Toute cavité sous le niveau de la nappe est pleine d'eau, à surface plane, et rien ne coule. Une seule cellule d'air couverte touche de l'eau sur toute l'île : une niche de berge.
+- **Grottes** : 5 blocs de roche au moins entre le plafond et la surface, hors entrées. Toute cavité sous le niveau de la nappe est pleine d'eau, à surface plane. 5 cellules d'air couvertes touchent de l'eau sur toute l'île : au pire, quelques blocs d'eau couleront au premier bloc voisin modifié.
 - Les fichiers ont été relus avec nbtlib :
   - dimensions et nombre de blocs exacts ;
   - palette, biomes et coffres.
 - Vitres, barreaux, barrières et murets reçoivent leurs connexions à la génération : WorldEdit ne les recalcule pas au collage.
-- **Aucun arbre flottant.** Un détecteur suit chaque bloc d'arbre jusqu'au sol, en connexité par faces, arêtes et coins : 0 bloc de tronc ou de feuillage isolé sur 760 000. Les 432 lianes qui ne rejoignent pas un tronc sont accrochées à un mur ou à un plafond de grotte : chacune a été contrôlée.
+- **Aucun arbre flottant.** Un détecteur suit chaque bloc d'arbre jusqu'au sol, en connexité par faces, arêtes et coins : 0 bloc de tronc ou de feuillage isolé sur 700 000. Les 692 lianes qui ne rejoignent pas un tronc sont accrochées à un mur ou à un plafond de grotte : chacune a été contrôlée. Seule exception : une racine d'un nid (sans effet en jeu, elle ne tombe pas).
 - Troncs, branches, racines et palmes sont tracés d'un seul tenant, reliés par les faces : pas de marches en diagonale.
 - Aucune liane sans appui : chaque liane est accrochée à un bloc plein ou à la liane du dessus, et celles qui pendraient dans le vide sont retirées à la génération. Les propagules pendent sous des feuilles de palétuvier.
 - **Chargé dans un vrai Minecraft** (WorldEdit 7.2.15, Forge 1.20.1) après la correction de `BiomePaletteMax`. **Pas encore vérifié en jeu** : l'orientation des portes, lits et escaliers, le rendu de la cascade (eau source, elle se met à couler dès qu'un bloc voisin change), le temple, les maisons et les grottes, et les performances au collage.
 
 ## Régénérer ou modifier
 
-`python3 generer_ile.py sortie/` (numpy requis, environ 80 s) produit les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `blocs.npy` et `grottes.npy`. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
+`python3 generer_ile.py sortie/` (numpy requis, environ 100 s) produit les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `blocs.npy` et `grottes.npy`. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
 
 | Module | Rôle |
 |---|---|
@@ -163,7 +172,8 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 | `campus.py` | les bâtiments du campus |
 | `mobilier.py` | meubles et façades |
 | `lieux.py` | les autres lieux (temple maya, cénote, maisons, hélicoptère…) |
-| `grottes.py` | grottes, gouffres, lacs souterrains et nids |
+| `grottes.py` | grottes, gouffres, lacs souterrains, antre et nids |
+| `details.py` | falaises et récif en volume |
 | `recits.py` | les journaux (plus utilisés : les coffres n'en contiennent plus) |
 | `monde.py` | volume de blocs et écriture Sponge v2 |
 | `rendu.py` | vues isométriques, plans d'étage et carte, pour vérifier sans lancer le jeu |

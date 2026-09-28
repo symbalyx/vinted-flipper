@@ -51,7 +51,7 @@ COULEURS = [
     (r'cave_vines', (60, 110, 30)), (r'fern', (60, 120, 40)), (r'grass', (80, 130, 50)), (r'lily_pad', (40, 110, 40)),
     (r'big_dripleaf', (80, 140, 40)), (r'dripleaf', (80, 140, 40)), (r'azalea', (80, 130, 50)), (r'sugar_cane', (130, 170, 90)),
     (r'melon', (110, 146, 30)), (r'cocoa', (140, 80, 30)), (r'mushroom', (180, 60, 60)), (r'flower|poppy|orchid|allium|tulip', (200, 60, 90)),
-    (r'kelp', (50, 110, 40)), (r'seagrass', (50, 120, 40)), (r'sponge', (190, 180, 60)),
+    (r'brain_coral', (207, 91, 159)), (r'tube_coral', (49, 87, 207)), (r'horn_coral', (216, 199, 66)), (r'fire_coral', (164, 35, 47)), (r'bubble_coral', (165, 26, 162)), (r'sea_pickle', (100, 120, 50)), (r'kelp', (50, 110, 40)), (r'seagrass', (50, 120, 40)), (r'sponge', (190, 180, 60)),
     (r'white_wool|white_carpet|white_bed', (230, 230, 230)), (r'_bed', (160, 40, 40)), (r'carpet', (120, 100, 90)), (r'wool', (180, 180, 180)),
     (r'bookshelf', (120, 80, 50)), (r'crafting|fletching|cartography|smithing|loom', (130, 95, 60)),
     (r'barrel', (130, 90, 50)), (r'chest', (160, 110, 40)), (r'furnace|smoker|blast', (100, 100, 100)),
