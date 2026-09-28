@@ -752,6 +752,25 @@ public final class Cerveau {
         Vec dos = new Vec(j.regard().x(), 0, j.regard().z()).unitaireH();
         Vec poste = dos == Vec.ZERO ? j.pos().plus(soi.pos().moins(j.pos()).unitaireH().fois(recul))
                 : j.pos().moins(dos.fois(recul));
+        if (interdit(poste, tick)) {
+            // ce poste s'est revele inaccessible (tronc, rocher) : on tourne autour de la proie
+            Vec rel = poste.moins(j.pos());
+            Vec alt = null;
+            for (double ang : new double[]{0.6, -0.6, 1.2, -1.2, 1.8, -1.8}) {
+                double c = Math.cos(ang), sn = Math.sin(ang);
+                Vec p = new Vec(j.pos().x() + rel.x() * c - rel.z() * sn, poste.y(), j.pos().z() + rel.x() * sn + rel.z() * c);
+                if (!interdit(p, tick)) {
+                    alt = p;
+                    break;
+                }
+            }
+            if (alt != null) {
+                poste = alt;
+            } else if (phase == 3 && !regarde && d <= r.distanceFrappe + 3) {
+                ouvrirFrappe(soi);                         // coince tout pres : il n'attend plus
+                return null;
+            }
+        }
         if (poste.distanceH(soi.pos()) < r.arrivee) {
             return new Decision(Tactique.FILATURE, cible, null, Allure.ARRET, j.pos(), null, false, anim,
                     phase == 3 ? "juste derriere toi, il attend l'ouverture" : "te suit, derriere toi");

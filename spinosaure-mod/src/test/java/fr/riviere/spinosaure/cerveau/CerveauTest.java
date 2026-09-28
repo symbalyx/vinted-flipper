@@ -130,6 +130,19 @@ class CerveauTest {
     }
 
     @Test
+    void unPosteDeFilatureInaccessible_ilEnChoisitUnAutreAutourDeLaProie() {
+        Cerveau c = cerveau();
+        List<Joueur> ps = List.of(avec(j(A, 0, -30), "detourne"));
+        Decision d = jusqua(c, ps, 0, 900, x -> x.tactique() == Tactique.FILATURE && x.destination() != null);
+        Vec bloque = d.destination();
+        c.destinationBloquee(904);                           // la locomotion n'y arrive pas (un tronc)
+        Decision e = jusqua(c, ps, 908, 1400, x -> x.tactique() == Tactique.FILATURE && x.destination() != null);
+        assertEquals(Tactique.FILATURE, e.tactique(), e.raison());
+        assertTrue(e.destination().distanceH(bloque) >= 5, "nouveau poste : " + e.destination() + " (bloque : " + bloque + ")");
+        assertEquals(16, e.destination().distanceH(new Vec(0, 0, -30)), 1.5, "toujours a distance de filature");
+    }
+
+    @Test
     void phase3_ilFrappeQuandLaProieIsoleeTourneLeDos() {
         Cerveau c = cerveau();
         List<Joueur> ps = List.of(avec(j(C, 0, -13), "detourne"));
