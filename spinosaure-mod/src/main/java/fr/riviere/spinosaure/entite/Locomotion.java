@@ -51,6 +51,8 @@ final class Locomotion {
     private final Set<UUID> pietines = new HashSet<>();
 
     private boolean etaitDansEau;
+    private Vec3 reperePlace;
+    private int ticksSurPlace;
     private int horsEau = 1000;
 
     Locomotion(SpinosaureEntity spino) {
@@ -214,6 +216,28 @@ final class Locomotion {
         // freinage) et il n'est pas deja arrive, rayon d'arrivee = sa demi-largeur + marge
         // (sinon, colle a un joueur, il se croyait coince et reculait)
         double arrivee = Math.max(2.5, spino.getBbWidth() / 2 + 2.0);
+        // chien de garde : une destination, une allure, et pourtant il n'a pas bouge d'un demi-bloc
+        // en 3 s (vu en jeu : fige 70 s, chemin « en cours », vitesse nulle, donc aucun deblocage).
+        // On repart par un contournement lateral, puis on recalcule le chemin.
+        if (but != null && reste > arrivee && allure != Allure.ARRET && detour == null && reculTicks == 0) {
+            if (reperePlace == null || spino.position().distanceToSqr(reperePlace) > 0.25) {
+                reperePlace = spino.position();
+                ticksSurPlace = 0;
+            } else if (++ticksSurPlace >= 60) {
+                ticksSurPlace = 0;
+                Vec3 versBut = but.subtract(spino.position()).multiply(1, 0, 1).normalize();
+                Vec3 lat = new Vec3(-versBut.z, 0, versBut.x).scale(5 * cote);
+                cote = -cote;
+                detour = spino.position().add(lat).add(versBut.scale(2));
+                detourTicks = Deblocage.PALIER_CONTOURNEMENT;
+                spino.getNavigation().stop();
+                spino.getNavigation().moveTo(detour.x, detour.y, detour.z, Allure.MARCHE.vitesse);
+                spino.getMoveControl().setWantedPosition(detour.x, detour.y, detour.z, Allure.MARCHE.vitesse);
+            }
+        } else {
+            reperePlace = null;
+            ticksSurPlace = 0;
+        }
         // pas de chemin (navigation terminee loin du but) : il avance droit vers le but et le
         // deblocage s'occupe des obstacles ; sinon il restait plante, sans vitesse commandee,
         // donc sans que le deblocage ne se declenche jamais (mesure en jeu)
