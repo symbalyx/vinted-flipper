@@ -13,7 +13,9 @@ import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -44,6 +46,7 @@ public class SpinosaureMod {
             () -> new ForgeSpawnEggItem(SPINOSAURE, 0x5A4632, 0xC9A227, new Item.Properties()));
 
     public SpinosaureMod() {
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Reglage.SPEC);
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         ENTITES.register(bus);
         OBJETS.register(bus);

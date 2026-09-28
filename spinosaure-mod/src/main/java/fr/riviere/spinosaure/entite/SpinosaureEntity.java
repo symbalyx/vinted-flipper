@@ -129,9 +129,19 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
 
     public static boolean peutApparaitre(EntityType<SpinosaureEntity> type, ServerLevelAccessor niveau,
                                          MobSpawnType raison, BlockPos pos, RandomSource alea) {
-        return niveau.getDifficulty() != Difficulty.PEACEFUL
-                && Mob.checkMobSpawnRules(type, niveau, raison, pos, alea)
-                && alea.nextInt(4) == 0;
+        if (!fr.riviere.spinosaure.Reglage.APPARITION_NATURELLE.get()) {
+            return false;
+        }
+        if (niveau.getDifficulty() == Difficulty.PEACEFUL || !Mob.checkMobSpawnRules(type, niveau, raison, pos, alea)
+                || alea.nextInt(4) != 0) {
+            return false;
+        }
+        // un nombre limite par zone : un super-predateur est rare, et un evenement ne doit pas
+        // se transformer en elevage (compte les spinosaures des chunks charges)
+        int r = fr.riviere.spinosaure.Reglage.RAYON_ZONE.get();
+        net.minecraft.world.phys.AABB zone = new net.minecraft.world.phys.AABB(pos).inflate(r, 384, r);
+        return niveau.getEntitiesOfClass(SpinosaureEntity.class, zone, net.minecraft.world.entity.Entity::isAlive).size()
+                < fr.riviere.spinosaure.Reglage.MAX_PAR_ZONE.get();
     }
 
     // ================================================================== base
@@ -300,12 +310,14 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (isEffectiveAi() && isInWater()) {
             // poussee calee pour nager a ~2.7 blocs/s (NAGE) et ~4 blocs/s (NAGE_RAPIDE)
             double y0 = getY();
+            boolean tetehors = !estSubmerge();
             moveRelative(0.05F, entree);
             move(net.minecraft.world.entity.MoverType.SELF, getDeltaMovement());
             Vec3 v = getDeltaMovement().scale(0.9D);
             // contre une berge franchissable, il se hisse (le vanilla le fait ; notre nage l'avait perdu :
             // en jeu il restait bloque dans l'angle d'un bassin a bords droits)
-            if (horizontalCollision && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
+            // seulement tete hors de l'eau : sous l'eau, cette poussee le faisait escalader les parois
+            if (tetehors && horizontalCollision && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
                 v = new Vec3(v.x, 0.3, v.z);
             }
             setDeltaMovement(v);

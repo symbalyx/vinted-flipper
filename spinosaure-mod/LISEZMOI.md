@@ -92,6 +92,16 @@ dossier `mods` à côté du jar (le mod en dépend, il n'est pas inclus dedans).
 Œuf d'apparition dans l'onglet créatif « Œufs d'apparition », ou `/summon spinosaure:spinosaure`.
 Apparition naturelle rare dans **tous les biomes de jungle**, de jour comme de nuit, sauf en paisible.
 
+**Nombre limité par zone** : `config/spinosaure-common.toml`, créé au premier lancement :
+
+| Réglage | Défaut | Effet |
+|---|---|---|
+| `naturelle` | `true` | `false` : il n'apparaît plus tout seul (pour un événement où on le place avec `/summon`) |
+| `max_par_zone` | `1` | pas de nouvelle apparition s'il y en a déjà autant dans la zone |
+| `rayon_zone` | `160` | rayon de la zone, en blocs |
+
+L'œuf et `/summon` ne sont jamais limités.
+
 **Modèle et animations** : `geo/spinosaure.geo.json` et `animations/spinosaure.animation.json`
 sont générés depuis le `.bbmodel` par `tools/spinosaure-ror-retarget/export_geckolib.py`, qui
 reproduit l'export bedrock de Blockbench (contrôle aller-retour : 384 cubes, écart 0,0001).

@@ -51,6 +51,7 @@ final class Locomotion {
     private final Set<UUID> pietines = new HashSet<>();
 
     private boolean etaitDansEau;
+    private int horsEau = 1000;
 
     Locomotion(SpinosaureEntity spino) {
         this.spino = spino;
@@ -221,7 +222,7 @@ final class Locomotion {
             case SAUTER -> {
                 if (spino.onGround()) {
                     spino.getJumpControl().jump();
-                } else if (spino.isInWater()) {
+                } else if (spino.isInWater() && !spino.estSubmerge()) {
                     spino.setDeltaMovement(spino.getDeltaMovement().add(0, 0.3, 0));   // se hisse sur la berge
                 }
                 arracherFeuillage();
@@ -295,10 +296,15 @@ final class Locomotion {
 
     private void transitionsEau() {
         boolean eau = spino.isInWater();
-        if (eau && !etaitDansEau && pilote.vitesseCourante() <= Allure.MARCHE.vitesse && !spino.attaqueEnCours()) {
-            // entree calme dans l'eau ; en pleine course on n'impose pas une animation de 2 s
+        // entree calme dans l'eau ; en pleine course on n'impose pas une animation de 2 s.
+        // Seulement en venant de la terre ferme (3 s hors de l'eau) : a la surface il sort et
+        // rentre sans cesse de l'eau, et l'animation (corps redresse) relancee en boucle se
+        // lisait comme une escalade pendant la nage.
+        if (eau && !etaitDansEau && horsEau > 60 && spino.onGround()
+                && pilote.vitesseCourante() <= Allure.MARCHE.vitesse && !spino.attaqueEnCours()) {
             spino.triggerAnim("ambiance", "entree_eau");
         }
+        horsEau = eau ? 0 : Math.min(horsEau + 1, 1000);
         etaitDansEau = eau;
     }
 
