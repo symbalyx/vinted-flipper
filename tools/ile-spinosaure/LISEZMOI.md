@@ -12,7 +12,7 @@ Fichiers dans `dist/` (format Sponge v2, Minecraft 1.20.1, biomes inclus) :
 
 ## Coller l'île
 
-1. Installer **WorldEdit** pour Forge 1.20.1. **FastAsyncWorldEdit** est fortement conseillé : il y a 94 millions de blocs.
+1. Installer **WorldEdit** pour Forge 1.20.1 (7.2.15). FastAsyncWorldEdit n'existe pas pour Forge : avec 94 millions de blocs, préférer **les 4 tuiles** et donner 6 à 8 Go de mémoire au jeu.
 2. Copier les `.schem` dans `.minecraft/config/worldedit/schematics/`, ou `config/worldedit/schematics/` sur un serveur.
 3. Monde **Superflat, préréglage « Le vide »**, ou un océan dégagé.
 4. Coller avec **le coin nord-ouest en (X, 15, Z)**. La mer du schematic tombe alors à y = 63, comme la mer vanilla.
