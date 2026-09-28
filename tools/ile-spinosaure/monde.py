@@ -337,6 +337,7 @@ class Monde:
             'BlockEntities': nbt.List('compound', ents),
         }
         if biomes is not None:
+            racine['BiomePaletteMax'] = nbt.Int(len(bio_palette))     # exige par WorldEdit
             racine['BiomePalette'] = nbt.Compound({k: nbt.Int(v) for k, v in bio_palette.items()})
             racine['BiomeData'] = nbt.ByteArray(self.varints(biomes[z0:z1, x0:x1].reshape(-1)))
         nbt.ecrire(chemin, 'Schematic', nbt.Compound(racine))
