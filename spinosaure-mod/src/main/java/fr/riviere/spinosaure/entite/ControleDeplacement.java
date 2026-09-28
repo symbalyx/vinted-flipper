@@ -35,7 +35,8 @@ final class ControleDeplacement extends MoveControl {
             // marche trop haute pour le pas automatique : saut (meme regle que le vanilla)
             double dx = this.wantedX - spino.getX(), dz = this.wantedZ - spino.getZ();
             double dy = this.wantedY - spino.getY();
-            if (!spino.isInWater() && dy > spino.maxUpStep() && dx * dx + dz * dz < Math.max(1.0F, spino.getBbWidth())) {
+            if (!spino.isInWater() && dy > spino.maxUpStep() && dx * dx + dz * dz < Math.max(1.0F, spino.getBbWidth())
+                    && !spino.obstacleArtificiel()) {
                 spino.getJumpControl().jump();
                 this.operation = MoveControl.Operation.JUMPING;
             }

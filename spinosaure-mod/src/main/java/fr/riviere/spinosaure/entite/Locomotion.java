@@ -220,10 +220,10 @@ final class Locomotion {
         Deblocage.Action a = deblocage.evaluer(reste, veut, spino.isInWater() ? 0 : 2.2 * s * s);
         switch (a) {
             case SAUTER -> {
-                if (spino.onGround()) {
+                // saute un obstacle naturel ; jamais dans l'eau (sans pesanteur, chaque impulsion le
+                // faisait monter le long des parois) ni sur un ouvrage humain (il grimpait aux maisons)
+                if (spino.onGround() && !spino.isInWater() && !spino.obstacleArtificiel()) {
                     spino.getJumpControl().jump();
-                } else if (spino.isInWater() && !spino.estSubmerge()) {
-                    spino.setDeltaMovement(spino.getDeltaMovement().add(0, 0.3, 0));   // se hisse sur la berge
                 }
                 arracherFeuillage();
             }

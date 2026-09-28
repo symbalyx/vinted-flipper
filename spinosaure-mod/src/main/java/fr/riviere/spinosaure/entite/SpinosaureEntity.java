@@ -38,6 +38,7 @@ import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.ForgeEventFactory;
 import software.bernie.geckolib.animatable.GeoEntity;
@@ -240,6 +241,46 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
     }
 
     /** Sous l'eau pour de bon : le dos couvert, pas seulement les pattes. */
+    /**
+     * Devant lui, a hauteur des pieds et juste au-dessus : un ouvrage humain (planches, marches,
+     * dalles, murets, briques, rondins ecorces...) ? Il enjambe le terrain naturel (talus, racines,
+     * rochers) mais n'escalade pas les maisons, les pontons ni les toits en escalier.
+     */
+    boolean obstacleArtificiel() {
+        Vec3 avant = Instantane.vec3(Instantane.avant(yBodyRot));
+        double d = getBbWidth() / 2 + 0.6;
+        for (int lat = -1; lat <= 1; lat++) {
+            BlockPos p = BlockPos.containing(getX() + avant.x * d - avant.z * lat * 1.2, getY() + 0.5,
+                    getZ() + avant.z * d + avant.x * lat * 1.2);
+            for (int dy = 0; dy <= 1; dy++) {
+                if (artificiel(level().getBlockState(p.above(dy)))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static boolean artificiel(BlockState s) {
+        if (s.isAir() || !s.getFluidState().isEmpty() && s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty()) {
+            return false;
+        }
+        if (s.is(BlockTags.PLANKS) || s.is(BlockTags.STAIRS) || s.is(BlockTags.SLABS) || s.is(BlockTags.FENCES)
+                || s.is(BlockTags.WALLS) || s.is(BlockTags.DOORS) || s.is(BlockTags.TRAPDOORS) || s.is(BlockTags.BEDS)) {
+            return true;
+        }
+        String n = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath();
+        return n.contains("stripped") || n.contains("brick") || n.contains("concrete") || n.contains("glass")
+                || n.contains("terracotta") || n.contains("wool") || n.contains("quartz") || n.contains("copper")
+                || n.contains("iron") || n.contains("barrel") || n.contains("chest") || n.contains("polished");
+    }
+
+    /** Pas automatique de 1,5 bloc sur le terrain naturel, celui d'un joueur devant un ouvrage. */
+    @Override
+    public float maxUpStep() {
+        return !level().isClientSide() && obstacleArtificiel() ? 0.6F : super.maxUpStep();
+    }
+
     public boolean estSubmerge() {
         if (level().isClientSide()) {
             return entityData.get(SUBMERGE);
@@ -317,7 +358,9 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             // contre une berge franchissable, il se hisse (le vanilla le fait ; notre nage l'avait perdu :
             // en jeu il restait bloque dans l'angle d'un bassin a bords droits)
             // seulement tete hors de l'eau : sous l'eau, cette poussee le faisait escalader les parois
-            if (tetehors && horizontalCollision && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
+            // et seulement sur une berge naturelle : contre un ponton ou des pilotis, il se hissait
+            // sur le village
+            if (tetehors && horizontalCollision && !obstacleArtificiel() && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
                 v = new Vec3(v.x, 0.3, v.z);
             }
             setDeltaMovement(v);
