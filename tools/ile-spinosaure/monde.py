@@ -204,6 +204,37 @@ class Monde:
                 famille[j] = fam
             self.blocs[y, z, x] = j
 
+    def ancrer_clotures(self, ecart_max=5):
+        """Barrieres, murets et grilles poses au-dessus du vide (le terrain a ete retouche apres
+        leur pose : talus, pistes, falaises) : on prolonge le poteau jusqu'au sol si l'ecart est
+        faible. Les ouvrages volontairement en l'air (dome, pont, mat) ont un grand vide dessous
+        ou reposent sur autre chose : on n'y touche pas."""
+        noms = {i: n for n, i in self.palette.items()}
+        cloture = np.zeros(len(self.palette) + 1, bool)
+        vide = np.zeros(len(self.palette) + 1, bool)
+        for i, n in noms.items():
+            base = n.split('[')[0]
+            cloture[i] = (base.endswith('_fence') or base.endswith('_wall') or base == 'minecraft:iron_bars')
+            vide[i] = base in ('minecraft:air', 'minecraft:grass', 'minecraft:fern', 'minecraft:tall_grass', 'minecraft:large_fern',
+                               'minecraft:dead_bush', 'minecraft:moss_carpet', 'minecraft:blue_orchid', 'minecraft:brown_mushroom',
+                               'minecraft:red_mushroom', 'minecraft:azalea', 'minecraft:flowering_azalea', 'minecraft:redstone_wire')
+        n = 0
+        B = self.blocs
+        for y in range(2, self.H):
+            c = cloture[B[y]] & vide[B[y - 1]]
+            if not c.any():
+                continue
+            for z, x in zip(*np.nonzero(c)):
+                e = int(B[y, z, x])
+                k = 1
+                while k <= ecart_max and vide[B[y - k, z, x]]:
+                    k += 1
+                if k > ecart_max:
+                    continue
+                B[y - k + 1:y, z, x] = e
+                n += 1
+        return n
+
     def nettoyer_suspendus(self):
         """Retire ce qui pendrait dans le vide et tomberait au premier bloc voisin modifie :
         lianes sans appui (on ne garde que les faces reellement accrochees, a un bloc plein ou a

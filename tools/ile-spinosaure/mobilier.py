@@ -217,6 +217,60 @@ class Kit:
                 if rng.random() < densite and self.m.get(x, y, z) == self.m.AIR and self.m.get(x, y - 1, z) != self.m.AIR:
                     self.fil(x, y, z)
 
+    def carcasse(self, x, y, z, axe_x=True, L=10, sens=1):
+        """Squelette de grand animal couche au sol, en os : colonne vertebrale, cage thoracique
+        en arcs, bassin, pattes detachees, queue qui s'amenuise, crane allonge ; autour, vase,
+        champignons et une trainee de sang. (x, y, z) : premier bloc d'air au-dessus du sol."""
+        m, rng = self.m, self.rng
+        os_ = 'minecraft:bone_block[axis=%s]'
+        ax = 'x' if axe_x else 'z'
+        lat = 'z' if axe_x else 'x'
+
+        def P(i, h, l):                                   # i : long de l'axe, h : hauteur, l : lateral
+            return (x + i * sens, y + h, z + l) if axe_x else (x + l, y + h, z + i * sens)
+
+        def pose(pt, e, air=False):
+            m.pose(pt[0], pt[1], pt[2], e, seulement_air=air)
+
+        # colonne, legerement ondulee
+        for i in range(L):
+            pose(P(i, 0 if i < 2 or i > L - 3 else 1, 0), os_ % ax)
+        # cage thoracique : arcs de chaque cote, qui s'ouvrent vers le haut ; quelques cotes brisees
+        for i in range(2, min(L - 2, 8)):
+            if rng.random() < 0.2:
+                continue
+            for s_ in (-1, 1):
+                for (l, h) in ((1, 1), (2, 1), (2, 2), (2, 3), (1, 4)):
+                    if h == 4 and rng.random() < 0.5:
+                        break
+                    pose(P(i, h, l * s_), os_ % ('y' if h in (2, 3) else lat), air=True)
+        # bassin
+        for s_ in (-1, 1):
+            pose(P(L - 3, 1, s_), os_ % lat); pose(P(L - 3, 0, 2 * s_), os_ % 'y', air=True)
+        # queue qui s'amenuise : os puis dalles de quartz lisse
+        for k in range(1, 6):
+            pose(P(L - 1 + k, 0, (k // 3)), os_ % ax if k < 4 else 'minecraft:smooth_quartz_slab[type=bottom,waterlogged=false]', air=True)
+        # crane allonge (museau de spinosaure), machoire entrouverte
+        for k in range(1, 5):
+            pose(P(-k, 1, 0), os_ % ax, air=True)
+            if k < 4:
+                pose(P(-k, 0, 0), 'minecraft:smooth_quartz_slab[type=top,waterlogged=false]' if k > 1 else os_ % ax, air=True)
+        pose(P(-1, 2, 0), os_ % 'y', air=True)
+        pose(P(-1, 1, 1), 'minecraft:skeleton_skull[rotation=%d]' % rng.integers(0, 16), air=True)
+        # pattes detachees, pres du corps
+        for (i, l) in ((3, 3), (L - 3, -3), (L - 4, 4)):
+            pose(P(i, 0, l), os_ % ax, air=True); pose(P(i + 1, 0, l), os_ % ax, air=True)
+        # sol souille autour
+        for _ in range(14):
+            i, l = int(rng.integers(-3, L + 4)), int(rng.integers(-4, 5))
+            q = P(i, -1, l)
+            if m.get(*q) != m.AIR and m.get(q[0], q[1] + 1, q[2]) == m.AIR:
+                m.pose(q[0], q[1], q[2], rng.choice(['minecraft:mud', 'minecraft:coarse_dirt', 'minecraft:rooted_dirt']))
+                if rng.random() < 0.35:
+                    m.pose(q[0], q[1] + 1, q[2], rng.choice(['minecraft:brown_mushroom', 'minecraft:red_mushroom']), seulement_air=True)
+        a, b = P(-2, 0, 0), P(-12, 0, int(rng.integers(-4, 5)))
+        self.sang([a, b], 0.5)
+
     def toiles(self, x0, y0, z0, x1, y1, z1, n):
         """Toiles d'araignee dans les angles hauts d'une piece."""
         rng = self.rng

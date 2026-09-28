@@ -608,3 +608,154 @@ Grottes.formations = formations
 Grottes.porches_rocheux = porches_rocheux
 Grottes.antre = antre
 Grottes.nid_antre = nid_antre
+
+
+# ---------------------------------------------------------------------------------------------
+# Sous-sol « comme dans un monde classique » : cavernes au bruit, minerais, mine abandonnee
+# ---------------------------------------------------------------------------------------------
+def cavernes(self):
+    """Reseau souterrain a la maniere des cavernes vanilla : galeries « spaghetti » (la ou deux
+    bruits 3D passent tous deux pres de leur valeur moyenne : des tubes sinueux et entrelaces) et
+    cavernes « fromage » (la ou un troisieme bruit depasse un seuil : grandes salles). Toujours
+    sous 7 blocs de roche, jamais sous les lieux, jamais dans la gaine de l'antre."""
+    m, r = self.m, self.r
+    if self._lut is None:
+        self._lut = self._creusable()
+    b1 = Bruit3D(m.W, m.H, m.L, 14, 931)
+    b2 = Bruit3D(m.W, m.H, m.L, 14, 932)
+    b3 = Bruit3D(m.W, m.H, m.L, 24, 933)
+    b4 = Bruit3D(m.W, m.H, m.L, 9, 934)
+    hmax = r.h.astype(np.int32) - 7
+    terre = (r.h >= self.SEA + 8) & ~self.protege_dur
+    avant = int(self.creuse.sum())
+    for y in range(6, int(hmax.max()) + 1):
+        couche = m.blocs[y]
+        n1, n2 = b1.couche(y), b2.couche(y)
+        spaghetti = (np.abs(n1 - 0.5) < 0.032) & (np.abs(n2 - 0.5) < 0.05)
+        fromage = (b3.couche(y) + 0.25 * (b4.couche(y) - 0.5)) > 0.74
+        sel = (spaghetti | fromage) & (y <= hmax) & terre & ~self.reserve[y]
+        sel &= self._lut[np.minimum(couche, len(self._lut) - 1)]
+        couche[sel] = m.AIR
+        self.creuse[y] |= sel
+    return int(self.creuse.sum()) - avant
+
+
+# (nom, blocs de minerai par million de blocs de roche, y mini, y maxi, y le plus riche, taille)
+# en coordonnees du schematic (colle a y = 15) ; inspire des courbes de la 1.20
+MINERAIS = [
+    ('coal_ore', 9000, 20, 160, 90, 12),
+    ('copper_ore', 4500, 6, 110, 55, 9),
+    ('iron_ore', 4200, 2, 100, 30, 7),
+    ('gold_ore', 700, 2, 45, 12, 6),
+    ('redstone_ore[lit=false]', 800, 2, 25, 6, 7),
+    ('lapis_ore', 450, 2, 44, 16, 5),
+    ('diamond_ore', 120, 1, 14, 4, 4),
+]
+
+
+def minerais(self):
+    """Filons dans la roche, repartis par profondeur. Ceux qui touchent une grotte se voient."""
+    m, rng = self.m, self.rng
+    for nom, *_ in MINERAIS + [('emerald_ore',)]:
+        m.P('minecraft:' + nom)                       # declarer les etats avant de dimensionner la table
+    roche_noms = ('minecraft:stone', 'minecraft:andesite', 'minecraft:diorite', 'minecraft:granite', 'minecraft:tuff')
+    roche = np.zeros(len(m.palette) + 1, bool)
+    for nom in roche_noms:
+        if nom in m.palette:
+            roche[m.palette[nom]] = True
+    n_roche = sum(int(roche[m.blocs[y]].sum()) for y in range(m.H))
+    offs = [(dy, dz, dx) for dy in range(-2, 3) for dz in range(-2, 3) for dx in range(-2, 3)]
+    offs.sort(key=lambda o: o[0] ** 2 + o[1] ** 2 + o[2] ** 2)
+    poses = {}
+    specs = list(MINERAIS)
+    # emeraudes : sous les hauteurs (crete, volcan), comme dans les montagnes vanilla
+    specs.append(('emerald_ore', 60, 60, 150, 110, 2))
+    for nom, ppm, y0, y1, ypic, taille in specs:
+        etat = m.P('minecraft:' + nom)
+        cible = n_roche * ppm / 1e6
+        faits = 0
+        essais = 0
+        while faits < cible and essais < cible * 6:
+            essais += 1
+            y = int(round(rng.triangular(y0, ypic, y1)))
+            x, z = int(rng.integers(3, m.W - 3)), int(rng.integers(3, m.L - 3))
+            if not (3 <= y < m.H - 3) or not roche[m.blocs[y, z, x]]:
+                continue
+            k = max(1, int(rng.normal(taille, taille * 0.3)))
+            for (dy, dz, dx) in offs[:k * 2]:
+                if rng.random() < 0.55 and roche[m.blocs[y + dy, z + dz, x + dx]]:
+                    m.blocs[y + dy, z + dz, x + dx] = etat
+                    faits += 1
+        poses[nom.split('[')[0]] = faits
+    return poses
+
+
+def mine_vanilla(self, cx, cz, y, profondeur=3):
+    """Mine abandonnee facon vanilla : couloirs de 3 x 3 etayes tous les 4 blocs (deux poteaux
+    de barriere, une poutre de planches), rails au sol, toiles d'araignee, quelques coffres.
+    Les couloirs s'embranchent ; ou le sol manque (une grotte en dessous), un plancher de
+    planches fait pont."""
+    m, r, rng = self.m, self.r, self.rng
+    A = m.AIR
+    if self._lut is None:
+        self._lut = self._creusable()
+    dirs = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+    couloirs = 0
+
+    def creusable(x, yy, z):
+        if not (3 <= x < m.W - 3 and 3 <= z < m.L - 3):
+            return False
+        if self.protege_dur[z, x] or yy > r.h[z, x] - 5 or self.reserve[yy, z, x]:
+            return False
+        return True
+
+    def couloir(x, z, d, n, prof):
+        nonlocal couloirs
+        dx, dz = d
+        lx, lz = -dz, dx
+        couloirs += 1
+        for i in range(n):
+            px, pz = x + dx * i, z + dz * i
+            if not creusable(px, y, pz):
+                return
+            for l in (-1, 0, 1):
+                qx, qz = px + lx * l, pz + lz * l
+                for h in range(0, 3):
+                    m.pose(qx, y + h, qz, A)
+                    self.creuse[y + h, qz, qx] = True
+                if m.get(qx, y - 1, qz) in (A, m.P(EAU)):
+                    m.pose(qx, y - 1, qz, 'minecraft:oak_planks')
+            # rails au centre (un troncon manque ici et la)
+            if rng.random() < 0.85:
+                m.pose(px, y, pz, 'minecraft:rail[shape=%s,waterlogged=false]' % ('east_west' if dx else 'north_south'))
+            # etais tous les 4 blocs
+            if i % 4 == 0 and rng.random() < 0.9:
+                for l in (-1, 1):
+                    qx, qz = px + lx * l, pz + lz * l
+                    m.pose(qx, y, qz, 'minecraft:oak_fence'); m.pose(qx, y + 1, qz, 'minecraft:oak_fence')
+                for l in (-1, 0, 1):
+                    m.pose(px + lx * l, y + 2, pz + lz * l, 'minecraft:oak_planks')
+            if rng.random() < 0.08:
+                l = int(rng.choice([-1, 1]))
+                m.pose(px + lx * l, y + 2, pz + lz * l, 'minecraft:cobweb')
+            if rng.random() < 0.012:
+                l = int(rng.choice([-1, 1]))
+                m.coffre(px + lx * l, y, pz + lz * l, 'north', [('minecraft:rail', int(rng.integers(4, 12))), ('minecraft:torch', 8),
+                                                                ('minecraft:bread', 3), ('minecraft:iron_ingot', int(rng.integers(1, 5))),
+                                                                ('minecraft:coal', int(rng.integers(3, 10)))])
+        fx, fz = x + dx * n, z + dz * n
+        if prof <= 0:
+            return
+        for nd in dirs:
+            if nd == (-dx, -dz) or rng.random() < 0.45:
+                continue
+            couloir(fx, fz, nd, int(rng.integers(12, 34)), prof - 1)
+
+    for d in dirs:
+        couloir(cx, cz, d, int(rng.integers(14, 30)), profondeur)
+    return couloirs
+
+
+Grottes.cavernes = cavernes
+Grottes.minerais = minerais
+Grottes.mine_vanilla = mine_vanilla

@@ -29,6 +29,7 @@ from arbres import Foret, F_JUNGLE
 from campus import Campus
 from grottes import Grottes
 import details
+import flore
 from lieux import Lieux
 from monde import Monde, Decale
 from relief import Relief, catmull, distance_polyligne
@@ -59,6 +60,7 @@ def remplir(m, r):
     tres_raide = r.pente > 3.0
     sous_eau = eau > h
     plage = (r.c > -0.3) & (r.c < 0.55) & (h <= SEA + 2) & ~r.riviere & ~r.lac
+    plage |= r.plages_riv & (h <= SEA + 1) & ~sous_eau          # plages des rivieres et du lac
     volcan = np.hypot(r.xx - r.VOLCAN[0], r.zz - r.VOLCAN[1]) < 110
     haut = h > SEA + 58
     dessus = np.full(h.shape, P('minecraft:grass_block[snowy=false]'), np.uint16)
@@ -107,7 +109,11 @@ def remplir(m, r):
                                np.where(n2[roche_v] > 0.5, P('minecraft:basalt[axis=y]'), P('minecraft:andesite')))
     sous[roche_v] = P('minecraft:tuff')
     # parois raides : roche nue
-    dessus[raide & ~sous_eau] = np.where(n2[raide & ~sous_eau] > 0.5, P('minecraft:stone'), P('minecraft:andesite'))
+    # versants raides : mousse et herbe accrochees a la roche (la jungle couvre tout), roche nue
+    # seulement sur les parois quasi verticales
+    rv = raide & ~sous_eau
+    dessus[rv] = np.where(n1[rv] > 0.62, P('minecraft:stone'), np.where(n2[rv] > 0.5, P('minecraft:moss_block'),
+                          P('minecraft:grass_block[snowy=false]')))
     sous[raide] = P('minecraft:stone')
     dessus[tres_raide & ~sous_eau] = P('minecraft:stone')
     # recif corallien
@@ -170,6 +176,27 @@ class Pistes:
         self.m, self.r = m, r
         self.masque = np.zeros((L, W), bool)
 
+    def cotier(self, a, b, n=40, recul=0.3):
+        """Points d'un sentier le long de la plage, de a a b en tournant autour de l'ile : sur
+        chaque rayon, le premier point de terre ou c depasse `recul` (juste au-dessus de l'eau)."""
+        r = self.r
+        cx, cz = 384.0, 392.0
+        ta, tb = math.atan2(a[1] - cz, a[0] - cx), math.atan2(b[1] - cz, b[0] - cx)
+        if tb - ta > math.pi:
+            tb -= 2 * math.pi
+        elif ta - tb > math.pi:
+            tb += 2 * math.pi
+        pts = [a]
+        for t in np.linspace(0, 1, n)[1:-1]:
+            th = ta + (tb - ta) * t
+            for rr in range(420, 60, -1):
+                x, z = int(cx + math.cos(th) * rr), int(cz + math.sin(th) * rr)
+                if 0 <= x < W and 0 <= z < L and r.c[z, x] > recul and r.eau[z, x] <= r.h[z, x]:
+                    pts.append((x, z))
+                    break
+        pts.append(b)
+        return pts
+
     def trace(self, pts, larg=2.0, route=False):
         m, r = self.m, self.r
         ligne = catmull([tuple(map(float, p)) for p in pts], 2)
@@ -185,25 +212,29 @@ class Pistes:
                 continue
             top = m.blocs[hy, z, x]
             nom = m.nom(top)
-            if 'grass' in nom or 'podzol' in nom or 'moss' in nom or 'dirt' in nom or 'mud' in nom or 'sand' in nom:
+            if 'sand' in nom:
+                continue                                   # sur la plage, pas de chemin trace : le sable
+            if 'grass' in nom or 'podzol' in nom or 'moss' in nom or 'dirt' in nom or 'mud' in nom:
                 m.blocs[hy, z, x] = mats[0] if (not route and rng.random() < 0.7) else mats[rng.integers(0, 4)]
-        # ponts : la ou la piste passe sur l'eau
-        eau = dans & (r.eau > r.h)
-        if eau.any():
-            y = SEA + 2
-            zs, xs = np.nonzero(eau)
-            bord = (d > larg - 1) & eau
+        # gues : la ou la piste passe sur l'eau, le pont s'est effondre ; on traverse a pied dans
+        # un bloc d'eau, sur un haut-fond de gravier, a decouvert et dans son territoire. Il reste
+        # les pilotis du pont.
+        gue = (d <= larg + 2) & (r.eau > r.h) & (r.eau == SEA) & (r.riviere | r.lac | (r.h >= SEA - 3))
+        if gue.any():
+            zs, xs = np.nonzero(gue)
             for z, x in zip(zs, xs):
-                m.pose(x, y, z, 'minecraft:spruce_planks')
-                if bord[z, x]:
-                    m.pose(x, y + 1, z, 'minecraft:spruce_fence')
-                if (x * 7 + z * 13) % 11 == 0:
-                    for yy in range(int(r.h[z, x]) + 1, y):
-                        m.pose(x, yy, z, 'minecraft:stripped_spruce_log[axis=y]')
+                hy = int(r.h[z, x])
+                if hy < SEA - 1:
+                    m.boite(x, hy + 1, z, x, SEA - 2, z, 'minecraft:gravel')
+                    m.pose(x, SEA - 1, z, 'minecraft:gravel' if (x + z) % 3 else 'minecraft:sand')
+                    r.h[z, x] = SEA - 1
+                if (x * 7 + z * 13) % 17 == 0 and d[z, x] > larg - 0.5:
+                    m.boite(x, SEA - 1, z, x, SEA + 1 + (x + z) % 3, z, 'minecraft:stripped_spruce_log[axis=y]')
+
 
 
 # ====================================================================== foret
-def planter(m, r, foret, libre, rng):
+def planter(m, r, foret, libre, rng, libre_pentes=None):
     """Plantation par grilles jitterees, du plus grand au plus petit, avec une carte
     d'occupation au sol pour espacer les troncs (le spinosaure doit passer entre)."""
     occupe = np.zeros((L, W), bool)             # emprise des troncs deja plantes
@@ -219,7 +250,7 @@ def planter(m, r, foret, libre, rng):
         f2[1:] |= front[:-1]; f2[:-1] |= front[1:]; f2[:, 1:] |= front[:, :-1]; f2[:, :-1] |= front[:, 1:]
         front = f2
     n = r.n.fbm(70, 2, 51)
-    bambou = r.n.fbm(90, 2, 52) > 0.62
+    bambou = r.n.fbm(70, 2, 52) > 0.58
     compte = {}
 
     def essai(pas, jitter, proba, rayon, fn, cond):
@@ -261,12 +292,19 @@ def planter(m, r, foret, libre, rng):
     essai(6, 2, 0.7, 3, foret.jeune, lambda x, z: terre(x, z) and alt(x, z) < 70)
     essai(5, 1, 0.6, 2, foret.buisson, lambda x, z: terre(x, z) and alt(x, z) < 75)
     essai(26, 6, 0.35, 3, foret.souche, bas)
-    for gz in range(45, L, 90):
-        for gx in range(45, W, 90):
-            x, z = gx + int(rng.integers(-20, 21)), gz + int(rng.integers(-20, 21))
-            if 8 <= x < W - 8 and 8 <= z < L - 8 and bambou[z, x] and libre[z, x] and alt(x, z) < 40:
-                foret.bambous(x, z, int(rng.integers(4, 8)))
+    for gz in range(15, L, 30):
+        for gx in range(15, W, 30):
+            x, z = gx + int(rng.integers(-10, 11)), gz + int(rng.integers(-10, 11))
+            if 8 <= x < W - 8 and 8 <= z < L - 8 and bambou[z, x] and libre[z, x] and alt(x, z) < 45:
+                foret.bambous(x, z, int(rng.integers(4, 9)))
                 compte['bambous'] = compte.get('bambous', 0) + 1
+    # sur les versants (hors parois) : buissons et jeunes arbres accroches a la pente
+    if libre_pentes is not None:
+        libre_sauve = libre
+        libre = libre_pentes
+        essai(6, 2, 0.55, 2, foret.buisson, lambda x, z: libre_pentes[z, x] and not libre_sauve[z, x])
+        essai(9, 3, 0.45, 3, foret.jeune, lambda x, z: libre_pentes[z, x] and not libre_sauve[z, x] and alt(x, z) < 80)
+        libre = libre_sauve
     return compte, bambou
 
 
@@ -478,7 +516,11 @@ def main(sortie):
     pi.trace([heli, (230, 240), temple], 1.6)
     pi.trace([tour, (175, 300), temple], 1.4)
     pi.trace([(372, 404), (365, 360), (herb[0], herb[1] + 26)], 1.6)
-    pi.trace([relais, (660, 450), village], 1.6)
+    # le village de pecheurs ne se rejoint plus par la jungle : on longe la plage depuis le ponton
+    # et la piste d'atterrissage, a decouvert, a portee de l'eau
+    pi.trace(pi.cotier(dock, village), 1.4)
+    pi.trace(pi.cotier(bung[1], (336, 642)), 1.2)             # des bungalows a la station du delta
+    pi.trace(pi.cotier(phare, voliere), 1.2)                 # du phare vers la voliere, par la cote nord
     pi.trace([camp, (440, 200), voliere], 1.5)
     pi.trace([camp, (470, 200), (520, 150), (570, 140), obs], 1.3)
     pi.trace([(dock[0] + 2, (porte[1] + dock[1]) // 2 - 4), (546, piste_c[1])], 1.8)
@@ -508,8 +550,15 @@ def main(sortie):
     gx_, gz_, gR_, _ = r.gouffres[0]
     antre = gr.antre(gx_, gz_, gR_)
     gr.creuser()
+    # sous-sol « monde classique » : galeries et cavernes au bruit, mine abandonnee sous la crete
+    journal('cavernes : %d blocs creuses' % gr.cavernes())
+    zc = r.h[330:480, 110:210].astype(float) * ~protege_dur[330:480, 110:210]
+    iz, ix = np.unravel_index(np.argmax(zc), zc.shape)
+    mine_v = (110 + int(ix), 330 + int(iz))
+    journal('mine abandonnee : %d couloirs' % gr.mine_vanilla(mine_v[0], mine_v[1], SEA + 8))
     gr.rugosite()
     gr.noyer()
+    journal('minerais : %s' % gr.minerais())
     gr.decorer()
     gr.formations()
     gr.porches_rocheux()
@@ -517,6 +566,7 @@ def main(sortie):
     gr.nid_antre()
     if antre:
         li.ajoute('Antre (acces en plongee par le trou bleu du lagon)', antre[0], antre[2], 0)
+    li.ajoute('Mine abandonnee (galeries, sous la crete)', mine_v[0], mine_v[1], 0)
     # un nid perche sur la levre du cratere : le dernier endroit ou l'on irait le chercher
     dv = np.hypot(xx - r.VOLCAN[0], zz - r.VOLCAN[1])
     levre = (dv > 44) & (dv < 60) & (r.pente < 0.9) & ~protege & (r.eau <= r.h)
@@ -541,6 +591,19 @@ def main(sortie):
     for nom, x, z, ray in li.poi:
         if ray:
             libre &= np.hypot(xx - x, zz - z) > ray + 10
+    # ce qui n'est pas des arbres : mares boueuses, rochers moussus, clairieres fleuries
+    n_mares, _ = flore.mares(m, r, rng, libre)
+    n_rochers = flore.rochers(m, r, rng, libre)
+    clair = flore.clairieres(r, rng, libre)
+    journal('mares : %d, rochers : %d, clairieres : %d colonnes' % (n_mares, n_rochers, int(clair.sum())))
+    libre &= ~clair
+    # versants : buissons et jeunes arbres aussi la ou la pente interdit les grands arbres
+    libre_pentes = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 2.8) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
+    libre_pentes &= ~pi.masque & ~clair
+    libre_pentes &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
+    for nom, x, z, ray in li.poi:
+        if ray:
+            libre_pentes &= np.hypot(xx - x, zz - z) > ray + 10
     # le terrain a bouge depuis le debut (plateformes, talus des lieux) : hauteurs a jour, et on
     # ne plante que sur de la vraie terre, avec de l'air (ou de l'eau pour les paletuviers) au-dessus
     foret.sol = (r.h + 1).astype(np.int32)
@@ -553,11 +616,16 @@ def main(sortie):
         and 'path' not in n_ and 'brick' not in n_ and 'packed' not in n_ and 'sandstone' not in n_]
     vrai_sol = np.isin(dessus_, terre_ids) & ((au_dessus == m.AIR) | (au_dessus == m.P(EAU)))
     libre &= vrai_sol
-    compte, bambou = planter(m, r, foret, libre, rng)
+    libre_pentes &= vrai_sol
+    compte, bambou = planter(m, r, foret, libre, rng, libre_pentes)
     journal('arbres : %s' % compte)
     journal('sous-bois et eaux')
     couvert(m, r, rng)
+    journal('clairieres fleuries : %d' % flore.fleurs_clairieres(m, r, rng, clair))
+    journal('rideaux de lianes : %d blocs' % flore.rideaux_lianes(m, rng))
+    journal('lianes des falaises : %d blocs' % flore.lianes_falaises(m, r, rng))
     journal('recif en volume : %d blocs de corail' % details.recif(m, r, rng))
+    journal('clotures ancrees au sol : %d' % m.ancrer_clotures())
     journal('connexions (vitres, barrieres)')
     m.connecter()
     journal('suspendus : lianes corrigees / retirees, propagules retirees : %s' % (m.nettoyer_suspendus(),))

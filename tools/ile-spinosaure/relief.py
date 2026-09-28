@@ -199,20 +199,30 @@ class Relief:
                                   (self.AFFLUENT, 10, 16, 6), (self.BRAS_EST, 14, 20, 7)):
             self.lits.append(riviere(pts, w0, w1, prof))
         eau_riv = np.zeros((L, W), bool)
+        # une rive sur deux environ est une plage : au ras de l'eau, en pente tres douce, avec un
+        # haut-fond ou l'on a pied. On y passe a decouvert, a portee de ce qui nage.
+        plage_seg = n.fbm(50, 2, 64) > 0.5
+        self.plages_riv = np.zeros((L, W), bool)
         for dr, demi, prof in self.lits:
             dans = dr < demi
             fond = SEA - 1 - prof * np.clip(1 - (dr / demi) ** 2, 0, 1) ** 0.7
+            fond = np.where(plage_seg & (dr > demi - 4), np.maximum(fond, SEA - 1.4), fond)
             h = np.where(dans, np.minimum(h, fond), h)
             berge = (dr >= demi) & (dr < demi + 26)
             pente = SEA + 1 + (dr - demi) * 0.45 + 2 * (n.fbm(24, 2, 10) - 0.5)
+            pente = np.where(plage_seg, SEA - 0.4 + (dr - demi) * 0.28 + 0.8 * (n.fbm(24, 2, 10) - 0.5), pente)
             h = np.where(berge & ~cratere, np.minimum(h, pente), h)
+            self.plages_riv |= berge & plage_seg & (dr < demi + 10) & ~cratere
             eau_riv |= dans
         # ------------------------------------------------ lac central (avec l'ile du repaire)
         lx, lz = self.LAC
         dl = np.hypot((xx - lx) / 1.25, zz - lz) * (1 + 0.25 * (n.fbm(40, 2, 11) - 0.5))
         lac = dl < 48
         h = np.where(lac, np.minimum(h, SEA - 2 - 10 * (1 - (dl / 48) ** 2)), h)
-        h = np.where((dl >= 48) & (dl < 70), np.minimum(h, SEA + 1 + (dl - 48) * 0.35), h)
+        plage_lac = n.fbm(40, 2, 65) > 0.45
+        rive_lac = np.where(plage_lac, SEA - 0.4 + (dl - 48) * 0.25, SEA + 1 + (dl - 48) * 0.35)
+        h = np.where((dl >= 48) & (dl < 70), np.minimum(h, rive_lac), h)
+        self.plages_riv |= (dl >= 48) & (dl < 58) & plage_lac
         ilot = np.hypot(xx - (lx + 12), zz - (lz - 6)) < 9
         h = np.where(ilot, np.maximum(h, SEA + 1 + (9 - np.hypot(xx - (lx + 12), zz - (lz - 6))) * 0.25), h)
         self.ILOT = (lx + 12, lz - 6)

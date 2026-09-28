@@ -384,7 +384,7 @@ class Campus:
             b(cx - 2, 2, cz + dz, cx - 2, 5, cz + dz, os_ % 'y')
             p(cx - 1, 2, cz + dz, os_ % 'x')
             b(cx + 4, 5, cz + dz, cx + 4, 6, cz + dz, os_ % 'y')
-            p(cx + 5, 4, cz + dz, 'minecraft:end_rod[facing=down]')
+            p(cx + 5, 4, cz + dz, os_ % 'y')
         # colonne : de la queue (ouest, basse) au cou (est, releve)
         prof = {-12: 3, -11: 3, -10: 4, -9: 4, -8: 5, -7: 5, -6: 6, -5: 6, -4: 6, -3: 7, -2: 7, -1: 7, 0: 7, 1: 7,
                 2: 7, 3: 7, 4: 7, 5: 8, 6: 9, 7: 10, 8: 10}
@@ -397,19 +397,19 @@ class Campus:
         for dx in range(-7, 5):
             h = int(round(7 * math.exp(-((dx + 1.5) / 4.2) ** 2)))
             for y in range(prof[dx] + 1, prof[dx] + 1 + h):
-                p(cx + dx, y, cz, 'minecraft:end_rod[facing=up]')
+                p(cx + dx, y, cz, os_ % 'y')                    # epines de la voile, en os
         # cotes
         for dx in range(-3, 4, 2):
             for dz in (-1, 1):
-                p(cx + dx, 6, cz + dz, 'minecraft:end_rod[facing=down]')
-                p(cx + dx, 5, cz + dz * 1, 'minecraft:end_rod[facing=down]')
+                p(cx + dx, 6, cz + dz, os_ % 'z')
+                p(cx + dx, 5, cz + dz * 2, os_ % 'y')
         # crane : long museau de crocodile, machoire entrouverte
         for dx in range(9, 14):
             p(cx + dx, 10, cz, os_ % 'x')
         for dx in range(9, 13):
             p(cx + dx, 9 if dx < 11 else 8, cz, dalle('smooth_quartz', 'top') if dx >= 11 else os_ % 'x')
         p(cx + 9, 11, cz, os_ % 'y')
-        p(cx + 14, 10, cz, 'minecraft:end_rod[facing=east]')
+        p(cx + 14, 10, cz, dalle('smooth_quartz', 'bottom'))
 
     # ================================================================ aile des laboratoires
     def aile_labos(self):

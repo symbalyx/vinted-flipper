@@ -7,7 +7,7 @@ Fichiers dans `dist/` (format Sponge v2, Minecraft 1.20.1, biomes inclus) :
 
 | Fichier | Contenu |
 |---|---|
-| `site_b_v2.schem` | l'île entière (2,9 Mo) |
+| `site_b_v2.schem` | l'île entière (4,1 Mo) |
 | `site_b_v2_0_0.schem` … `site_b_v2_1_1.schem` | la même île en 4 tuiles de 384 × 384, à coller une par une si le serveur rame |
 
 ## Coller l'île
@@ -28,7 +28,7 @@ Réglages conseillés pour l'événement :
 
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
-Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe).
+Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`.
 
 ## Les lieux
 
@@ -70,30 +70,44 @@ Sept nids : une cuvette de vase, une couronne de racines tressées, des œufs (�
 
 | Nid | x, z |
 |---|---|
-| **Antre** : salle sèche au bout d'un tunnel noyé, sans autre issue. On n'y entre qu'**en plongeant dans le trou bleu du lagon** (150, 640), par une galerie ouverte à 12 blocs sous la surface. | 210, 487 |
+| **Antre** : salle sèche au bout d'un tunnel noyé, sans autre issue. On n'y entre qu'**en plongeant dans le trou bleu du lagon** (150, 640), par une galerie ouverte à 12 blocs sous la surface. | 197, 485 |
 | Sous le dôme éventré de la volière, parmi les nids d'oiseaux | 444, 154 |
-| Perché sur le flanc du volcan, en plein découvert | 613, 231 |
-| Grotte de l'est, sous le volcan | 693, 232 |
-| Grotte de l'ouest | 209, 515 |
+| Perché sur le flanc du volcan, en plein découvert | 553, 248 |
+| Grotte sous la crête ouest | 180, 365 |
+| Grotte sous le flanc nord du volcan | 530, 101 |
 | Corniche du cénote, en bas du puits | 186, 273 |
 
 L'antre est entouré d'une gaine de roche : aucune autre galerie n'y débouche. Contrôlé par un remplissage 3D depuis le nid : la seule issue est le trou bleu.
 
-### Grottes
+### Sous-sol : grottes, galeries et minerais
 
-Une douzaine de réseaux de galeries sous les collines, le volcan et la crête ouest, avec 84 salles :
-- des galeries principales de 6 à 9 blocs de diamètre : **le spinosaure y passe** ;
-- des boyaux de 3 blocs, où seuls les joueurs passent ;
-- des lacs souterrains au fond des parties basses ;
-- des parois irrégulières, taillées par un bruit 3D : niches, surplombs, rebords, bosses ;
-- des colonnes de stalactites qui rejoignent le sol, des stalagmites et stalactites de toutes tailles, des blocs éboulés ;
-- une salle sur trois envahie par la végétation : mousse, azalées, grandes feuilles près de l'eau ;
-- des racines et lianes des cavernes, des baies luisantes rares, du lichen, des toiles dans les boyaux, des ossements.
+Sous l'île, un sous-sol **comme dans un monde classique** :
+- **Cavernes vanilla :** galeries sinueuses entrelacées (« spaghetti ») et grandes cavernes (« fromage »), sous toutes les collines, soit 630 000 blocs creusés. Les parties basses sont noyées : ce sont des lacs souterrains.
+- **Grottes à salles :** 72 salles avec des galeries principales où **le spinosaure passe**, et des boyaux de 3 blocs pour les joueurs. On y trouve :
+  - des parois irrégulières (niches, surplombs) ;
+  - des colonnes de stalactites qui rejoignent le sol et des éboulis ;
+  - des salles envahies de végétation ;
+  - des racines, des lianes des cavernes et des ossements.
+- **Minerais** répartis par profondeur comme en 1.20 :
+  - charbon (≈ 220 000 blocs), fer (≈ 100 000) et cuivre (≈ 110 000) ;
+  - or, redstone et lapis en profondeur ;
+  - diamant tout en bas ;
+  - émeraude sous les hauteurs.
 
-Les entrées sont des **porches** : une lèvre de roche en surplomb au-dessus de la descente, avec racines pendantes et rochers éboulés autour. Leurs abords sont dégagés d'arbres.
+  Ceux qui affleurent dans les grottes se voient à la lampe.
+- **Mine abandonnée de type vanilla** sous la crête ouest (147, 417) : 16 couloirs de 3 × 3 étayés (poteaux et poutres), rails, toiles d'araignée et quelques coffres. Elle croise les cavernes.
+- **Entrées :** des porches rocheux en surplomb et deux gouffres ouverts dans la jungle. Les 11 entrées (x, z) sont : (169, 472), (98, 354), (644, 144), (543, 106), (144, 255), (559, 257), (645, 228), (503, 182), (180, 391), (422, 505), (426, 209). Leurs coordonnées exactes sont aussi dans `site_b_v2.json`.
 
-14 entrées (x, z) :
-(663, 127), (540, 266), (662, 238), (109, 399), (554, 102), (113, 284), (507, 181), (182, 524), (173, 221), (427, 205), (191, 384), (413, 523), (422, 431), (471, 109). Deux d'entre elles sont des **gouffres** verticaux ouverts dans la jungle : on tombe dedans si on ne regarde pas où l'on marche.
+### Rives, plages et gués
+
+On ne traverse plus les rivières sur des ponts : **les ponts se sont effondrés**. Les pistes passent à **gué**, dans un bloc d'eau sur un haut-fond de gravier, entre les pilotis restants : lentement, à découvert, dans son territoire.
+
+Une rive de rivière ou du lac sur deux environ est une **plage** au ras de l'eau, avec un haut-fond où l'on a pied.
+
+Trois lieux ne se rejoignent **que par la plage** :
+- le village de pêcheurs, depuis le ponton ;
+- la station du delta, depuis les bungalows ;
+- la volière, depuis le phare.
 
 ### Le campus
 
@@ -135,11 +149,19 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 - **Barrière de corail en volume** : dômes, tables en champignon, tours et arches de corail, par colonies de couleur, avec des gorgones, des éventails sur les flancs et des concombres de mer. D'autres pâtés isolés parsèment le lagon.
 - **Fond marin travaillé** : plage immergée puis tombant, bancs et rides de sable, gravier, argile et vase au large, pitons rocheux, **crevasses** étroites et sinueuses jusqu'à 18 blocs plus bas, forêts de kelp. **Sept trous bleus**, des puits à parois verticales jusqu'à 4 blocs du fond du monde, dont un dans le lagon : x, z = (150, 640), (712, 405), (708, 588), (79, 162), (32, 486), (287, 66), (495, 725).
 - **Toutes les eaux libres sont au niveau de la mer** et forment un seul réseau : c'est son territoire.
-- **Jungle à étages** :
+- **Jungle à étages**, pas une forêt :
   - fromagers géants à contreforts et couronne en parasol ;
   - arbres de voûte, figuiers étrangleurs creux, palmiers sur les berges, palétuviers dans le delta ;
   - jeunes arbres, buissons, bambous, troncs couchés moussus ;
-  - sous-bois dense : herbes, fougères et plantes de 2 blocs couvrent environ 80 % du sol, avec de nombreux jeunes arbres et buissons. Sous les arbres, on ne voit plus à 50 blocs.
+  - sous-bois dense : herbes, fougères et plantes de 2 blocs couvrent environ 80 % du sol, avec de nombreux jeunes arbres et buissons. Sous les arbres, on ne voit plus à 50 blocs ;
+  - **rideaux de lianes** : 120 000 blocs de lianes pendent des feuillages sur 3 à 14 blocs ;
+  - **clairières** fleuries (herbes hautes, fougères géantes, orchidées, torchères, pétales roses, melons) : on y voit loin, et on y est vu ;
+  - **mares** boueuses (40), avec nénuphars, grandes feuilles et cannes à sucre ;
+  - **rochers moussus** (320), certains grands comme une cabane : de quoi se cacher ;
+  - 38 **bambouseraies** ;
+  - **versants et montagnes couverts** : mousse et herbe sur les pentes, buissons et jeunes arbres accrochés, parois tapissées de lianes par plaques (12 000 blocs). Seules les parois quasi verticales restent en roche nue.
+
+Tout est en blocs vanilla 1.20.1 : **aucun mod à installer**.
 
 **Mesuré à l'échelle du spinosaure** (boîte de 3,4 × 5) :
 - 97 % des colonnes de forêt gardent **au moins 6 blocs libres sous les feuillages** ;
@@ -148,22 +170,24 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 
 ## Vérifié, et pas vérifié
 
-- Chaque état de bloc (611) est contrôlé contre les données Minecraft 1.20 de minecraft-data : 0 erreur.
+- Chaque état de bloc (650) est contrôlé contre les données Minecraft 1.20 de minecraft-data : 0 erreur.
 - Les fichiers portent le champ `BiomePaletteMax` exigé par WorldEdit 7.2.15 : sans lui, `//schem load` échouait avec « Unknown error ».
 - **Côtes** : sur tout le tour de l'île, la terre au bord de la mer est au niveau de l'eau (0 bloc à escalader pour sortir de l'eau). Mesuré sur la carte des hauteurs.
-- **Grottes** : 5 blocs de roche au moins entre le plafond et la surface, hors entrées. Toute cavité sous le niveau de la nappe est pleine d'eau, à surface plane. 5 cellules d'air couvertes touchent de l'eau sur toute l'île : au pire, quelques blocs d'eau couleront au premier bloc voisin modifié.
+- **Grottes** : 5 blocs de roche au moins entre le plafond et la surface (7 pour les cavernes), hors entrées. Toute cavité sous le niveau de la nappe est pleine d'eau, à surface plane. 10 cellules d'air couvertes touchent de l'eau sur toute l'île : au pire, quelques blocs d'eau couleront au premier bloc voisin modifié.
+- **Clôtures** : aucune barrière, aucun muret ni aucune grille ne flotte à moins de 5 blocs du sol. 308 poteaux ont été prolongés jusqu'au sol après les retouches du terrain.
+- **Carcasses** : squelettes en blocs d'os (colonne, cage thoracique, crâne, pattes, queue), sans barres de l'End.
 - Les fichiers ont été relus avec nbtlib :
   - dimensions et nombre de blocs exacts ;
   - palette, biomes et coffres.
 - Vitres, barreaux, barrières et murets reçoivent leurs connexions à la génération : WorldEdit ne les recalcule pas au collage.
-- **Aucun arbre flottant.** Un détecteur suit chaque bloc d'arbre jusqu'au sol, en connexité par faces, arêtes et coins : 0 bloc de tronc ou de feuillage isolé sur 700 000. Les 692 lianes qui ne rejoignent pas un tronc sont accrochées à un mur ou à un plafond de grotte : chacune a été contrôlée. Seule exception : une racine d'un nid (sans effet en jeu, elle ne tombe pas).
+- **Aucun arbre flottant.** Un détecteur suit chaque bloc d'arbre jusqu'au sol, en connexité par faces, arêtes et coins : 0 bloc de tronc ou de feuillage isolé sur 750 000. Les 825 lianes qui ne rejoignent pas un tronc sont accrochées à un mur, une falaise ou un plafond de grotte : chacune a été contrôlée. Seule exception : deux lianes des cavernes dans une grotte.
 - Troncs, branches, racines et palmes sont tracés d'un seul tenant, reliés par les faces : pas de marches en diagonale.
 - Aucune liane sans appui : chaque liane est accrochée à un bloc plein ou à la liane du dessus, et celles qui pendraient dans le vide sont retirées à la génération. Les propagules pendent sous des feuilles de palétuvier.
 - **Chargé dans un vrai Minecraft** (WorldEdit 7.2.15, Forge 1.20.1) après la correction de `BiomePaletteMax`. **Pas encore vérifié en jeu** : l'orientation des portes, lits et escaliers, le rendu de la cascade (eau source, elle se met à couler dès qu'un bloc voisin change), le temple, les maisons et les grottes, et les performances au collage.
 
 ## Régénérer ou modifier
 
-`python3 generer_ile.py sortie/` (numpy requis, environ 100 s) produit les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `blocs.npy` et `grottes.npy`. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
+`python3 generer_ile.py sortie/` (numpy requis, environ 3 min) produit les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `blocs.npy` et `grottes.npy`. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
 
 | Module | Rôle |
 |---|---|
@@ -174,6 +198,7 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 | `lieux.py` | les autres lieux (temple maya, cénote, maisons, hélicoptère…) |
 | `grottes.py` | grottes, gouffres, lacs souterrains, antre et nids |
 | `details.py` | falaises et récif en volume |
+| `flore.py` | clairières, mares, rochers, rideaux de lianes, lianes des falaises |
 | `recits.py` | les journaux (plus utilisés : les coffres n'en contiennent plus) |
 | `monde.py` | volume de blocs et écriture Sponge v2 |
 | `rendu.py` | vues isométriques, plans d'étage et carte, pour vérifier sans lancer le jeu |

@@ -515,14 +515,8 @@ class Lieux:
                     m.pose(px, y + 1, pz, 'minecraft:bone_block[axis=%s]' % 'xz'[rng.integers(0, 2)])
                 elif u < 0.2:
                     self.k.fil(px, y + 1, pz)
-        # une carcasse : cage thoracique d'os et de tiges
-        y = self.sol(x + 3, z) + 1
-        for i in range(6):
-            m.pose(x + i, y, z, 'minecraft:bone_block[axis=x]')
-            for s in (-1, 1):
-                m.pose(x + i, y, z + s, 'minecraft:end_rod[facing=up]')
-                m.pose(x + i, y + 1, z + s * 2, 'minecraft:end_rod[facing=up]')
-        m.pose(x - 1, y, z, 'minecraft:skeleton_skull[rotation=4]')
+        # une carcasse entiere, en os
+        self.k.carcasse(x, self.sol(x + 3, z) + 1, z, True, 9, 1)
         self.ajoute('Ilot aux carcasses', x, z, 10)
 
     # ------------------------------------------------------------------ grotte derriere la cascade
@@ -1073,21 +1067,10 @@ class Lieux:
         m.pose(tx, yt + 11, tz + 2, AIR)
         m.pose(tx, yt + 10, tz + 2, 'minecraft:spruce_trapdoor[facing=south,half=bottom,open=true,powered=false,waterlogged=false]')
         m.coffre(tx - 1, yt + 11, tz - 1, 'south', [('minecraft:spyglass', 1), ('minecraft:bread', 4), ('minecraft:arrow', 16)])
-        # carcasses : cotes en tiges, colonne d'os, cranes
+        # carcasses d'herbivores : squelettes d'os couches dans l'herbe
         for _ in range(5):
-            px = int(rng.integers(x0 + 8, x1 - 8)); pz = int(rng.integers(z0 + 8, z1 - 8))
-            yy = self.sol(px, pz) + 1
-            axe = rng.random() < 0.5
-            for i in range(7):
-                ex, ez = (px + i, pz) if axe else (px, pz + i)
-                m.pose(ex, yy, ez, 'minecraft:bone_block[axis=%s]' % ('x' if axe else 'z'))
-                if 1 <= i <= 5:
-                    for s in (-1, 1):
-                        rx, rz = (ex, ez + s) if axe else (ex + s, ez)
-                        m.pose(rx, yy, rz, 'minecraft:end_rod[facing=up]')
-                        m.pose(rx + (0 if axe else s), yy + 1, rz + (s if axe else 0), 'minecraft:end_rod[facing=up]')
-            m.pose(px - (1 if axe else 0), yy, pz - (0 if axe else 1), 'minecraft:skeleton_skull[rotation=%d]' % rng.integers(0, 16))
-            k.sang([(px, yy, pz), (px + int(rng.integers(-9, 10)), yy, pz + int(rng.integers(-9, 10)))], 0.5)
+            px = int(rng.integers(x0 + 10, x1 - 14)); pz = int(rng.integers(z0 + 10, z1 - 14))
+            k.carcasse(px, self.sol(px, pz) + 1, pz, rng.random() < 0.5, int(rng.integers(8, 12)), int(rng.choice([-1, 1])))
         m.panneau(cx, yc, cz - 2, 'north', ['Il ne reste', 'rien. Il est entre', "par l'eau et", 'ressorti par la.'], mural=False)
         self.ajoute('Enclos des herbivores', cx, cz, 0)
 
