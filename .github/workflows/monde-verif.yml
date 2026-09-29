@@ -1,0 +1,56 @@
+name: Site B - inventaire des mods et verification du monde
+
+on:
+  push:
+    branches: [ claude/spinosaure-animations-aquatiques-vqg4qt ]
+    paths:
+      - '.github/workflows/monde-verif.yml'
+      - 'dist/site_b_monde.zip'
+      - 'tools/ile-spinosaure/verif_monde.txt'
+  workflow_dispatch:
+
+jobs:
+  inventaire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Biomes O' Plenty et ses dependances (Modrinth, Forge 1.20.1)
+        run: |
+          set -e
+          q='loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D'
+          for p in biomesoplenty terrablender glitchcore geckolib; do
+            curl -sS "https://api.modrinth.com/v2/project/$p/version?$q" -o $p.json || true
+            python3 - "$p" <<'PY'
+          import json, sys
+          p = sys.argv[1]
+          try:
+              v = json.load(open(p + '.json'))
+          except Exception as e:
+              print('INVENTAIRE', p, 'illisible', e); sys.exit(0)
+          if not v:
+              print('INVENTAIRE', p, 'aucune version'); sys.exit(0)
+          v = v[0]
+          print('INVENTAIRE', p, v['version_number'], v['files'][0]['url'])
+          for d in v.get('dependencies', []):
+              print('INVENTAIRE', p, 'depend de', d.get('project_id'), d.get('dependency_type'))
+          open(p + '.url', 'w').write(v['files'][0]['url'])
+          PY
+          done
+          curl -sSL "$(cat biomesoplenty.url)" -o bop.jar
+          python3 - <<'PY'
+          import json, zipfile
+          z = zipfile.ZipFile('bop.jar')
+          for n in sorted(z.namelist()):
+              if n.startswith('assets/biomesoplenty/blockstates/') and n.endswith('.json'):
+                  bloc = n.split('/')[-1][:-5]
+                  d = json.loads(z.read(n))
+                  if 'variants' in d:
+                      cles = list(d['variants'].keys())
+                      print('BLOC', bloc, '|', cles[0] if cles else '', '|', len(cles))
+                  else:
+                      conds = set()
+                      for part in d.get('multipart', []):
+                          w = part.get('when', {})
+                          for c in (w.get('OR') or [w]):
+                              conds |= set(c.keys())
+                      print('BLOC', bloc, '| multipart', ','.join(sorted(conds)))
+          PY
