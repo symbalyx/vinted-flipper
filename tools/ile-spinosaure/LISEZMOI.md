@@ -1,25 +1,53 @@
-# Site B, l'île du spinosaure (v2), en schematic WorldEdit
+# Site B, l'île du spinosaure (v2) : monde Minecraft Forge 1.20.1
 
-Île de **768 × 768 blocs**, 160 de haut, générée par `generer_ile.py`. Elle est pensée pour un
-événement : il y a une vingtaine de lieux, dispersés et reliés par des pistes dans la jungle.
+Île de **768 × 768 blocs**, générée par `generer_ile.py`. Elle est pensée pour un événement :
+une vingtaine de lieux, dispersés et reliés par des pistes dans la jungle, et un sous-sol complet
+jusqu'à la bedrock.
 
-Fichiers dans `dist/` (format Sponge v2, Minecraft 1.20.1, biomes inclus) :
+## Fichiers (dans `dist/`)
 
 | Fichier | Contenu |
 |---|---|
-| `site_b_v2.schem` | l'île entière (4,1 Mo) |
-| `site_b_v2_0_0.schem` … `site_b_v2_1_1.schem` | la même île en 4 tuiles de 384 × 384, à coller une par une si le serveur rame |
+| **`site_b_monde.zip`** | **le monde prêt à jouer** (dossier de sauvegarde « Site B », 12 Mo) : l'île de y = −64 à 174, et l'océan tout autour |
+| `site_b_v2.schem`, `site_b_v2_0_0.schem` … `site_b_v2_1_1.schem` | l'ancienne voie WorldEdit : l'île de y = 15 à 174, sans le sous-sol profond |
 
-## Coller l'île
+## Installer le monde (solo, CurseForge)
 
-1. Installer **WorldEdit** pour Forge 1.20.1 (7.2.15). FastAsyncWorldEdit n'existe pas pour Forge : avec 94 millions de blocs, préférer **les 4 tuiles** et donner 6 à 8 Go de mémoire au jeu.
-2. Copier les `.schem` dans `.minecraft/config/worldedit/schematics/`, ou `config/worldedit/schematics/` sur un serveur.
-3. Monde **Superflat, préréglage « Le vide »**, ou un océan dégagé.
-4. Coller avec **le coin nord-ouest en (X, 15, Z)**. La mer du schematic tombe alors à y = 63, comme la mer vanilla.
-   - **Fichier complet** : `/tp @s X 15 Z`, puis `//schem load site_b_v2`, puis `//paste -a -b`.
-   - **En tuiles** : la tuile `site_b_v2_i_j` se colle en `(X + 384·i, 15, Z + 384·j)`. Même commande pour chacune.
-   - `-a` ignore l'air. `-b` applique les biomes : **toute la terre est en jungle, indispensable au spinosaure**.
-5. Les coordonnées ci-dessous sont relatives à ce coin (X, Z).
+Mods requis (Forge 1.20.1, **chaque joueur les installe**) :
+
+| Mod | Version testée | Pourquoi |
+|---|---|---|
+| Biomes O' Plenty | 19.0.0.96 | la flore de l'île (palmiers, acajous, saules, mousse espagnole…) |
+| TerraBlender | 3.0.1.10 | requis par Biomes O' Plenty |
+| GlitchCore | 0.0.1.1 | requis par Biomes O' Plenty |
+| GeckoLib | 4.8.4 | requis par le mod spinosaure |
+| spinosaure | 0.4.0 (`dist/spinosaure-0.4.0.jar`) | la créature |
+
+**Sans Biomes O' Plenty, les blocs de la flore disparaissent** : palmiers sans palmes, acajous
+sans feuilles, plages du volcan sans sable.
+
+1. Installer les mods dans l'instance (onglet *Mods* de CurseForge, ou copier les jars dans `mods/`).
+2. Dézipper `site_b_monde.zip` dans le dossier `saves/` de l'instance : on obtient `saves/Site B/`.
+3. Lancer le jeu. *Solo* : le monde « Site B » apparaît dans la liste.
+
+On apparaît au ponton d'arrivée, en créatif, commandes activées. `/gamemode survival` pour jouer.
+
+Sur un serveur : copier le dossier `Site B` à la racine du serveur et mettre `level-name=Site B`
+dans `server.properties`.
+
+**Coordonnées.** Dans le monde, l'île est centrée sur l'origine : un point noté (x, z) plus bas,
+relatif au coin nord-ouest de l'île, se trouve en **(x − 384, z − 384)** dans le jeu. La mer est
+à y = 63, comme en vanilla.
+
+Autour de l'île, le monde est un superflat océanique au même niveau (fond de sable, 31 blocs
+d'eau) : la mer continue jusqu'à l'horizon.
+
+## Ou coller le schematic (ancienne méthode)
+
+WorldEdit 7.2.15 : copier les `.schem` dans `config/worldedit/schematics/`, puis sur un monde
+océan ou vide, `/tp @s X 15 Z`, `//schem load site_b_v2`, `//paste -a -b` (coin nord-ouest en
+(X, 15, Z) ; tuile `site_b_v2_i_j` en (X + 384·i, 15, Z + 384·j)). Le sous-sol profond n'est que
+dans le monde.
 
 Réglages conseillés pour l'événement :
 - `/gamerule mobGriefing true` : il arrache les feuilles qui le bloquent ;
@@ -28,7 +56,7 @@ Réglages conseillés pour l'événement :
 
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
-Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`.
+Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`, `coupe_profond.jpg` (coupe de la crête jusqu'à la bedrock : puits de mine à échelles, mine profonde, lave), `ravin.jpg` (coupe d'un ravin), `mine_profonde.jpg` (plan de la mine profonde à y = −30).
 
 ## Les lieux
 
@@ -79,24 +107,32 @@ Sept nids : une cuvette de vase, une couronne de racines tressées, des œufs (�
 
 L'antre est entouré d'une gaine de roche : aucune autre galerie n'y débouche. Contrôlé par un remplissage 3D depuis le nid : la seule issue est le trou bleu.
 
-### Sous-sol : grottes, galeries et minerais
+### Sous-sol : grottes, galeries, mines et minerais
 
-Sous l'île, un sous-sol **comme dans un monde classique** :
-- **Cavernes vanilla :** galeries sinueuses entrelacées (« spaghetti ») et grandes cavernes (« fromage »), sous toutes les collines, soit 630 000 blocs creusés. Les parties basses sont noyées : ce sont des lacs souterrains.
-- **Grottes à salles :** 72 salles avec des galeries principales où **le spinosaure passe**, et des boyaux de 3 blocs pour les joueurs. On y trouve :
-  - des parois irrégulières (niches, surplombs) ;
-  - des colonnes de stalactites qui rejoignent le sol et des éboulis ;
-  - des salles envahies de végétation ;
-  - des racines, des lianes des cavernes et des ossements.
-- **Minerais** répartis par profondeur comme en 1.20 :
-  - charbon (≈ 220 000 blocs), fer (≈ 100 000) et cuivre (≈ 110 000) ;
-  - or, redstone et lapis en profondeur ;
-  - diamant tout en bas ;
-  - émeraude sous les hauteurs.
+Sous l'île, un sous-sol **comme dans un monde classique**, jusqu'à la bedrock. Coordonnées (x, z)
+relatives au coin de l'île, y du monde.
 
-  Ceux qui affleurent dans les grottes se voient à la lampe.
-- **Mine abandonnée de type vanilla** sous la crête ouest (147, 417) : 16 couloirs de 3 × 3 étayés (poteaux et poutres), rails, toiles d'araignée et quelques coffres. Elle croise les cavernes.
-- **Entrées :** des porches rocheux en surplomb et deux gouffres ouverts dans la jungle. Les 11 entrées (x, z) sont : (169, 472), (98, 354), (644, 144), (543, 106), (144, 255), (559, 257), (645, 228), (503, 182), (180, 391), (422, 505), (426, 209). Leurs coordonnées exactes sont aussi dans `site_b_v2.json`.
+**Sous les collines (y ≈ 57 à 160)**
+- **Cavernes vanilla :** galeries sinueuses entrelacées (« spaghetti ») et grandes cavernes (« fromage »), plus larges qu'avant, sous toutes les collines. Les parties au niveau de la nappe (y ≈ 57 à 61) sont noyées : lacs souterrains.
+- **Grottes à salles :** 72 salles avec des galeries principales où **le spinosaure passe**, et des boyaux de 3 blocs pour les joueurs : parois irrégulières, colonnes de stalactites, éboulis, salles envahies de végétation (avec de la mousse luisante), racines, lianes des cavernes, ossements, amanites et champignons luisants.
+- **Deux mines abandonnées de type vanilla**, sur quatre générations de couloirs :
+  - sous la crête ouest (147, 417) : 47 couloirs de 3 × 3 étayés, rails, toiles, coffres. **Un puits de 3 × 3 à échelles** (paliers tous les 16 blocs) descend de là jusqu'à la mine profonde, 100 blocs plus bas ;
+  - sous le plateau de l'est (632, 216) : 69 couloirs.
+- **Entrées :** porches rocheux en surplomb et deux gouffres ouverts dans la jungle. Les 11 entrées (x, z) : (169, 472), (98, 354), (644, 144), (543, 106), (144, 255), (559, 257), (645, 228), (503, 182), (180, 391), (422, 505), (426, 209). Elles sont aussi dans `site_b_v2.json`.
+
+**Le sous-sol profond (y = −64 à 14), sous toute l'île**
+- Ardoise des abîmes sous y = 0, transition mêlée jusqu'à 8, pierre au-dessus ; poches de tuf, granite, diorite et andésite ; bedrock irrégulière au fond.
+- **Cavernes** au bruit 3D : grandes salles à piliers, longues galeries, boyaux étroits. Environ 15 % du volume, soit 7 millions de blocs.
+- **Lacs de lave** sous y = −55, comme en vanilla : ils éclairent le fond.
+- **Minerais d'ardoise :** diamant (≈ 15 700 blocs, surtout vers y = −58), redstone, or, lapis, fer, cuivre, charbon.
+- Deux **géodes d'améthyste**, des régions de **gouttes** (stalactites et stalagmites de dripstone, biome *dripstone caves*), et une **région de sculk** (biome *deep dark*).
+- **La mine profonde** à y = −30, sous la crête : salle de terre centrale, 60 couloirs, rails, toiles et toiles pendantes, **œufs d'araignée** (BOP), **4 générateurs d'araignées venimeuses** enrobés de toiles, et des coffres un peu mieux garnis (diamants, pomme dorée, étiquette).
+
+**Les liaisons, pour descendre**
+- **5 descentes en colimaçon**, praticables à pied, depuis des grottes sèches de l'île jusqu'aux cavernes profondes : départs en (470, 203), (569, 131), (419, 433), (173, 350) et (197, 483).
+- **2 ravins** ouverts dans la jungle, jusqu'à y ≈ −28 : un à-pic de plus de 100 blocs, centrés en (509, 103) et (653, 243). On y tombe, on n'y descend pas.
+- Le **puits de mine à échelles** (147, 417).
+- Aucune de ces liaisons ne touche l'eau : chaque tracé est refusé s'il passe à moins de 2 blocs d'une grotte noyée.
 
 ### Rives, plages et gués
 
@@ -151,9 +187,14 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
 - **Toutes les eaux libres sont au niveau de la mer** et forment un seul réseau : c'est son territoire.
 - **Jungle à étages**, pas une forêt :
   - fromagers géants à contreforts et couronne en parasol ;
-  - arbres de voûte, figuiers étrangleurs creux, palmiers sur les berges, palétuviers dans le delta ;
+  - arbres de voûte (un sur trois est un **acajou** BOP), figuiers étrangleurs creux, **palmiers** BOP sur les berges, palétuviers dans le delta ;
+  - **saules pleureurs** BOP le long des rivières et du lac : des rideaux de lianes jusqu'au sol ;
+  - **mousse espagnole** BOP qui pend des feuillages (13 500 blocs) ;
   - jeunes arbres, buissons, bambous, troncs couchés moussus ;
-  - sous-bois dense : herbes, fougères et plantes de 2 blocs couvrent environ 80 % du sol, avec de nombreux jeunes arbres et buissons. Sous les arbres, on ne voit plus à 50 blocs ;
+  - sous-bois dense : herbes, fougères, buissons, pousses et trèfle BOP, hautes herbes BOP et plantes de 2 blocs couvrent environ 80 % du sol, avec de nombreux jeunes arbres et buissons. Sous les arbres, on ne voit plus à 50 blocs. De rares **fleurs luisantes** brillent dans le noir ;
+  - fleurs de jungle : hibiscus, cosmos orange, violettes, fleurs sauvages (BOP) ;
+  - au bord de l'eau : **massettes** et **roseaux** (BOP), cannes à sucre, nénuphars fleuris et **nénuphars géants** ;
+  - sur les plages : oyats et herbes des dunes ; **sable noir** sur les plages du volcan ;
   - **rideaux de lianes** : 120 000 blocs de lianes pendent des feuillages sur 3 à 14 blocs ;
   - **clairières** fleuries (herbes hautes, fougères géantes, orchidées, torchères, pétales roses, melons) : on y voit loin, et on y est vu ;
   - **mares** boueuses (40), avec nénuphars, grandes feuilles et cannes à sucre ;
@@ -161,7 +202,7 @@ Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut 
   - 38 **bambouseraies** ;
   - **versants et montagnes couverts** : mousse et herbe sur les pentes, buissons et jeunes arbres accrochés, parois tapissées de lianes par plaques (12 000 blocs). Seules les parois quasi verticales restent en roche nue.
 
-Tout est en blocs vanilla 1.20.1 : **aucun mod à installer**.
+Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 
 **Mesuré à l'échelle du spinosaure** (boîte de 3,4 × 5) :
 - 97 % des colonnes de forêt gardent **au moins 6 blocs libres sous les feuillages** ;
@@ -187,7 +228,7 @@ Tout est en blocs vanilla 1.20.1 : **aucun mod à installer**.
 
 ## Régénérer ou modifier
 
-`python3 generer_ile.py sortie/` (numpy requis, environ 3 min) produit les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `blocs.npy` et `grottes.npy`. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
+`python3 generer_ile.py sortie/` (numpy requis, environ 3 min) produit le monde (`sortie/Site B/`, à zipper dans `dist/site_b_monde.zip`), les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `verif_monde.txt` (blocs témoins pour la CI), `blocs.npy`, `profond.npy` et `grottes.npy`. `python3 verif_monde.py sortie/` relit ensuite les régions. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
 
 | Module | Rôle |
 |---|---|
@@ -196,9 +237,13 @@ Tout est en blocs vanilla 1.20.1 : **aucun mod à installer**.
 | `campus.py` | les bâtiments du campus |
 | `mobilier.py` | meubles et façades |
 | `lieux.py` | les autres lieux (temple maya, cénote, maisons, hélicoptère…) |
-| `grottes.py` | grottes, gouffres, lacs souterrains, antre et nids |
+| `grottes.py` | grottes, gouffres, lacs souterrains, cavernes, mines, antre et nids |
+| `profond.py` | sous-sol profond (y −64 à 14), mine profonde, descentes, ravins, puits de mine |
 | `details.py` | falaises et récif en volume |
-| `flore.py` | clairières, mares, rochers, rideaux de lianes, lianes des falaises |
+| `flore.py` | clairières, mares, rochers, rideaux de lianes, mousse espagnole, lianes des falaises |
 | `recits.py` | les journaux (plus utilisés : les coffres n'en contiennent plus) |
 | `monde.py` | volume de blocs et écriture Sponge v2 |
+| `monde_java.py` | export en monde Minecraft 1.20.1 (régions Anvil, level.dat), blocs témoins |
+| `verif_monde.py` | relecture indépendante des régions avec nbtlib, comparée bloc à bloc au modèle |
+| `bop_blocs.json` | les blocs de Biomes O' Plenty utilisés et leurs propriétés (inventaire du jar par la CI) |
 | `rendu.py` | vues isométriques, plans d'étage et carte, pour vérifier sans lancer le jeu |
