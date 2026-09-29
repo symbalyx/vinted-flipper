@@ -17,7 +17,7 @@ jobs:
         run: |
           set -e
           q='loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D'
-          for p in biomesoplenty terrablender glitchcore geckolib; do
+          for p in biomes-o-plenty terrablender glitchcore geckolib; do
             curl -sS "https://api.modrinth.com/v2/project/$p/version?$q" -o $p.json || true
             python3 - "$p" <<'PY'
           import json, sys
@@ -35,7 +35,7 @@ jobs:
           open(p + '.url', 'w').write(v['files'][0]['url'])
           PY
           done
-          curl -sSL "$(cat biomesoplenty.url)" -o bop.jar
+          curl -sSL "$(cat biomes-o-plenty.url)" -o bop.jar
           python3 - <<'PY'
           import json, zipfile
           z = zipfile.ZipFile('bop.jar')
