@@ -56,69 +56,37 @@ jobs:
           PY
 
   recherche:
-    # Mods de deplacement : tyroliennes (Ziplines: Rezipped!) sur les chaines de Reconnectible
-    # Chains, parkour (ParCool!). On lit dans les jars : dependances, entites, cles NBT, reglages.
+    # Details pour pre-poser des tyroliennes : portee maximale d'une chaine (defaut, bornes),
+    # ce qui arrive au-dela, fichier de reglages ; versions de Forge disponibles.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Telecharger et inspecter
+      - name: Details
         run: |
+          curl -sSL -o rc.jar https://cdn.modrinth.com/data/5pzBXDS3/versions/nwJ6Xxt3/connectiblechains-forge-1.20.1-2.2.5.jar
+          mkdir x && (cd x && unzip -qo ../rc.jar)
+          P=com/evandev/connectiblechains
+          echo "=== ModConfig (constructeur et annotations)"
+          javap -c -v -p -cp x $P/config/ModConfig | grep -vE '^\s+(line|[0-9]+: (aload|return|dup))' | sed -n '/RuntimeVisible\|maxChainRange\|ModConfig();/,+6p' | head -150
+          javap -c -p -cp x $P/config/ModConfig | sed -n '/public com.evandev.connectiblechains.config.ModConfig();/,/^$/p'
+          echo "=== CommonClass.init"
+          javap -c -p -cp x $P/CommonClass | sed -n '/public static void init/,/^$/p' | head -60
+          echo "=== Chainable.getMaxChainLength"
+          javap -c -p -cp x $P/entity/Chainable | sed -n '/getMaxChainLength/,/^$/p' | head -30
+          echo "=== Chainable.tickChain"
+          javap -c -p -cp x $P/entity/Chainable | sed -n '/void tickChain/,/^$/p' | head -260
+          echo "=== ChainKnotEntity survives / setPos"
+          javap -c -p -cp x $P/entity/ChainKnotEntity | sed -n '/public boolean m_7088_/,/^$/p' | head -40
+          echo "=== fichiers de config dans le jar"
+          find x -iname '*.json*' -o -iname '*.toml' | grep -v lang | head
+          echo "=== versions Forge 1.20.1"
+          curl -sS https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml | grep -oE '1\.20\.1-47\.[0-9]+\.[0-9]+' | sort -t. -k4,4n -k5,5n | uniq | tail -8
+          echo "=== cloth-config forge 1.20.1"
           q='loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D'
-          for p in ziplines-rezipped reconnectible-chains parcool zipline; do
-            curl -sS "https://api.modrinth.com/v2/project/$p/version?$q" -o $p.json || true
-            python3 - "$p" <<'PY'
-          import json, sys, urllib.request
-          p = sys.argv[1]
-          try:
-              v = json.load(open(p + '.json'))
-          except Exception as e:
-              print('MOD', p, 'illisible', e); sys.exit(0)
-          if not v:
-              print('MOD', p, 'aucune version forge 1.20.1'); sys.exit(0)
-          v = v[0]
-          f = v['files'][0]
-          print('MOD', p, v['version_number'], f['url'])
-          for d in v.get('dependencies', []):
-              pid = d.get('project_id')
-              try:
-                  slug = json.load(urllib.request.urlopen('https://api.modrinth.com/v2/project/%s' % pid))['slug']
-              except Exception:
-                  slug = pid
-              print('MOD', p, 'depend de', slug, pid, d.get('dependency_type'))
-          urllib.request.urlretrieve(f['url'], p + '.jar')
-          PY
-          done
-          for p in ziplines-rezipped reconnectible-chains parcool; do
-            [ -f $p.jar ] || continue
-            echo "=============== $p"
-            mkdir -p x_$p && (cd x_$p && unzip -qo ../$p.jar)
-            cat x_$p/META-INF/mods.toml | grep -vE '^\s*#' | head -60
-            echo "--- classes"
-            find x_$p -name '*.class' | sed "s#x_$p/##" | grep -viE 'mixin|\$' | head -80
-            echo "--- ressources"
-            find x_$p/data x_$p/assets -type f 2>/dev/null | grep -E 'tags|blockstates|lang/en_us' | head -40
-          done
-          echo "=============== NBT des noeuds de chaine"
-          for c in $(find x_reconnectible-chains -name '*.class' | grep -iE 'knot|link|chain' | grep -viE 'mixin|render|client|model' ); do
-            n=${c#x_reconnectible-chains/}; n=${n%.class}
-            echo "## $n"
-            javap -c -p -constants -cp x_reconnectible-chains "$n" 2>/dev/null | grep -E 'ldc|Method .*(save|load|read|write|Additional|Nbt|NBT|Tag|getInt|putInt|getUUID|putUUID|getList|put\(|getCompound)|public|protected|private' | head -120
-          done
-          echo "=============== reglages (config)"
-          for c in $(find x_reconnectible-chains x_ziplines-rezipped -name '*.class' | grep -iE 'config' | grep -viE 'mixin'); do
-            echo "## $c"
-            javap -c -p -constants -cp $(dirname $c | cut -d/ -f1) $(echo ${c#*/} | sed 's/\.class$//') 2>/dev/null | grep -E 'ldc|double|int ' | head -60
-          done
-          echo "=============== compat tyrolienne -> chaines"
-          grep -rlaE 'connectiblechains|reconnectible|ChainKnot|chain_knot' x_ziplines-rezipped | head -20
-          for c in $(grep -rlaE 'connectiblechains|ChainKnot|chain_knot' x_ziplines-rezipped | grep '\.class$' | head -6); do
-            n=${c#x_ziplines-rezipped/}; n=${n%.class}
-            echo "## $n"
-            javap -c -p -constants -cp x_ziplines-rezipped "$n" 2>/dev/null | grep -E 'ldc|invoke|Method' | head -60
-          done
+          curl -sS "https://api.modrinth.com/v2/project/cloth-config/version?$q" | python3 -c "import json,sys; v=json.load(sys.stdin)[0]; print('MOD cloth-config', v['version_number'], v['files'][0]['url'])"
 
   serveur:
     # La carte chargee par un vrai serveur Forge 1.20.1 avec les mods que chaque joueur installe :

@@ -136,23 +136,25 @@ class Exporteur:
         }
         return zlib.compress(nbt.encoder('', nbt.Compound(racine)), 6)
 
-    def regions(self, dossier, journal=print):
+    def _chunks_ile(self):
+        cxs = range(ORIGINE >> 4, (ORIGINE + self.m.W) >> 4)
+        czs = range(ORIGINE >> 4, (ORIGINE + self.m.L) >> 4)
+        return [(cx, cz) for cz in czs for cx in cxs]
+
+    @staticmethod
+    def _ecrire_regions(dossier, donnees, journal, quoi):
+        """donnees : {(cx, cz): octets zlib} -> fichiers r.X.Z.mca (entete de 8 Kio, secteurs de 4 Kio)."""
         os.makedirs(dossier, exist_ok=True)
-        W, L = self.m.W, self.m.L
-        cxs = range(ORIGINE >> 4, (ORIGINE + W) >> 4)
-        czs = range(ORIGINE >> 4, (ORIGINE + L) >> 4)
         par_region = {}
-        for cz in czs:
-            for cx in cxs:
-                par_region.setdefault((cx >> 5, cz >> 5), []).append((cx, cz))
+        for (cx, cz) in donnees:
+            par_region.setdefault((cx >> 5, cz >> 5), []).append((cx, cz))
         t = int(time.time())
-        total = 0
         for (rx, rz), chunks in sorted(par_region.items()):
             entete = bytearray(8192)
             corps = io.BytesIO()
             secteur = 2
             for (cx, cz) in chunks:
-                data = self.chunk(cx, cz)
+                data = donnees[(cx, cz)]
                 bloc = struct.pack('>ib', len(data) + 1, 2) + data
                 n_sect = math.ceil(len(bloc) / 4096)
                 bloc += b'\0' * (n_sect * 4096 - len(bloc))
@@ -165,9 +167,42 @@ class Exporteur:
             with open(chemin, 'wb') as f:
                 f.write(entete)
                 f.write(corps.getvalue())
-            total += len(chunks)
-            journal('region r.%d.%d : %d chunks, %.1f Mo' % (rx, rz, len(chunks), os.path.getsize(chemin) / 1e6))
-        return total
+            journal('%s r.%d.%d : %d chunks, %.1f Mo' % (quoi, rx, rz, len(chunks), os.path.getsize(chemin) / 1e6))
+
+    def regions(self, dossier, journal=print):
+        donnees = {}
+        for (cx, cz) in self._chunks_ile():
+            donnees[(cx, cz)] = self.chunk(cx, cz)
+        self._ecrire_regions(dossier, donnees, journal, 'region')
+        return len(donnees)
+
+    def entites(self, dossier, journal=print):
+        """Entites (barques, wagonnets, noeuds de chaine...) : fichiers entities/r.X.Z.mca, un
+        compound par chunk {DataVersion, Position [cx, cz], Entities}. Position et UUID ajoutes ici."""
+        par_chunk = {}
+        for k, (x, y, z, d) in enumerate(getattr(self.m, 'mobiles', [])):
+            X, Y, Z = x + ORIGINE, y + DECALAGE_Y, z + ORIGINE
+            c = dict(d)
+            c['Pos'] = nbt.List('double', [nbt.Double(X), nbt.Double(Y), nbt.Double(Z)])
+            c.setdefault('Motion', nbt.List('double', [nbt.Double(0), nbt.Double(0), nbt.Double(0)]))
+            c.setdefault('Rotation', nbt.List('float', [nbt.Float(0), nbt.Float(0)]))
+            c.setdefault('OnGround', nbt.Byte(0))
+            c.setdefault('Air', nbt.Short(300))
+            c.setdefault('FallDistance', nbt.Float(0))
+            c.setdefault('Fire', nbt.Short(-1))
+            c.setdefault('Invulnerable', nbt.Byte(0))
+            c.setdefault('PortalCooldown', nbt.Int(0))
+            if 'UUID' not in c:
+                c['UUID'] = nbt.IntArray([0x51734200, 0x20260925, k >> 16, (k & 0xFFFF) * 7919 + 1])
+            par_chunk.setdefault((int(math.floor(X)) >> 4, int(math.floor(Z)) >> 4), []).append(nbt.Compound(c))
+        donnees = {}
+        for (cx, cz), ents in par_chunk.items():
+            racine = nbt.Compound({'DataVersion': nbt.Int(DATA_VERSION), 'Position': nbt.IntArray([cx, cz]),
+                                   'Entities': nbt.List('compound', ents)})
+            donnees[(cx, cz)] = zlib.compress(nbt.encoder('', racine), 6)
+        if donnees:
+            self._ecrire_regions(dossier, donnees, journal, 'entites')
+        return sum(len(v) for v in par_chunk.values())
 
 
 def couches_superflat(sea_monde, fond):

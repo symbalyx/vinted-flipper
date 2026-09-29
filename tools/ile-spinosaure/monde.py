@@ -21,6 +21,7 @@ class Monde:
         self.palette = {}
         self.blocs = np.zeros((H, L, W), dtype=np.uint16)
         self.entites = []                       # (x, y, z, compound)
+        self.mobiles = []                       # entites (barques, wagonnets...) : (x, y, z flottants, compound sans Pos ni UUID)
         self.rng = np.random.default_rng(graine)
         self.AIR = self.P('minecraft:air')
 
