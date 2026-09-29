@@ -22,8 +22,17 @@ Mods requis (Forge 1.20.1, **chaque joueur les installe**) :
 | GlitchCore | 0.0.1.1 | requis par Biomes O' Plenty |
 | GeckoLib | 4.8.4 | requis par le mod spinosaure |
 | spinosaure | 0.4.0 (`dist/spinosaure-0.4.0.jar`) | la créature |
+| Ziplines: Rezipped! | 1.3.0 (forge 1.20.1) | les tyroliennes : on glisse le long des chaînes, pioche en main |
+| Reconnectible Chains | 2.2.5 (forge 1.20.1) | les chaînes tendues entre les pylônes (les câbles des tyroliennes) |
+| Cloth Config API | 11.1.136 | requis par Reconnectible Chains |
+| ParCool! | 1.20.1-4.0.0.5 | parkour : roulade, escalade, saut de mur, course sur les murs, franchissement |
 
-**Sans Biomes O' Plenty, les blocs de la flore disparaissent** : palmiers sans palmes, acajous
+**Forge 1.20.1-47.4.23 minimum** (exigé par ParCool). Dans CurseForge : *Profile Options* → *Modloader* → choisir 47.4.23 ou plus.
+
+Plus simple pour les joueurs : une fois ton profil prêt, **CurseForge → ⋯ → Export Profile** produit un zip
+que chacun importe (*Create Custom Profile → Import*) : mêmes mods, mêmes versions, sans erreur.
+
+**Sans Reconnectible Chains, les câbles des tyroliennes disparaissent** (les pylônes restent). **Sans Biomes O' Plenty, les blocs de la flore disparaissent** : palmiers sans palmes, acajous
 sans feuilles, plages du volcan sans sable.
 
 1. Installer les mods dans l'instance (onglet *Mods* de CurseForge, ou copier les jars dans `mods/`).
@@ -56,7 +65,7 @@ Réglages conseillés pour l'événement :
 
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
-Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`, `coupe_profond.jpg` (coupe de la crête jusqu'à la bedrock : puits de mine à échelles, mine profonde, lave), `ravin.jpg` (coupe d'un ravin), `mine_profonde.jpg` (plan de la mine profonde à y = −30).
+Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`, `coupe_profond.jpg` (coupe de la crête jusqu'à la bedrock : puits de mine à échelles, mine profonde, lave), `ravin.jpg` (coupe d'un ravin), `tyrolienne.jpg` (la ligne relais radio → serres, câble dessiné en blanc), `mine_profonde.jpg` (plan de la mine profonde à y = −30).
 
 ## Les lieux
 
@@ -133,6 +142,31 @@ relatives au coin de l'île, y du monde.
 - **2 ravins** ouverts dans la jungle, jusqu'à y ≈ −28 : un à-pic de plus de 100 blocs, centrés en (509, 103) et (653, 243). On y tombe, on n'y descend pas.
 - Le **puits de mine à échelles** (147, 417).
 - Aucune de ces liaisons ne touche l'eau : chaque tracé est refusé s'il passe à moins de 2 blocs d'une grotte noyée.
+
+### Se déplacer : tyroliennes, passerelles, barques, wagonnets
+
+**Sept tyroliennes**, toujours en descente (on prend de l'élan en descendant, on en perd en montant) :
+
+| Ligne | Longueur | Départ → arrivée (y) |
+|---|---|---|
+| Relais radio → Serres (au-dessus du campus) | 185 blocs, 7 tronçons | 113 → 76 |
+| Tour de guet → Affût (depuis la crête) | 152 blocs, 6 tronçons | 142 → 76 |
+| Phare → Volière | 99 blocs, 4 tronçons | 108 → 88 |
+| Campement abandonné → Enclos des herbivores | 55 blocs | 114 → 80 |
+| Hélicoptère abattu → Temple maya | 43 blocs | 100 → 75 |
+| Temple maya → Cénote | 42 blocs | 92 → 75 |
+| Relais radio → Village de pêcheurs | 33 blocs | 88 → 69 |
+
+- **S'en servir :** monter à l'échelle de la tour de départ, se placer sous la barrière du portique, **pioche en main, clic droit maintenu** vers la chaîne. On regarde dans le sens de la marche. Relâcher le clic ou sauter pour lâcher ; accroupi pour se laisser tomber sans sauter.
+- **Construction :** tour de départ, pylônes à potence (poteau décalé de 2 blocs et bras au-dessus de la ligne, pour que le joueur, qui pend 2,3 blocs sous le câble, ne heurte rien) et portique d'arrivée avec plancher. Les tronçons font au plus 28 blocs : Reconnectible Chains casse une chaîne au-delà de 32 blocs, réglage par défaut. Le joueur passe d'un tronçon au suivant sans lâcher.
+- **Dégagement :** le relief, les bâtiments et les feuillages sont vérifiés sous toute la ligne, flèche de la chaîne comprise. On ne plante aucun arbre dans le couloir des câbles, et les feuillages qui y débordent sont retirés.
+- Tyroliennes refusées faute de pente ou à cause d'un relief qui les barrait : observatoire du volcan → campement ou → cimetière (la lèvre du cratère coupe la ligne).
+
+**Passerelles de corde** au-dessus des deux ravins : planches, garde-corps de chaînes, et elles s'affaissent au milieu.
+
+**Barques** amarrées au ponton, au village de pêcheurs, aux bungalows et à la station du delta. **Wagonnets** sur les rails des mines, dont quelques-uns avec un coffre, jusque dans la mine profonde.
+
+**Parkour (ParCool!)** : les rochers, les ruines du temple, les falaises en gradins et les pylônes deviennent des parcours.
 
 ### Rives, plages et gués
 
@@ -243,6 +277,7 @@ Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 | `flore.py` | clairières, mares, rochers, rideaux de lianes, mousse espagnole, lianes des falaises |
 | `recits.py` | les journaux (plus utilisés : les coffres n'en contiennent plus) |
 | `monde.py` | volume de blocs et écriture Sponge v2 |
+| `deplacements.py` | tyroliennes (tours, pylônes à potence, portiques, nœuds de chaîne), passerelles des ravins, barques, wagonnets |
 | `monde_java.py` | export en monde Minecraft 1.20.1 (régions Anvil, level.dat), blocs témoins |
 | `verif_monde.py` | relecture indépendante des régions avec nbtlib, comparée bloc à bloc au modèle |
 | `bop_blocs.json` | les blocs de Biomes O' Plenty utilisés et leurs propriétés (inventaire du jar par la CI) |

@@ -100,17 +100,22 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Installer le serveur Forge 1.20.1-47.3.0 et les mods
+      - name: Installer le serveur Forge 1.20.1-47.4.23 et les mods
         run: |
           set -e
           mkdir srv && cd srv
-          curl -sSL -o installer.jar https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar
+          curl -sSL -o installer.jar https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.23/forge-1.20.1-47.4.23-installer.jar
           java -jar installer.jar --installServer > installer.log 2>&1 || (tail -40 installer.log; exit 1)
           mkdir -p mods
           curl -sSL -o mods/BiomesOPlenty-forge-1.20.1-19.0.0.96.jar https://cdn.modrinth.com/data/HXF82T3G/versions/jxUqRzSD/BiomesOPlenty-forge-1.20.1-19.0.0.96.jar
           curl -sSL -o mods/TerraBlender-forge-1.20.1-3.0.1.10.jar https://cdn.modrinth.com/data/kkmrDlKT/versions/zGconCHG/TerraBlender-forge-1.20.1-3.0.1.10.jar
           curl -sSL -o mods/GlitchCore-forge-1.20.1-0.0.1.1.jar https://cdn.modrinth.com/data/s3dmwKy5/versions/pYPZ5MNI/GlitchCore-forge-1.20.1-0.0.1.1.jar
           curl -sSL -o mods/geckolib-forge-1.20.1-4.8.4.jar https://cdn.modrinth.com/data/8BmcQJ2H/versions/aC5KMoNg/geckolib-forge-1.20.1-4.8.4.jar
+          # deplacements : tyroliennes sur chaines, parkour
+          curl -sSL -o mods/zipline-forge-1.20.1-1.3.0.jar https://cdn.modrinth.com/data/C1MoWQlb/versions/AZLF926r/zipline-forge-1.20.1-1.3.0.jar
+          curl -sSL -o mods/connectiblechains-forge-1.20.1-2.2.5.jar https://cdn.modrinth.com/data/5pzBXDS3/versions/nwJ6Xxt3/connectiblechains-forge-1.20.1-2.2.5.jar
+          curl -sSL -o mods/cloth-config-11.1.136-forge.jar https://cdn.modrinth.com/data/9s6osm5g/versions/t8TXrZvZ/cloth-config-11.1.136-forge.jar
+          curl -sSL -o mods/ParCool-1.20.1-4.0.0.5.jar https://cdn.modrinth.com/data/Fsvx2bdR/versions/eDWn3zad/ParCool-1.20.1-4.0.0.5.jar
           cp ../dist/spinosaure-*.jar mods/
           ls -la mods
           unzip -q ../dist/site_b_monde.zip
@@ -142,7 +147,15 @@ jobs:
           while read -r x y z etat; do
             k=$((k+1))
             case "$etat" in
-              entite:*)
+              mob:*)
+              t=${etat#mob:}
+              echo "execute if entity @e[type=$t,x=$x,y=$y,z=$z,distance=..1.5] run say VERIF_OK $k" >&3
+              echo "execute unless entity @e[type=$t,x=$x,y=$y,z=$z,distance=..1.5] run say VERIF_KO $k $x $y $z $etat" >&3 ;;
+            mobdata:*)
+              r=${etat#mobdata:}; t=${r%:*}; p=${r##*:}
+              echo "execute if data entity @e[type=$t,x=$x,y=$y,z=$z,distance=..1,limit=1] $p run say VERIF_OK $k" >&3
+              echo "execute unless data entity @e[type=$t,x=$x,y=$y,z=$z,distance=..1,limit=1] $p run say VERIF_KO $k $x $y $z $etat" >&3 ;;
+            entite:*)
                 echo "execute if data block $x $y $z {} run say VERIF_OK $k" >&3
                 echo "execute unless data block $x $y $z {} run say VERIF_KO $k $x $y $z $etat" >&3 ;;
               *)
@@ -159,10 +172,18 @@ jobs:
           echo "----- resumes -----"
           echo "temoins : $k ; OK $(grep -c 'VERIF_OK' serveur.log) ; KO $(grep -c 'VERIF_KO' serveur.log) ; non charges $(grep -c 'not loaded' serveur.log)"
           grep 'VERIF_KO' serveur.log | head -40 || true
+          echo "--- temoins sans reponse (ni OK ni KO) ---"
+          for i in $(seq 1 $k); do
+            grep -qE "VERIF_(OK|KO) $i( |$)" serveur.log || sed -n "${i}p" ../tools/ile-spinosaure/verif_monde.txt
+          done
+          echo "--- reponses d'erreur des commandes ---"
+          grep -iE "Unknown or incomplete|Incorrect argument|Invalid|Expected|Unknown block|at position" serveur.log | sort | uniq -c | head -20 || true
           echo "--- erreurs de chargement de chunks / blocs inconnus ---"
           grep -iE "Couldn't load chunk|Recoverable errors|Failed to (read|load|parse)|Unknown block|not a valid|Unable to read property|Exception" serveur.log | grep -v 'VERIF_' | sort | uniq -c | sort -rn | head -40 || true
           echo "--- mods charges ---"
-          grep -iE "biomesoplenty|terrablender|glitchcore|geckolib|spinosaure" serveur.log | head -15 || true
+          grep -iE "biomesoplenty|terrablender|glitchcore|geckolib|spinosaure|zipline|connectiblechains|parcool|cloth" serveur.log | grep -viE "VERIF" | head -25 || true
+          echo "--- entites des mods ---"
+          grep -iE "chain_knot|connectiblechains" serveur.log | grep -v VERIF | sort | uniq -c | head -20 || true
           ko=$(grep -c 'VERIF_KO' serveur.log || true)
           err=$(grep -ciE "Couldn't load chunk|Recoverable errors|Unknown block" serveur.log || true)
           ok=$(grep -c 'VERIF_OK' serveur.log || true)

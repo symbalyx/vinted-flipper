@@ -310,3 +310,18 @@ def points_de_controle(m, profond, rng, n_hasard=160):
             y = int(rng.integers(0, H))
             lignes.append((x + ORIGINE, y + DECALAGE_Y, z + ORIGINE, etat(m.blocs[y, z, x])))
     return lignes
+
+
+def temoins_entites(m):
+    """Temoins pour les entites : chaque noeud de chaine (present, et encore porteur de sa
+    chaine apres chargement), barques et wagonnets. Lignes « x y z mob:type » ou
+    « x y z mobdata:type:chemin »."""
+    lignes = []
+    for (x, y, z, d) in m.mobiles:
+        t = str(d['id'].v)
+        X, Y, Z = x + ORIGINE, y + DECALAGE_Y, z + ORIGINE
+        if 'Chains' in d:
+            lignes.append((round(X, 2), round(Y, 2), round(Z, 2), 'mobdata:%s:Chains' % t))
+        else:
+            lignes.append((round(X, 2), round(Y, 2), round(Z, 2), 'mob:%s' % t))
+    return lignes

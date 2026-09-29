@@ -34,6 +34,7 @@ from lieux import Lieux
 from monde import Monde, Decale
 import profond
 from profond import Profond
+import deplacements
 from relief import Relief, catmull, distance_polyligne
 import rendu
 
@@ -487,6 +488,7 @@ def sous_sol(m, r, gr, rng, mines):
     pr.descentes = faites
     # ravins
     pr.ravins = []
+    pr.emprises = []
     pr.ravins2d = np.zeros(r.h.shape, bool)
     zs, xs = np.nonzero((r.h >= SEA + 16) & (r.eau <= r.h) & ~gr.protege)
     for essai in range(1500):
@@ -499,6 +501,7 @@ def sous_sol(m, r, gr, rng, mines):
         emprise, milieu, n = res
         pr.ravins.append(milieu)
         pr.ravins2d |= emprise
+        pr.emprises.append((emprise, milieu))
         journal('ravin au (%d, %d) : %d blocs' % (milieu[0], milieu[1], n))
         if len(pr.ravins) >= 2:
             break
@@ -508,6 +511,79 @@ def sous_sol(m, r, gr, rng, mines):
     iz, ix = np.unravel_index(np.argmax(d), d.shape)
     journal('profond : decor %s' % pr.decorer((int(ix), int(iz))))
     return pr
+
+
+monde_java_ORIGINE = -384
+
+
+def tyroliennes(m, r, li, rng, n_max=7):
+    """Lignes de tyrolienne entre des lieux, de haut en bas. Station de depart : le point libre
+    le plus haut a 12-32 blocs du lieu de depart ; arrivee : un point libre a 10-30 blocs du lieu
+    d'arrivee, du cote du depart de preference. Pour chaque paire on garde la premiere ligne qui
+    passe (tour de depart la plus basse possible)."""
+    res = deplacements.Reseau(m, r, li, rng)
+    res.haut_solide(0, 0)
+    S = res._sommets
+    poi = {}
+    for nom, x, z, _ in li.poi:
+        if nom and nom not in poi:
+            poi[nom] = (x, z)
+    # emplacement libre : pas de batiment sur 7 x 7 (sommet solide au niveau du sol naturel),
+    # pas d'eau, pas dans un couloir deja pris
+    def libre(x, z):
+        if not (10 <= x < W - 10 and 10 <= z < L - 10):
+            return False
+        bloc = S[z - 3:z + 4, x - 3:x + 4]
+        sol = r.h[z - 3:z + 4, x - 3:x + 4]
+        return bool((bloc <= sol + 1).all() and (r.eau[z - 3:z + 4, x - 3:x + 4] <= sol).all()
+                    and not res.couloir[z, x] and (np.ptp(sol) <= 4))
+
+    def autour(c, r0, r1):
+        out = []
+        for rr in range(r0, r1 + 1, 4):
+            for k in range(16):
+                a_ = k * math.pi / 8
+                p = (int(round(c[0] + math.cos(a_) * rr)), int(round(c[1] + math.sin(a_) * rr)))
+                if libre(*p):
+                    out.append(p)
+        return out
+
+    paires = [('Tour de guet', 'Affut'), ('Observatoire du volcan', 'Campement abandonne'), ('Phare', 'Voliere'),
+              ('Relais radio', 'Village de pecheurs'), ('Helicoptere abattu', 'Temple maya en ruine'),
+              ('Observatoire du volcan', 'Cimetiere'), ('Relais radio', 'Serres'), ('Tour de guet', 'Cenote'),
+              ('Temple maya en ruine', 'Cenote'), ('Campement abandonne', 'Enclos des herbivores'),
+              ('Relais radio', 'Checkpoint'), ('Phare', 'Campement abandonne'), ('Observatoire du volcan', 'Grotte de la cascade'),
+              ('Tour de guet', 'Mine abandonnee'), ('Helicoptere abattu', 'Cimetiere'), ('Relais radio', 'Piste d\'atterrissage')]
+    faites = []
+    for (na, nb) in paires:
+        if na not in poi or nb not in poi:
+            continue
+        A, B = poi[na], poi[nb]
+        cand_a = sorted(autour(A, 12, 32), key=lambda p: -int(r.h[p[1], p[0]]))[:4]
+        cand_b = sorted(autour(B, 10, 30), key=lambda p: math.dist(p, A))[:6]
+        if not cand_a or not cand_b:
+            journal('tyrolienne %s -> %s : pas de place pour les stations' % (na, nb))
+            continue
+        anc, meilleure = None, -99.0
+        for sa in cand_a:
+            for sb in cand_b:
+                res.derniere_marge = -99.0
+                anc = res.tyrolienne(sa, sb, 'Tyrolienne %s -> %s' % (na, nb))
+                meilleure = max(meilleure, res.derniere_marge)
+                if anc:
+                    break
+            if anc:
+                break
+        if anc is None:
+            journal('tyrolienne %s -> %s : impossible (meilleure marge %.1f bloc sous le joueur)' % (na, nb, meilleure))
+            continue
+        faites.append(na + nb)
+        journal('Tyrolienne %s -> %s : %d troncons, depart y=%d, arrivee y=%d, %.0f blocs' % (
+            na, nb, len(anc) - 1, anc[0][1] + 15, anc[-1][1] + 15,
+            sum(math.dist(p, q) for p, q in zip(anc, anc[1:]))))
+        if len(faites) >= n_max:
+            break
+    return res
 
 
 def meta_spawn(r, li):
@@ -674,6 +750,10 @@ def main(sortie):
     # vehicules abandonnes le long des pistes (plus de poteaux indicateurs : pas de panneaux)
     li.jeep(560, 548, 'east'); li.jeep(300, 372, 'west', renversee=True); li.jeep(446, 290, 'north')
     li.jeep(640, 470, 'south', renversee=True); li.jeep(200, 470, 'north')
+    # ------------------------------------------------ tyroliennes (mods Ziplines: Rezipped! + Reconnectible Chains)
+    reseau = tyroliennes(m, r, li, rng)
+    if os.environ.get('ARRET') == 'tyroliennes':
+        sys.exit(0)
     # ------------------------------------------------ grottes, gouffres et nids
     journal('grottes')
     zz, xx = r.zz, r.xx
@@ -719,6 +799,13 @@ def main(sortie):
     gr.noyer()
     # ------------------------------------------------ sous-sol profond (y -64 a 14) et liaisons
     pr = sous_sol(m, r, gr, rng, mines)
+    for emprise, milieu in pr.emprises:
+        bords = deplacements.passerelle_ravin(m, r, pr, emprise, milieu)
+        if bords:
+            for (a, b) in bords:
+                li.ajoute('', a, b, 4)
+            li.ajoute('Passerelle du ravin', int(milieu[0]), int(milieu[1]), 0)
+            journal('passerelle au-dessus du ravin : %s' % (bords,))
     journal('minerais : %s' % gr.minerais())
     gr.decorer()
     gr.formations()
@@ -752,7 +839,7 @@ def main(sortie):
     # ------------------------------------------------ foret
     journal('foret')
     libre = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 1.6) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
-    libre &= ~pi.masque & ~pr.ravins2d
+    libre &= ~pi.masque & ~pr.ravins2d & ~reseau.couloir
     zz, xx = r.zz, r.xx
     libre &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
     for nom, x, z, ray in li.poi:
@@ -766,7 +853,7 @@ def main(sortie):
     libre &= ~clair
     # versants : buissons et jeunes arbres aussi la ou la pente interdit les grands arbres
     libre_pentes = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 2.8) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
-    libre_pentes &= ~pi.masque & ~clair & ~pr.ravins2d
+    libre_pentes &= ~pi.masque & ~clair & ~pr.ravins2d & ~reseau.couloir
     libre_pentes &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
     for nom, x, z, ray in li.poi:
         if ray:
@@ -794,15 +881,19 @@ def main(sortie):
     journal('lianes des falaises : %d blocs' % flore.lianes_falaises(m, r, rng))
     journal('recif en volume : %d blocs de corail' % details.recif(m, r, rng))
     journal('clotures ancrees au sol : %d' % m.ancrer_clotures())
+    journal('tyroliennes : %d blocs de feuillage degages autour des cables' % reseau.degager())
     journal('connexions (vitres, barrieres)')
     m.connecter()
     journal('suspendus : lianes corrigees / retirees, propagules retirees : %s' % (m.nettoyer_suspendus(),))
     bio, bio_pal = biomes(r, bambou)
+    journal('noeuds de chaine : %d, barques : %d, wagonnets : %d' % (
+        reseau.noeuds(), deplacements.barques(m, r, li), deplacements.wagonnets(m, pr, rng)))
     # ------------------------------------------------ ecriture
     journal('ecriture')
     meta = {'W': W, 'H': H, 'L': L, 'SEA': SEA, 'coller_y': 63 - SEA, 'campus': [ox, G, oz],
             'lieux': [(n, x, z) for n, x, z, _ in li.poi],
             'entrees_grottes': [(int(x), int(r.h[z, x]), int(z)) for x, z in gr.entrees],
+            'tyroliennes': [(nom, [(x + monde_java_ORIGINE, y + 15, z + monde_java_ORIGINE) for x, y, z in a]) for nom, a in reseau.lignes],
             'trous_bleus': [(int(x), int(z), round(float(R)), int(bas)) for x, z, R, bas in r.gouffres]}
     json.dump(meta, open(os.path.join(sortie, 'site_b_v2.json'), 'w'), ensure_ascii=False, indent=1)
     taille = m.ecrire(os.path.join(sortie, 'site_b_v2.schem'), biomes=bio, bio_palette=bio_pal, nom='Site B v2')
@@ -823,15 +914,17 @@ def main(sortie):
     ex = monde_java.Exporteur(m, pr.b, bio, bio3, SEA, bio_profond=(bio3['minecraft:dripstone_caves'],
                                                                      bio3['minecraft:deep_dark'], pr.sculk2d))
     n = ex.regions(os.path.join(dossier, 'region'), journal)
+    journal('entites : %d' % ex.entites(os.path.join(dossier, 'entities'), journal))
     # l'ocean plat autour : meme fond que le bord de l'ile
     bord = np.concatenate([r.h[0], r.h[-1], r.h[:, 0], r.h[:, -1]])
     fond = int(np.median(bord)) + monde_java.DECALAGE_Y
     spawn = meta_spawn(r, li)
     monde_java.level_dat(os.path.join(dossier, 'level.dat'), 'Site B', spawn, SEA + monde_java.DECALAGE_Y, fond)
     temoins = monde_java.points_de_controle(m, pr.b, np.random.default_rng(3))
+    temoins += monde_java.temoins_entites(m)
     with open(os.path.join(sortie, 'verif_monde.txt'), 'w') as f:
         for (x, y, z, e) in temoins:
-            f.write('%d %d %d %s\n' % (x, y, z, e))
+            f.write('%s %s %s %s\n' % (x, y, z, e))
     meta['monde'] = {'dossier': 'Site B', 'chunks': n, 'spawn': spawn, 'fond_ocean': fond,
                      'origine': [monde_java.ORIGINE, monde_java.DECALAGE_Y, monde_java.ORIGINE]}
     json.dump(meta, open(os.path.join(sortie, 'site_b_v2.json'), 'w'), ensure_ascii=False, indent=1)
