@@ -223,7 +223,7 @@ def level_dat(chemin, nom, spawn, sea_monde, fond, graine=20260925):
         'clearWeatherTime': nbt.Int(0),
         'WasModded': nbt.Byte(1),
         'ServerBrands': nbt.List('string', [nbt.String('forge')]),
-        'DataPacks': nbt.Compound({'Enabled': nbt.List('string', [nbt.String('vanilla'), nbt.String('mod_resources')]),
+        'DataPacks': nbt.Compound({'Enabled': nbt.List('string', [nbt.String('vanilla')]),
                                    'Disabled': nbt.List('string', [])}),
         'GameRules': nbt.Compound({k: nbt.String(v) for k, v in regles.items()}),
         'WorldGenSettings': nbt.Compound({
@@ -231,6 +231,8 @@ def level_dat(chemin, nom, spawn, sea_monde, fond, graine=20260925):
             'dimensions': nbt.Compound({'minecraft:overworld': overworld, 'minecraft:the_nether': nether,
                                         'minecraft:the_end': end}),
         }),
+        'DragonFight': nbt.Compound({'NeedsStateScanning': nbt.Byte(1), 'DragonKilled': nbt.Byte(0),
+                                     'PreviouslyKilled': nbt.Byte(0)}),
         'BorderCenterX': nbt.Double(0.0), 'BorderCenterZ': nbt.Double(0.0), 'BorderSize': nbt.Double(59999968.0),
     })
     nbt.ecrire(chemin, '', nbt.Compound({'Data': data}))
