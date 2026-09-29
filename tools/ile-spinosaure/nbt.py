@@ -26,6 +26,7 @@ def Double(v): return T('double', float(v))
 def String(v): return T('string', str(v))
 def ByteArray(v): return T('bytearray', bytes(v))
 def IntArray(v): return T('intarray', [int(x) for x in v])
+def LongArray(v): return T('longarray', v)
 def Compound(d): return T('compound', d)
 def List(elem, items): return T('list', list(items), elem)
 
@@ -55,6 +56,10 @@ def _payload(t):
         return struct.pack('>i', len(v)) + v
     if k == 'intarray':
         return struct.pack('>i', len(v)) + struct.pack('>%di' % len(v), *v)
+    if k == 'longarray':
+        import numpy as _np
+        a = _np.asarray(v, dtype='>i8')
+        return struct.pack('>i', len(a)) + a.tobytes()
     if k == 'list':
         elem = t.elem if v else 'end'
         return struct.pack('>bi', TAG[elem], len(v)) + b''.join(_payload(x) for x in v)
@@ -65,6 +70,11 @@ def _payload(t):
         out.append(b'\x00')
         return b''.join(out)
     raise ValueError(k)
+
+
+def encoder(nom_racine, racine):
+    """Octets NBT non compresses (pour les chunks, compresses ensuite en zlib)."""
+    return struct.pack('>b', TAG['compound']) + _str(nom_racine) + _payload(racine)
 
 
 def ecrire(chemin, nom_racine, racine):

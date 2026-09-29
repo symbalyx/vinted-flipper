@@ -21,10 +21,16 @@ F_AZALEE = FEUILLES % 'azalea'
 F_AZALEE_FLEUR = FEUILLES % 'flowering_azalea'
 F_MANGROVE = FEUILLES % 'mangrove'
 F_SOMBRE = FEUILLES % 'dark_oak'
+# Biomes O' Plenty (Forge 1.20.1, 19.0.0.96) : a installer par chaque joueur
+BOP = 'biomesoplenty:%s_leaves[distance=7,persistent=true,waterlogged=false]'
+F_PALME = BOP % 'palm'
+F_ACAJOU = BOP % 'mahogany'
+F_SAULE = 'biomesoplenty:willow_leaves[distance=7,mossy=%s,persistent=true,waterlogged=false]'
 
 
 def tronc(bois='jungle', ecorce=False):
-    nom = 'minecraft:%s_%s' % (bois, 'wood' if ecorce else 'log')
+    ns = bois if ':' in bois else 'minecraft:' + bois
+    nom = '%s_%s' % (ns, 'wood' if ecorce else 'log')
     return lambda axe: '%s[axis=%s]' % (nom, axe)
 
 
@@ -36,6 +42,12 @@ OPPOSE = {'north': 'south', 'south': 'north', 'west': 'east', 'east': 'west'}
 def vigne(face):
     """Vigne accrochee au bloc situe du cote `face`."""
     return VIGNE % tuple('true' if f == face else 'false' for f in ('east', 'north', 'south', 'west'))
+
+
+def liane_saule(face):
+    """Liane de saule pleureur (BOP), meme logique d'accroche que la vigne."""
+    return 'biomesoplenty:willow_vine[east=%s,north=%s,south=%s,up=false,west=%s]' % tuple(
+        'true' if f == face else 'false' for f in ('east', 'north', 'south', 'west'))
 
 
 class Foret:
@@ -136,7 +148,7 @@ class Foret:
                 for y in range(bas, y0 + max(h, 0)):
                     m.pose(bx, y, bz, etat)
 
-    def vignes_sous(self, cx, cy, cz, r, n, lmax):
+    def vignes_sous(self, cx, cy, cz, r, n, lmax, liane=vigne):
         """Rideaux de vignes accroches au bord inferieur des feuillages proches."""
         m, rng = self.m, self.rng
         for _ in range(n):
@@ -153,7 +165,7 @@ class Foret:
             vx, vz = x - dx, z - dz          # bloc voisin, la vigne regarde la feuille
             if not m.dedans(vx, y, vz) or m.get(vx, y, vz) != m.AIR:
                 continue
-            etat = vigne(face)
+            etat = liane(face)
             long = int(rng.integers(3, lmax + 1))
             for k in range(long):
                 yy = y - k
@@ -289,7 +301,7 @@ class Foret:
         h = int(rng.integers(9, 16))
         a = rng.uniform(0, 2 * math.pi) if penche is None else penche
         inc = rng.uniform(2.5, 5)
-        stipe = tronc('jungle')
+        stipe = tronc('biomesoplenty:palm')
         pts = []
         for k in range(h + 1):
             t = k / h
@@ -298,7 +310,7 @@ class Foret:
         for p, q in zip(pts, pts[1:]):
             m.ligne(p, q, lambda axe: stipe('y'))
         tx, ty, tz = pts[-1]
-        m.ellipsoide(tx, ty + 0.5, tz, 1.2, 0.8, 1.2, self.P(F_JUNGLE))
+        m.ellipsoide(tx, ty + 0.5, tz, 1.2, 0.8, 1.2, self.P(F_PALME))
         n = int(rng.integers(7, 10))
         for i in range(n):
             b = i * 2 * math.pi / n + rng.uniform(-0.2, 0.2)
@@ -312,11 +324,32 @@ class Foret:
                     pts_f.append((tx + math.cos(b) * s - math.sin(b) * lat, yy + 0.5, tz + math.sin(b) * s + math.cos(b) * lat))
                 for p_, q_ in zip(pts_f, pts_f[1:]):
                     for (cx_, cy_, cz_) in m.cellules(p_, q_):
-                        m.pose(cx_, cy_, cz_, self.P(F_JUNGLE), seulement_air=True)
-        # noix de coco
-        for face, (dx, dz) in list(DIRS.items())[:int(rng.integers(0, 4))]:
-            m.pose(int(math.floor(tx)) - dx, int(ty) - 1, int(math.floor(tz)) - dz, 'minecraft:cocoa[age=2,facing=%s]' % face,
-                   seulement_air=True)
+                        m.pose(cx_, cy_, cz_, self.P(F_PALME), seulement_air=True)
+
+    def saule(self, x, z):
+        """Saule pleureur (BOP) des berges : tronc court et penche, couronne basse, rideaux de
+        lianes de saule jusqu'au sol. On ne voit pas ce qui se tient derriere."""
+        rng = self.rng
+        y0 = int(self.sol[z, x])
+        h = int(rng.integers(6, 10))
+        cx, cz = x + 0.5, z + 0.5
+        centres = self.fut(cx, cz, y0 - 1, h, 0.8, 0.6, bois='biomesoplenty:willow', derive=rng.uniform(0.8, 2.0),
+                           phase=rng.uniform(0, 6))
+        tx, tz, _ = centres[-1]
+        ty = y0 - 1 + h
+        mousse = lambda: F_SAULE % ('true' if rng.random() < 0.4 else 'false')
+        nb = int(rng.integers(3, 6))
+        a0 = rng.uniform(0, 2 * math.pi)
+        for i in range(nb):
+            a = a0 + i * 2 * math.pi / nb + rng.uniform(-0.4, 0.4)
+            k = int(h * rng.uniform(0.6, 0.9))
+            bx, bz, _ = centres[k]
+            L = rng.uniform(3, 5.5)
+            fin = (bx + math.cos(a) * L, y0 - 1 + k + rng.uniform(1, 2.5), bz + math.sin(a) * L)
+            self.branche((bx, y0 - 1 + k, bz), fin, bois='biomesoplenty:willow')
+            self.grappe(fin[0], fin[1] + 0.5, fin[2], rng.uniform(2.8, 4), rng.uniform(1.3, 1.8), self.P(mousse()))
+        self.grappe(tx, ty + 1, tz, rng.uniform(3.2, 4.2), 1.8, self.P(mousse()))
+        self.vignes_sous(tx, ty + 2, tz, 6.5, 34, 9, liane=liane_saule)
 
     def paletuvier(self, x, z, eau):
         """Paletuvier : racines-echasses arquees depuis ~3 blocs au-dessus de l'eau jusqu'a la vase."""

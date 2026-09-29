@@ -215,8 +215,13 @@ class Grottes:
         m.blocs[ys[stal], zs[stal], xs[stal]] = P('minecraft:pointed_dripstone[thickness=tip,vertical_direction=up,waterlogged=false]')
         tapis = tache & (v > 0.6) & (v < 0.75)
         m.blocs[ys[tapis], zs[tapis], xs[tapis]] = P('minecraft:moss_carpet')
-        os_ = (v > 0.9965)
+        os_ = (v > 0.9965) & (v < 0.9975)
         m.blocs[ys[os_], zs[os_], xs[os_]] = P('minecraft:bone_block[axis=y]')
+        # champignons de Biomes O' Plenty : amanites, et champignons luisants (faible lueur bleue)
+        amanite = (v >= 0.9975) & (v < 0.9987)
+        m.blocs[ys[amanite], zs[amanite], xs[amanite]] = P('biomesoplenty:toadstool')
+        lueur = v >= 0.9987
+        m.blocs[ys[lueur], zs[lueur], xs[lueur]] = P('biomesoplenty:glowshroom')
         ys, zs, xs = np.nonzero(plafond)
         v = u[ys, zs, xs]
         stal = v < 0.05
@@ -462,6 +467,8 @@ def formations(self):
                         m.pose(px, sol, pz, 'minecraft:flowering_azalea')
                     elif u < 0.40:
                         m.pose(px, sol, pz, 'minecraft:fern')
+                    elif u < 0.45:
+                        m.pose(px, sol, pz, 'biomesoplenty:glowing_moss_carpet')
 
 
 def porches_rocheux(self):
@@ -628,11 +635,13 @@ def cavernes(self):
     hmax = r.h.astype(np.int32) - 7
     terre = (r.h >= self.SEA + 8) & ~self.protege_dur
     avant = int(self.creuse.sum())
-    for y in range(6, int(hmax.max()) + 1):
+    # sous la nappe (SEA - 6) la roche reste pleine : les cavernes seches sont plus bas, dans le
+    # sous-sol profond (profond.py), et les descentes qui y menent ne croisent pas d'eau
+    for y in range(self.SEA - 6, int(hmax.max()) + 1):
         couche = m.blocs[y]
         n1, n2 = b1.couche(y), b2.couche(y)
-        spaghetti = (np.abs(n1 - 0.5) < 0.032) & (np.abs(n2 - 0.5) < 0.05)
-        fromage = (b3.couche(y) + 0.25 * (b4.couche(y) - 0.5)) > 0.74
+        spaghetti = (np.abs(n1 - 0.5) < 0.042) & (np.abs(n2 - 0.5) < 0.065)
+        fromage = (b3.couche(y) + 0.25 * (b4.couche(y) - 0.5)) > 0.70
         sel = (spaghetti | fromage) & (y <= hmax) & terre & ~self.reserve[y]
         sel &= self._lut[np.minimum(couche, len(self._lut) - 1)]
         couche[sel] = m.AIR
@@ -735,9 +744,9 @@ def mine_vanilla(self, cx, cz, y, profondeur=3):
                     m.pose(qx, y, qz, 'minecraft:oak_fence'); m.pose(qx, y + 1, qz, 'minecraft:oak_fence')
                 for l in (-1, 0, 1):
                     m.pose(px + lx * l, y + 2, pz + lz * l, 'minecraft:oak_planks')
-            if rng.random() < 0.08:
+            if rng.random() < 0.1:
                 l = int(rng.choice([-1, 1]))
-                m.pose(px + lx * l, y + 2, pz + lz * l, 'minecraft:cobweb')
+                m.pose(px + lx * l, y + 2, pz + lz * l, 'minecraft:cobweb' if rng.random() < 0.6 else 'biomesoplenty:hanging_cobweb')
             if rng.random() < 0.012:
                 l = int(rng.choice([-1, 1]))
                 m.coffre(px + lx * l, y, pz + lz * l, 'north', [('minecraft:rail', int(rng.integers(4, 12))), ('minecraft:torch', 8),

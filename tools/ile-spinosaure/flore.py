@@ -8,7 +8,7 @@
 - lianes des falaises : les parois raides se couvrent de lianes par plaques ;
 - fleurs des clairieres, a poser apres le sous-bois.
 
-Tout en blocs vanilla 1.20.1 : pas de mod a installer.
+Blocs vanilla 1.20.1 et Biomes O' Plenty (mousse espagnole, lianes de saule, fleurs, roseaux).
 """
 import math
 
@@ -160,6 +160,32 @@ def rideaux_lianes(m, rng, proba=0.07):
                         break
                     m.blocs[yy, z, x] = ids[face]
                     n += 1
+    return n
+
+
+def mousse_espagnole(m, rng, proba=0.022):
+    """Mousse espagnole (BOP) : sous une feuille, une barbe grise de 2 a 9 blocs (tige
+    `spanish_moss_plant`, bout `spanish_moss`). Pend droit, accrochee au feuillage du dessus."""
+    A = m.AIR
+    tige, bout = m.P('biomesoplenty:spanish_moss_plant'), m.P('biomesoplenty:spanish_moss')   # avant la table
+    feuilles = np.zeros(len(m.palette) + 1, bool)
+    for nom, i in m.palette.items():
+        feuilles[i] = 'leaves' in nom
+    n = 0
+    for y in range(m.H - 2, 12, -1):
+        cand = feuilles[m.blocs[y + 1]] & (m.blocs[y] == A) & (rng.random(m.blocs[y].shape) < proba)
+        cand[:2] = cand[-2:] = False
+        cand[:, :2] = cand[:, -2:] = False
+        for z, x in zip(*np.nonzero(cand)):
+            longueur = int(rng.integers(2, 10))
+            k = 0
+            while k < longueur and y - k > 3 and m.blocs[y - k, z, x] == A and m.blocs[y - k - 1, z, x] == A:
+                k += 1
+            if k < 2:
+                continue
+            m.blocs[y - k + 1:y + 1, z, x] = tige
+            m.blocs[y - k + 1, z, x] = bout
+            n += k
     return n
 
 

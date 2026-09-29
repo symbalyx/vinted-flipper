@@ -1,0 +1,22 @@
+{
+ "_source": "Inventaire CI (workflow monde-verif, job inventaire) de BiomesOPlenty-forge-1.20.1-19.0.0.96.jar : blocstates. Proprietes connues par bloc ; les feuilles heritent de LeavesBlock (distance, persistent, waterlogged).",
+ "palm_log": {"axis": ["x", "y", "z"]}, "palm_wood": {"axis": ["x", "y", "z"]},
+ "mahogany_log": {"axis": ["x", "y", "z"]}, "mahogany_wood": {"axis": ["x", "y", "z"]},
+ "willow_log": {"axis": ["x", "y", "z"]}, "willow_wood": {"axis": ["x", "y", "z"]},
+ "palm_leaves": {"distance": ["1","2","3","4","5","6","7"], "persistent": ["true","false"], "waterlogged": ["true","false"]},
+ "mahogany_leaves": {"distance": ["1","2","3","4","5","6","7"], "persistent": ["true","false"], "waterlogged": ["true","false"]},
+ "willow_leaves": {"distance": ["1","2","3","4","5","6","7"], "mossy": ["true","false"], "persistent": ["true","false"], "waterlogged": ["true","false"]},
+ "willow_vine": {"east": ["true","false"], "north": ["true","false"], "south": ["true","false"], "up": ["true","false"], "west": ["true","false"]},
+ "spanish_moss": {}, "spanish_moss_plant": {},
+ "bush": {}, "sprout": {}, "high_grass": {}, "high_grass_plant": {},
+ "clover": {"facing": ["north","south","east","west"], "flower_amount": ["1","2","3","4"]},
+ "wildflower": {"facing": ["north","south","east","west"], "flower_amount": ["1","2","3","4"]},
+ "pink_hibiscus": {}, "orange_cosmos": {}, "violet": {}, "glowflower": {},
+ "sea_oats": {"half": ["lower","upper"]}, "dune_grass": {},
+ "cattail": {"half": ["lower","upper"]}, "reed": {"half": ["lower","upper"]},
+ "huge_lily_pad": {"facing": ["north","south","east","west"], "quarter": ["north_west","north_east","south_west","south_east"]},
+ "waterlily": {},
+ "glowshroom": {}, "toadstool": {}, "glowing_moss_carpet": {},
+ "black_sand": {}, "black_sandstone": {},
+ "hanging_cobweb": {}, "spider_egg": {}
+}

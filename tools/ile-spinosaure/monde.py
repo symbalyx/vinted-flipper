@@ -360,7 +360,7 @@ class Monde:
         donnees = self.varints(remap[sous].reshape(-1))
         ents = []
         for (x, y, z, d) in self.entites:
-            if x0 <= x < x1 and z0 <= z < z1:
+            if x0 <= x < x1 and z0 <= z < z1 and 0 <= y < self.H:
                 c = dict(d)
                 c['Pos'] = nbt.IntArray([x - x0, y, z - z0])
                 ents.append(nbt.Compound(c))

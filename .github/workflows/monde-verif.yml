@@ -54,3 +54,85 @@ jobs:
                               conds |= set(c.keys())
                       print('BLOC', bloc, '| multipart', ','.join(sorted(conds)))
           PY
+
+  serveur:
+    # La carte chargee par un vrai serveur Forge 1.20.1 avec les mods que chaque joueur installe :
+    # Biomes O' Plenty (+ TerraBlender, GlitchCore), GeckoLib, le mod spinosaure. Tous les chunks
+    # de l'ile sont forces en memoire, puis des blocs temoins (verif_monde.txt) sont testes.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Installer le serveur Forge 1.20.1-47.3.0 et les mods
+        run: |
+          set -e
+          mkdir srv && cd srv
+          curl -sSL -o installer.jar https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar
+          java -jar installer.jar --installServer > installer.log 2>&1 || (tail -40 installer.log; exit 1)
+          mkdir -p mods
+          curl -sSL -o mods/BiomesOPlenty-forge-1.20.1-19.0.0.96.jar https://cdn.modrinth.com/data/HXF82T3G/versions/jxUqRzSD/BiomesOPlenty-forge-1.20.1-19.0.0.96.jar
+          curl -sSL -o mods/TerraBlender-forge-1.20.1-3.0.1.10.jar https://cdn.modrinth.com/data/kkmrDlKT/versions/zGconCHG/TerraBlender-forge-1.20.1-3.0.1.10.jar
+          curl -sSL -o mods/GlitchCore-forge-1.20.1-0.0.1.1.jar https://cdn.modrinth.com/data/s3dmwKy5/versions/pYPZ5MNI/GlitchCore-forge-1.20.1-0.0.1.1.jar
+          curl -sSL -o mods/geckolib-forge-1.20.1-4.8.4.jar https://cdn.modrinth.com/data/8BmcQJ2H/versions/aC5KMoNg/geckolib-forge-1.20.1-4.8.4.jar
+          cp ../dist/spinosaure-*.jar mods/
+          ls -la mods
+          unzip -q ../dist/site_b_monde.zip
+          mv "Site B" world
+          echo "eula=true" > eula.txt
+          printf 'online-mode=false\nlevel-name=world\nspawn-protection=0\nmax-tick-time=-1\nview-distance=6\nsimulation-distance=4\n' > server.properties
+          echo "-Xmx6G" > user_jvm_args.txt
+      - name: Charger toute l'ile et tester les blocs temoins
+        run: |
+          cd srv
+          mkfifo entree
+          (tail -f entree | ./run.sh nogui > serveur.log 2>&1) &
+          exec 3>entree
+          attendre() {  # attendre qu'une ligne apparaisse dans le journal
+            for i in $(seq 1 $2); do grep -q "$1" serveur.log && return 0; sleep 2; done
+            echo "delai depasse : $1"; tail -60 serveur.log; return 1
+          }
+          attendre 'Done (' 300
+          # 48 x 48 chunks de l'ile (x et z de -384 a 383), par blocs de 16 x 16 chunks
+          for bx in -384 -128 128; do for bz in -384 -128 128; do
+            echo "forceload add $bx $bz $((bx+255)) $((bz+255))" >&3
+          done; done
+          sleep 150
+          k=0
+          while read -r x y z etat; do
+            k=$((k+1))
+            case "$etat" in
+              entite:*)
+                echo "execute if data block $x $y $z {} run say VERIF_OK $k" >&3
+                echo "execute unless data block $x $y $z {} run say VERIF_KO $k $x $y $z $etat" >&3 ;;
+              *)
+                echo "execute if block $x $y $z $etat run say VERIF_OK $k" >&3
+                echo "execute unless block $x $y $z $etat run say VERIF_KO $k $x $y $z $etat" >&3 ;;
+            esac
+          done < ../tools/ile-spinosaure/verif_monde.txt
+          echo "say VERIF_FIN" >&3
+          attendre 'VERIF_FIN' 120
+          sleep 5
+          echo "save-all flush" >&3
+          echo "stop" >&3
+          sleep 30
+          echo "----- resumes -----"
+          echo "temoins : $k ; OK $(grep -c 'VERIF_OK' serveur.log) ; KO $(grep -c 'VERIF_KO' serveur.log) ; non charges $(grep -c 'not loaded' serveur.log)"
+          grep 'VERIF_KO' serveur.log | head -40 || true
+          echo "--- erreurs de chargement de chunks / blocs inconnus ---"
+          grep -iE "Couldn't load chunk|Recoverable errors|Failed to (read|load|parse)|Unknown block|not a valid|Unable to read property|Exception" serveur.log | grep -v 'VERIF_' | sort | uniq -c | sort -rn | head -40 || true
+          echo "--- mods charges ---"
+          grep -iE "biomesoplenty|terrablender|glitchcore|geckolib|spinosaure" serveur.log | head -15 || true
+          ko=$(grep -c 'VERIF_KO' serveur.log || true)
+          err=$(grep -ciE "Couldn't load chunk|Recoverable errors|Unknown block" serveur.log || true)
+          ok=$(grep -c 'VERIF_OK' serveur.log || true)
+          if [ "$ko" != "0" ] || [ "$err" != "0" ] || [ "$ok" -lt "$k" ]; then exit 1; fi
+      - name: Journal du serveur
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journal-serveur
+          path: srv/serveur.log

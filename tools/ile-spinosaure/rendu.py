@@ -13,6 +13,14 @@ from PIL import Image
 # ---------------------------------------------------------------- couleurs des blocs
 COULEURS = [
     (r'water', (38, 78, 150)), (r'lava', (230, 110, 20)),
+    # Biomes O' Plenty
+    (r'palm_leaves', (70, 140, 40)), (r'mahogany_leaves', (70, 104, 34)), (r'willow_leaves', (92, 128, 58)),
+    (r'willow_vine', (84, 120, 50)), (r'spanish_moss', (150, 160, 130)), (r'palm_(log|wood)', (120, 96, 70)),
+    (r'mahogany_(log|wood)', (96, 58, 46)), (r'willow_(log|wood)', (82, 86, 58)), (r'black_sand', (44, 40, 44)),
+    (r'glowshroom|glowflower|glowing_moss', (90, 170, 200)), (r'toadstool', (200, 60, 40)), (r'hanging_cobweb|spider_egg', (225, 225, 225)),
+    (r'hibiscus|cosmos|violet|wildflower|clover', (210, 90, 120)), (r'cattail|reed|sea_oats|dune_grass', (150, 140, 80)),
+    (r'high_grass|bush|sprout', (70, 130, 45)), (r'sculk', (12, 40, 52)), (r'amethyst', (150, 100, 200)),
+    (r'smooth_basalt', (60, 60, 66)), (r'_ore', (160, 140, 110)),
     (r'mangrove_leaves', (58, 110, 38)), (r'jungle_leaves', (48, 118, 30)), (r'oak_leaves', (62, 128, 40)),
     (r'azalea_leaves', (84, 132, 52)), (r'flowering_azalea', (120, 128, 90)), (r'dark_oak_leaves', (40, 90, 26)),
     (r'birch_leaves', (100, 140, 60)), (r'spruce_leaves', (40, 80, 50)), (r'acacia_leaves', (80, 120, 30)),
@@ -75,7 +83,9 @@ TRANSPARENTS = re.compile(r'air|glass|water|leaves|_pane|iron_bars|fence|wall|to
                           r'flower|door|trapdoor|slab|stairs|carpet|chain|ladder|rail|cobweb|bed|chest|lever|pot|candle|'
                           r'redstone_wire|dripleaf|azalea(?!_leaves)|bamboo(?!_)|sapling|mushroom|cocoa|end_rod|rod|button|plate|'
                           r'kelp|seagrass|lily|banner|head|skull|scaffolding|cake|cauldron|anvil|hopper|lectern|brewing|bell|'
-                          r'roots|cave_vines|sugar_cane|campfire|bars|pickle|coral|snow')
+                          r'roots|cave_vines|sugar_cane|campfire|bars|pickle|coral|snow|spanish_moss|high_grass|bush|sprout|'
+                          r'cattail|reed|oats|dune_grass|hibiscus|cosmos|violet|glowflower|glowshroom|toadstool|clover|'
+                          r'hanging_cobweb|spider_egg|sculk_vein|amethyst_bud|amethyst_cluster|pointed')
 
 
 def couleur_de(nom):

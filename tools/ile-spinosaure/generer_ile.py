@@ -25,13 +25,15 @@ import time
 
 import numpy as np
 
-from arbres import Foret, F_JUNGLE
+from arbres import Foret, F_JUNGLE, F_ACAJOU
 from campus import Campus
 from grottes import Grottes
 import details
 import flore
 from lieux import Lieux
 from monde import Monde, Decale
+import profond
+from profond import Profond
 from relief import Relief, catmull, distance_polyligne
 import rendu
 
@@ -73,6 +75,9 @@ def remplir(m, r):
     berge = (h <= SEA + 2) & ~plage
     dessus[berge] = np.where(n1[berge] > 0.45, P('minecraft:mud'), P('minecraft:grass_block[snowy=false]'))
     dessus[plage] = P('minecraft:sand'); sous[plage] = P('minecraft:sandstone')
+    # plages du volcan : sable noir (BOP)
+    noire = plage & (np.hypot(r.xx - r.VOLCAN[0], r.zz - r.VOLCAN[1]) < 175)
+    dessus[noire] = P('biomesoplenty:black_sand'); sous[noire] = P('biomesoplenty:black_sandstone')
     # fonds
     fond_mer = sous_eau & ~r.riviere & ~r.lac & (r.c < 0.5)
     dessus[sous_eau] = np.where(n1[sous_eau] > 0.55, P('minecraft:gravel'),
@@ -134,7 +139,6 @@ def remplir(m, r):
         roche = strates[(y + ondul) % len(strates)]
         couche[:] = np.where(y <= h - 4, roche, np.where(y < h, sous, np.where(y == h, dessus,
                              np.where(y <= eau, Ea, Aa))))
-    m.blocs[0] = P('minecraft:deepslate')
 
 
 def marche(r):
@@ -283,9 +287,24 @@ def planter(m, r, foret, libre, rng, libre_pentes=None):
     libre = libre_eau
     essai(7, 2, 0.75, 2, paletuvier, lambda x, z: mangrove_zone[z, x])
     libre = libre_sauve
+    # saules pleureurs (BOP) le long des rivieres et du lac : des rideaux derriere lesquels il attend
+    berges = r.riviere | r.lac
+    for _ in range(7):
+        berges = berges | np.roll(berges, 1, 0) | np.roll(berges, -1, 0) | np.roll(berges, 1, 1) | np.roll(berges, -1, 1)
+
+    def saule(x, z):
+        foret.saule(x, z)
+    essai(11, 3, 0.6, 3, saule, lambda x, z: terre(x, z) and berges[z, x] and alt(x, z) < 14)
     essai(40, 10, 0.75, 8, foret.emergent, lambda x, z: bas(x, z) and n[z, x] > 0.35)
     essai(70, 18, 0.5, 5, foret.etrangleur, bas)
-    essai(10, 3, 0.9, 4, foret.canopee, lambda x, z: terre(x, z) and alt(x, z) < 55 and dist_eau[z, x] > 2)
+
+    def canopee(x, z):
+        # un arbre de voute sur trois est un acajou (BOP) : autre ecorce, autre feuillage
+        if rng.random() < 0.36:
+            foret.canopee(x, z, bois='biomesoplenty:mahogany', feuille=F_ACAJOU)
+        else:
+            foret.canopee(x, z)
+    essai(10, 3, 0.9, 4, canopee, lambda x, z: terre(x, z) and alt(x, z) < 55 and dist_eau[z, x] > 2)
     # berges et plages : palmiers
     essai(7, 2, 0.6, 2, foret.palmier, lambda x, z: terre(x, z) and alt(x, z) <= 4 and dist_eau[z, x] <= 6)
     # etage bas plus fourni (jeunes arbres, buissons) : il masque la vue sans fermer le passage
@@ -327,17 +346,28 @@ def couvert(m, r, rng):
     # sous-bois dense (~80 % du sol couvert, un quart en plantes de 2 blocs) : a hauteur
     # d'yeux on ne voit plus a 50 blocs sous les arbres. Tout se traverse (herbes, fougeres).
     choix[libre & (u < 0.30)] = herbe
+    # plantes de Biomes O' Plenty dans le sous-bois : buissons, pousses, trefle
+    choix[libre & (u < 0.07)] = m.P('biomesoplenty:bush')
+    choix[libre & (u >= 0.07) & (u < 0.11)] = m.P('biomesoplenty:sprout')
+    choix[libre & (u >= 0.11) & (u < 0.125)] = m.P('biomesoplenty:clover[facing=north,flower_amount=4]')
     choix[libre & (u >= 0.30) & (u < 0.46)] = fougere
     choix[libre & (u >= 0.46) & (u < 0.47)] = m.P('minecraft:melon')
     choix[libre & (u >= 0.47) & (u < 0.49)] = m.P('minecraft:azalea')
     choix[libre & (u >= 0.49) & (u < 0.495)] = m.P('minecraft:flowering_azalea')
     choix[libre & (u >= 0.495) & (u < 0.498)] = m.P('minecraft:blue_orchid')
     choix[libre & (u >= 0.498) & (u < 0.501)] = m.P('minecraft:brown_mushroom')
+    fleurs_bop = np.array([m.P('biomesoplenty:' + f) for f in ('pink_hibiscus', 'orange_cosmos', 'violet', 'pink_hibiscus',
+                                                                 'wildflower[facing=east,flower_amount=3]')], np.uint16)
+    fl = libre & (u >= 0.501) & (u < 0.509)
+    choix[fl] = fleurs_bop[(u[fl] * 1e5).astype(int) % len(fleurs_bop)]
+    choix[libre & (u >= 0.509) & (u < 0.5096)] = m.P('biomesoplenty:glowflower')      # rares lueurs dans le noir
     k = choix >= 0
     m.blocs[h[k] + 1, zz[k], xx[k]] = choix[k]
     double = libre & (dessus2 == m.AIR) & (u >= 0.52) & (u < 0.66)
-    haute = libre & (dessus2 == m.AIR) & (u >= 0.66) & (u < 0.80)
-    for msk, b_, h_ in ((double, gf_b, gf_h), (haute, ght_b, ght_h)):
+    haute = libre & (dessus2 == m.AIR) & (u >= 0.66) & (u < 0.74)
+    herbe_bop = libre & (dessus2 == m.AIR) & (u >= 0.74) & (u < 0.80)          # hautes herbes BOP (2 blocs)
+    for msk, b_, h_ in ((double, gf_b, gf_h), (haute, ght_b, ght_h),
+                        (herbe_bop, m.P('biomesoplenty:high_grass_plant'), m.P('biomesoplenty:high_grass'))):
         m.blocs[h[msk] + 1, zz[msk], xx[msk]] = b_
         m.blocs[h[msk] + 2, zz[msk], xx[msk]] = h_
     # cannes a sucre : sol au ras de l'eau avec de l'eau a cote
@@ -347,10 +377,24 @@ def couvert(m, r, rng):
     canne_sol = np.isin(top, [m.P(s) for s in ('minecraft:grass_block[snowy=false]', 'minecraft:sand', 'minecraft:mud',
                                               'minecraft:dirt', 'minecraft:podzol[snowy=false]')])
     cannes = voisin & canne_sol & (h == SEA) & (m.blocs[np.minimum(h + 1, H - 1), zz, xx] == m.AIR) & (rng.random(h.shape) < 0.35)
+    # un tiers des bords d'eau : massettes (BOP, 2 blocs) plutot que des cannes
+    massettes = cannes & (rng.random(h.shape) < 0.4) & (dessus2 == m.AIR)
+    cannes &= ~massettes
+    m.blocs[h[massettes] + 1, zz[massettes], xx[massettes]] = m.P('biomesoplenty:cattail[half=lower]')
+    m.blocs[h[massettes] + 2, zz[massettes], xx[massettes]] = m.P('biomesoplenty:cattail[half=upper]')
     for dy in range(1, 4):
         sel = cannes & (rng.random(h.shape) < (1.0 if dy == 1 else 0.6 if dy == 2 else 0.3))
         m.blocs[h[sel] + dy, zz[sel], xx[sel]] = m.P('minecraft:sugar_cane[age=0]')
         cannes = sel
+    # plages : oyats et herbes des dunes (BOP) sur le sable sec
+    sables = np.isin(top, [m.P('minecraft:sand'), m.P('biomesoplenty:black_sand')])
+    sec = sables & (h >= SEA + 1) & (r.eau <= h) & (dessus == m.AIR)
+    u3 = rng.random(h.shape)
+    dune = sec & (u3 < 0.07)
+    m.blocs[h[dune] + 1, zz[dune], xx[dune]] = m.P('biomesoplenty:dune_grass')
+    oyat = sec & (u3 >= 0.07) & (u3 < 0.12) & (dessus2 == m.AIR)
+    m.blocs[h[oyat] + 1, zz[oyat], xx[oyat]] = m.P('biomesoplenty:sea_oats[half=lower]')
+    m.blocs[h[oyat] + 2, zz[oyat], xx[oyat]] = m.P('biomesoplenty:sea_oats[half=upper]')
     # eau : herbiers, kelp, nenuphars, coraux
     prof = r.eau - h
     fond_libre = (r.eau > h) & (m.blocs[np.minimum(h + 1, H - 1), zz, xx] == m.P(EAU))
@@ -363,8 +407,28 @@ def couvert(m, r, rng):
         for y in range(hk + 1, top_k):
             m.blocs[y, z, x] = m.P('minecraft:kelp_plant')
         m.blocs[top_k, z, x] = m.P('minecraft:kelp[age=20]')
-    nenu = (r.riviere | r.lac) & (prof <= 4) & (prof >= 1) & (rng.random(h.shape) < 0.05)
-    m.blocs[np.minimum(r.eau[nenu] + 1, H - 1), zz[nenu], xx[nenu]] = m.P('minecraft:lily_pad')
+    douce = r.riviere | r.lac
+    un = rng.random(h.shape)
+    nenu = douce & (prof <= 4) & (prof >= 1) & (un < 0.05)
+    ye = np.minimum(r.eau + 1, H - 1).astype(np.int64)
+    m.blocs[ye[nenu], zz[nenu], xx[nenu]] = m.P('minecraft:lily_pad')
+    fleuri = douce & (prof <= 4) & (prof >= 1) & (un >= 0.05) & (un < 0.065)
+    m.blocs[ye[fleuri], zz[fleuri], xx[fleuri]] = m.P('biomesoplenty:waterlily')
+    # roseaux (BOP) dans l'eau d'un bloc de fond, pres des berges : le pied dans l'eau, la tete dehors
+    roseau = douce & fond_libre & (prof == 1) & (un > 0.86) & (m.blocs[ye, zz, xx] == m.AIR)
+    m.blocs[h[roseau] + 1, zz[roseau], xx[roseau]] = m.P('biomesoplenty:reed[half=lower]')
+    m.blocs[h[roseau] + 2, zz[roseau], xx[roseau]] = m.P('biomesoplenty:reed[half=upper]')
+    # quelques nenuphars geants (BOP, 2 x 2) sur le lac et les rivieres larges
+    geant = douce & (prof >= 2) & (rng.random(h.shape) < 0.0025)
+    for z, x in zip(*np.nonzero(geant)):
+        if z + 1 >= L or x + 1 >= W:
+            continue
+        y = int(r.eau[z, x]) + 1
+        bloc = m.blocs[y, z:z + 2, x:x + 2]
+        dessous = m.blocs[y - 1, z:z + 2, x:x + 2]
+        if (bloc == m.AIR).all() and (dessous == m.P(EAU)).all():
+            for (dz, dx, q) in ((0, 0, 'north_west'), (0, 1, 'north_east'), (1, 0, 'south_west'), (1, 1, 'south_east')):
+                m.blocs[y, z + dz, x + dx] = m.P('biomesoplenty:huge_lily_pad[facing=north,quarter=%s]' % q)
     rec = r.recif & fond_libre & (u < 0.35)
     plantes = ['minecraft:%s[waterlogged=true]' % c for c in ('brain_coral', 'tube_coral', 'horn_coral', 'fire_coral',
                                                               'bubble_coral', 'brain_coral_fan', 'tube_coral_fan')]
@@ -382,6 +446,84 @@ def biomes(r, bambou):
     b[mer] = 3
     b[mer & (r.h < SEA - 20)] = 4
     return b, pal
+
+
+def sous_sol(m, r, gr, rng, mines):
+    """Sous-sol profond, puis ses liaisons avec l'ile : puits de mine a echelles, descentes en
+    colimacon depuis les grottes seches, ravins ouverts dans la jungle."""
+    pr = Profond(m, r, rng)
+    pr.roche()
+    journal('profond : roche')
+    journal('profond : %d blocs de cavernes' % pr.cavernes())
+    journal('profond : %d blocs de lave' % pr.lave())
+    terre = (r.h >= SEA + 12) & (r.eau <= r.h)
+    zs, xs = np.nonzero(terre[40:-40, 40:-40])
+    for k in rng.choice(len(zs), 2, replace=False):
+        pr.geode(int(xs[k]) + 40, int(rng.integers(-45, -15)), int(zs[k]) + 40, float(rng.uniform(4, 6)))
+    mx, mz = mines[0]
+    journal('profond : mine %s' % pr.mine(mx, mz, -30, profondeur=4))
+    journal('profond : puits de mine %d blocs' % profond.puits_de_mine(pr, gr, mx, mz, SEA + 8 + 15, -30))
+    # descentes depuis des grottes seches de l'ile
+    A = m.AIR
+    E = m.P(EAU)
+    cand = []
+    for y in range(SEA + 2, SEA + 14):
+        sol = gr.creuse[y] & (m.blocs[y] == A) & (m.blocs[y - 1] != A) & (m.blocs[y - 1] != E) & (r.h >= SEA + 22)
+        zs, xs = np.nonzero(sol)
+        if len(zs):
+            k = rng.choice(len(zs), min(40, len(zs)), replace=False)
+            cand += [(int(xs[j]), y, int(zs[j])) for j in k]
+    rng.shuffle(cand)
+    faites = []
+    for (x, y, z) in cand:
+        if any(math.hypot(x - a, z - b) < 110 for a, b in faites) or math.hypot(x - mx, z - mz) < 60:
+            continue
+        n = profond.descente(pr, gr, x + 0.5, y + 15 + 1.0, z + 0.5, rng.uniform(0, 6.28), int(rng.integers(-34, -18)), rng)
+        if n:
+            faites.append((x, z))
+            journal('descente vers le profond depuis (%d, %d, %d) : %d blocs' % (x, y, z, n))
+        if len(faites) >= 5:
+            break
+    pr.descentes = faites
+    # ravins
+    pr.ravins = []
+    pr.ravins2d = np.zeros(r.h.shape, bool)
+    zs, xs = np.nonzero((r.h >= SEA + 16) & (r.eau <= r.h) & ~gr.protege)
+    for essai in range(1500):
+        k = int(rng.integers(0, len(zs)))
+        if any(math.hypot(xs[k] - a, zs[k] - b) < 200 for a, b in pr.ravins):
+            continue
+        res = profond.ravin(pr, gr, rng, (float(xs[k]), float(zs[k])), rng.uniform(0, 6.28), int(rng.integers(70, 125)), -28)
+        if res is None:
+            continue
+        emprise, milieu, n = res
+        pr.ravins.append(milieu)
+        pr.ravins2d |= emprise
+        journal('ravin au (%d, %d) : %d blocs' % (milieu[0], milieu[1], n))
+        if len(pr.ravins) >= 2:
+            break
+    journal('profond : minerais %s' % pr.minerais())
+    # la region de sculk : loin de la mine profonde, sous la terre
+    d = np.hypot(r.xx - mx, r.zz - mz) * terre
+    iz, ix = np.unravel_index(np.argmax(d), d.shape)
+    journal('profond : decor %s' % pr.decorer((int(ix), int(iz))))
+    return pr
+
+
+def meta_spawn(r, li):
+    """Point d'apparition (coordonnees du monde) : au ponton du campus, sur la terre ferme."""
+    import monde_java
+    x, z = r.CAMPUS[0] + 58, r.CAMPUS[1] + 140
+    for nom, a, b, _ in li.poi:
+        if nom.lower().startswith('ponton'):
+            x, z = a, b
+            break
+    # la cellule de terre la plus proche
+    terre = (r.eau <= r.h) & (r.h >= SEA + 1)
+    zs, xs = np.nonzero(terre)
+    k = int(np.argmin((xs - x) ** 2 + (zs - z) ** 2))
+    x, z = int(xs[k]), int(zs[k])
+    return [x + monde_java.ORIGINE, int(r.h[z, x]) + 1 + monde_java.DECALAGE_Y, z + monde_java.ORIGINE]
 
 
 # ====================================================================== principal
@@ -555,9 +697,28 @@ def main(sortie):
     zc = r.h[330:480, 110:210].astype(float) * ~protege_dur[330:480, 110:210]
     iz, ix = np.unravel_index(np.argmax(zc), zc.shape)
     mine_v = (110 + int(ix), 330 + int(iz))
-    journal('mine abandonnee : %d couloirs' % gr.mine_vanilla(mine_v[0], mine_v[1], SEA + 8))
+    journal('mine abandonnee : %d couloirs' % gr.mine_vanilla(mine_v[0], mine_v[1], SEA + 8, profondeur=4))
+    # deux autres mines, sous d'autres hauteurs
+    mines = [mine_v]
+    # les autres : la ou le terrain reste haut sur 40 blocs a la ronde (hauteur minimale d'une
+    # fenetre glissante, sur une carte reduite au quart), hors lieux
+    h4 = np.where(protege_dur | (r.eau > r.h), 0, r.h)[::4, ::4].astype(float)
+    fen = np.lib.stride_tricks.sliding_window_view(np.pad(h4, 5, constant_values=0), (11, 11))
+    hmin = np.repeat(np.repeat(fen.min(axis=(2, 3)), 4, 0), 4, 1)[:L, :W]
+    for _ in range(2):
+        haut = hmin.copy()
+        for (a, b) in mines:
+            haut[np.hypot(xx - a, zz - b) < 170] = 0
+        haut[:60] = haut[-60:] = 0; haut[:, :60] = haut[:, -60:] = 0
+        iz, ix = np.unravel_index(np.argmax(haut), haut.shape)
+        if haut[iz, ix] < SEA + 18:
+            break
+        mines.append((int(ix), int(iz)))
+        journal('mine abandonnee (%d, %d) : %d couloirs' % (ix, iz, gr.mine_vanilla(int(ix), int(iz), SEA + 5, profondeur=4)))
     gr.rugosite()
     gr.noyer()
+    # ------------------------------------------------ sous-sol profond (y -64 a 14) et liaisons
+    pr = sous_sol(m, r, gr, rng, mines)
     journal('minerais : %s' % gr.minerais())
     gr.decorer()
     gr.formations()
@@ -566,7 +727,13 @@ def main(sortie):
     gr.nid_antre()
     if antre:
         li.ajoute('Antre (acces en plongee par le trou bleu du lagon)', antre[0], antre[2], 0)
-    li.ajoute('Mine abandonnee (galeries, sous la crete)', mine_v[0], mine_v[1], 0)
+    li.ajoute('Mine abandonnee (galeries, sous la crete ; puits a echelles vers la mine profonde)', mine_v[0], mine_v[1], 0)
+    for (a, b) in mines[1:]:
+        li.ajoute('Mine abandonnee', a, b, 0)
+    for (a, b) in pr.ravins:
+        li.ajoute('Ravin (jusqu\'au sous-sol profond)', int(a), int(b), 0)
+    for (a, b) in pr.descentes:
+        li.ajoute('Descente vers les cavernes profondes (grotte)', a, b, 0)
     # un nid perche sur la levre du cratere : le dernier endroit ou l'on irait le chercher
     dv = np.hypot(xx - r.VOLCAN[0], zz - r.VOLCAN[1])
     levre = (dv > 44) & (dv < 60) & (r.pente < 0.9) & ~protege & (r.eau <= r.h)
@@ -585,7 +752,7 @@ def main(sortie):
     # ------------------------------------------------ foret
     journal('foret')
     libre = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 1.6) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
-    libre &= ~pi.masque
+    libre &= ~pi.masque & ~pr.ravins2d
     zz, xx = r.zz, r.xx
     libre &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
     for nom, x, z, ray in li.poi:
@@ -599,7 +766,7 @@ def main(sortie):
     libre &= ~clair
     # versants : buissons et jeunes arbres aussi la ou la pente interdit les grands arbres
     libre_pentes = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 2.8) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
-    libre_pentes &= ~pi.masque & ~clair
+    libre_pentes &= ~pi.masque & ~clair & ~pr.ravins2d
     libre_pentes &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
     for nom, x, z, ray in li.poi:
         if ray:
@@ -623,6 +790,7 @@ def main(sortie):
     couvert(m, r, rng)
     journal('clairieres fleuries : %d' % flore.fleurs_clairieres(m, r, rng, clair))
     journal('rideaux de lianes : %d blocs' % flore.rideaux_lianes(m, rng))
+    journal('mousse espagnole : %d blocs' % flore.mousse_espagnole(m, rng))
     journal('lianes des falaises : %d blocs' % flore.lianes_falaises(m, r, rng))
     journal('recif en volume : %d blocs de corail' % details.recif(m, r, rng))
     journal('clotures ancrees au sol : %d' % m.ancrer_clotures())
@@ -645,12 +813,36 @@ def main(sortie):
                          biomes=bio, bio_palette=bio_pal, nom='Site B v2 tuile %d-%d' % (i, j))
             journal('tuile %d-%d : %.1f Mo' % (i, j, t / 1e6))
     np.save(os.path.join(sortie, 'grottes.npy'), carte_grottes)
-    return m, r, li, meta
+    # ------------------------------------------------ vrai monde Minecraft (dossier de sauvegarde)
+    journal('monde Java 1.20.1')
+    import monde_java
+    bio3 = dict(bio_pal)
+    bio3['minecraft:dripstone_caves'] = len(bio3)
+    bio3['minecraft:deep_dark'] = len(bio3)
+    dossier = os.path.join(sortie, 'Site B')
+    ex = monde_java.Exporteur(m, pr.b, bio, bio3, SEA, bio_profond=(bio3['minecraft:dripstone_caves'],
+                                                                     bio3['minecraft:deep_dark'], pr.sculk2d))
+    n = ex.regions(os.path.join(dossier, 'region'), journal)
+    # l'ocean plat autour : meme fond que le bord de l'ile
+    bord = np.concatenate([r.h[0], r.h[-1], r.h[:, 0], r.h[:, -1]])
+    fond = int(np.median(bord)) + monde_java.DECALAGE_Y
+    spawn = meta_spawn(r, li)
+    monde_java.level_dat(os.path.join(dossier, 'level.dat'), 'Site B', spawn, SEA + monde_java.DECALAGE_Y, fond)
+    temoins = monde_java.points_de_controle(m, pr.b, np.random.default_rng(3))
+    with open(os.path.join(sortie, 'verif_monde.txt'), 'w') as f:
+        for (x, y, z, e) in temoins:
+            f.write('%d %d %d %s\n' % (x, y, z, e))
+    meta['monde'] = {'dossier': 'Site B', 'chunks': n, 'spawn': spawn, 'fond_ocean': fond,
+                     'origine': [monde_java.ORIGINE, monde_java.DECALAGE_Y, monde_java.ORIGINE]}
+    json.dump(meta, open(os.path.join(sortie, 'site_b_v2.json'), 'w'), ensure_ascii=False, indent=1)
+    journal('monde : %d chunks, apparition %s' % (n, spawn))
+    return m, r, li, meta, pr
 
 
 if __name__ == '__main__':
     sortie = sys.argv[1] if len(sys.argv) > 1 else 'sortie'
-    m, r, li, meta = main(sortie)
+    m, r, li, meta, pr = main(sortie)
+    np.save(os.path.join(sortie, 'profond.npy'), pr.b)
     np.save(os.path.join(sortie, 'blocs.npy'), m.blocs)
     json.dump(m.palette, open(os.path.join(sortie, 'palette.json'), 'w'))
     journal('fini')
