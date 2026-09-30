@@ -308,6 +308,14 @@ public final class EssaisEnJeu {
             MinecraftServer serveur = h.getLevel().getServer();
             BlockPos a = h.absolutePos(new BlockPos(0, 0, 0));
             BlockPos b = h.absolutePos(new BlockPos(63, 19, 63));
+            // les creatures d'un essai precedent (meme emplacement d'arene) : un spinosaure reste
+            // debout la ou le suivant doit passer, et l'essai echoue au hasard de l'ordre des lots
+            net.minecraft.world.phys.AABB zone = new net.minecraft.world.phys.AABB(a, b).inflate(8);
+            List<Entity> restes = h.getLevel().getEntitiesOfClass(Entity.class, zone,
+                    e -> !(e instanceof net.minecraft.world.entity.player.Player));
+            restes.forEach(Entity::discard);
+            LOG.info("[ESSAI] {} : {} entite(s) d'un essai precedent retiree(s) {}", nom, restes.size(),
+                    restes.stream().map(e -> e.getType().toShortString()).toList());
             CommandSourceStack src = serveur.createCommandSourceStack().withSuppressedOutput().withLevel(h.getLevel());
             // /fillbiome est limite a 32 768 blocs par appel : l'arene (64 x 20 x 64) se fait par tranches
             int x0 = Math.min(a.getX(), b.getX()), x1 = Math.max(a.getX(), b.getX());
