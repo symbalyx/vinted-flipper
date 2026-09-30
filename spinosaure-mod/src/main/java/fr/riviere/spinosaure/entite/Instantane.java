@@ -239,8 +239,10 @@ final class Instantane {
                 }
                 // sous la jungle : WORLD_SURFACE et OCEAN_FLOOR comptent les feuilles. Sous une
                 // canopee continue, chaque point tombait sur la cime des arbres, 15 a 20 blocs
-                // au-dessus de lui : refuse (denivele) ou vise sans chemin, il restait plante.
-                int surface = sousLeSol(niveau, x, z);
+                // au-dessus de lui : refuse (denivele) ou vise sans chemin. Toute carte de hauteur
+                // tombe aussi sur un plafond (les barrieres qui coiffent l'arene des essais en jeu,
+                // un toit, un surplomb) : on lit le sol localement, depuis sa hauteur.
+                int surface = sousLeSol(niveau, x, z, spino.getBlockY());
                 boolean eau = niveau.getFluidState(new BlockPos(x, surface - 1, z)).is(FluidTags.WATER);
                 boolean lave = niveau.getFluidState(new BlockPos(x, surface - 1, z)).is(FluidTags.LAVA);
                 int fond = surface;
@@ -278,16 +280,21 @@ final class Instantane {
     }
 
     /**
-     * Premier y libre au-dessus du sol (ou de l'eau) en (x, z), feuillages ignores : la carte
-     * MOTION_BLOCKING_NO_LEAVES, puis on redescend le long d'un tronc s'il en coiffe un.
+     * Premier y libre au-dessus du sol (ou de l'eau) en (x, z), lu en descendant depuis 10 blocs
+     * au-dessus de lui : feuillages et troncs ignores. Sol plus haut que ca : on rend le haut
+     * de la lecture (denivele trop fort, point refuse) ; rien sur 40 blocs : un gouffre.
      */
-    static int sousLeSol(Level niveau, int x, int z) {
-        int y = niveau.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, y - 1, z);
-        for (int k = 0; k < 48 && niveau.getBlockState(p).is(BlockTags.LOGS); k++) {
+    static int sousLeSol(Level niveau, int x, int z, int yRef) {
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, yRef + 10, z);
+        for (int k = 0; k < 40; k++) {
+            net.minecraft.world.level.block.state.BlockState s = niveau.getBlockState(p.below());
+            if (!s.getFluidState().isEmpty()
+                    || (s.blocksMotion() && !s.is(BlockTags.LEAVES) && !s.is(BlockTags.LOGS))) {
+                return p.getY();
+            }
             p.move(0, -1, 0);
         }
-        return p.getY() + 1;
+        return yRef - 40;
     }
 
     List<PointTerrain> voisinage() {

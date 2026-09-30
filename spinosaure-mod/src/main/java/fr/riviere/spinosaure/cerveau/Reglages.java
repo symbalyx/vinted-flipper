@@ -75,14 +75,14 @@ public final class Reglages {
     public double tensionGroupe = 2400;         // 2 min
     public double demiVieTension = 2400;
     /** Ouverture : proie a moins de cette distance, dos tourne, sans allie proche. */
-    public double distanceFrappe = 14;
+    public double distanceFrappe = 18;          // (14 : un tronc entre lui et sa proie le bloquait a 15)
     public double isolementFrappe = 16;
     /** Blesse par un joueur plus proche que ca : il riposte ; plus loin : il se derobe. */
     public double distanceRiposte = 10;
     /** Vu de plus pres que ca (phases 1 et 2) : il disparait. Plus loin : il se fige et soutient le regard. */
     public double distanceDisparition = 12;
     public double distanceObservation = 28;
-    public double distanceFilature = 16, distanceFilatureProche = 10;
+    public double distanceFilature = 16, distanceFilatureProche = 8;
     /** Rayon d'arrivee a un poste : le meme que celui de la locomotion (demi-largeur + 2), sinon
      *  le cerveau le croyait en route pendant que la locomotion le jugeait arrive, et il restait fige. */
     public double arrivee = 4.0;

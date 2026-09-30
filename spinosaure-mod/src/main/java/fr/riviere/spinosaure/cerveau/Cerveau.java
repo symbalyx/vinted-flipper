@@ -197,7 +197,9 @@ public final class Cerveau {
         List<Joueur> observes = new ArrayList<>();
         boolean dort = tactique == Tactique.SOMMEIL;
         for (Joueur j : joueurs) {
-            boolean percu = dort ? entendEndormi(soi, j) : Perception.percoit(soi, j, r);
+            // une creature en plein combat se voit et s'entend (elle l'attaque, il la combat)
+            boolean percu = j.creature() ? soi.pos().distance(j.pos()) <= r.porteeVue
+                    : dort ? entendEndormi(soi, j) : Perception.percoit(soi, j, r);
             if (percu) {
                 vuLe.put(j.id(), tick);
             } else if (!dort) {

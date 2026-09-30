@@ -358,14 +358,13 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         if (e == this || e instanceof Player || !e.isAlive()) {
             return false;
         }
-        if (e == getTarget()) {
-            return true;
-        }
-        if (e instanceof Mob m && m.getTarget() == this) {
+        long tick = level().getGameTime();
+        if (e == getTarget() || (e instanceof Mob m && m.getTarget() == this)) {
+            agresseurs.put(e.getUUID(), tick);          // engage : il ne l'oublie pas s'il change d'avis
             return true;
         }
         Long t = agresseurs.get(e.getUUID());
-        return t != null && level().getGameTime() - t < 1200;
+        return t != null && tick - t < 1200;
     }
 
     /** Joueur ou creature vivante de cet identifiant, ou null. */

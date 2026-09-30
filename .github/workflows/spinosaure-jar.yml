@@ -42,9 +42,10 @@ jobs:
           git add dist/
           git diff --cached --quiet || git commit -m "Jar du spinosaure construit par GitHub Actions [skip ci]"
           git push
+      # bloquant : un essai rate doit se voir (ils echouaient en silence et le spinosaure ne
+      # frappait jamais). Le jar est depose avant, un echec ne bloque pas la livraison.
       - name: Essais en jeu (serveur Minecraft sans ecran, GameTest)
         id: essais
-        continue-on-error: true
         run: |
           ./gradlew runGameTestServer --no-daemon 2>&1 | tee essais.log
           exit ${PIPESTATUS[0]}
