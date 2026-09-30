@@ -26,9 +26,12 @@ Expand-Archive -Path $Zip -DestinationPath $Saves -Force
 Write-Host "Monde installe : $Monde" -ForegroundColor Green
 
 # ---------------------------------------------------------------- le mod spinosaure
-Get-ChildItem $Mods -Filter "spinosaure-*.jar" -ErrorAction SilentlyContinue | Remove-Item
-$Spino = Get-ChildItem $Dl -Filter "spinosaure-*.jar" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($Spino) { Copy-Item $Spino.FullName $Mods; Write-Host "Mod spinosaure : $($Spino.Name)" -ForegroundColor Green }
+$Spino = Get-ChildItem $Dl -Filter "spinosaure*.jar" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($Spino) {
+    Get-ChildItem $Mods -Filter "spinosaure*.jar" -ErrorAction SilentlyContinue | Remove-Item     # l'ancien, seulement maintenant
+    Copy-Item $Spino.FullName (Join-Path $Mods "spinosaure-0.4.0.jar")
+    Write-Host "Mod spinosaure : $($Spino.Name)" -ForegroundColor Green
+}
 else { Write-Host "spinosaure-0.4.0.jar introuvable dans Telechargements" -ForegroundColor Red }
 
 # ---------------------------------------------------------------- les autres mods (Modrinth, Forge 1.20.1)
@@ -55,6 +58,6 @@ Write-Host ""
 Write-Host "Mods dans l'instance :"
 Get-ChildItem $Mods -Filter *.jar | ForEach-Object { Write-Host "  $($_.Name)" }
 Write-Host ""
-Write-Host "IMPORTANT : Forge doit etre en 1.20.1-47.4.23 ou plus (exige par ParCool)." -ForegroundColor Yellow
-Write-Host "CurseForge > profil > ... > Profile Options > Modloader : choisir 47.4.23 ou plus recent." -ForegroundColor Yellow
+Write-Host "Forge : 1.20.1-47.2.30 minimum (tyroliennes) ; 47.4.23 si ParCool 4.x est installe." -ForegroundColor Yellow
+Write-Host "CurseForge > profil > ... > Profile Options > Modloader pour changer de version." -ForegroundColor Yellow
 Write-Host "Puis Jouer > Solo > 'Site B'."
