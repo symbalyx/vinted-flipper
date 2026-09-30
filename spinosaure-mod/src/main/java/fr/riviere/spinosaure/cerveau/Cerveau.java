@@ -455,7 +455,18 @@ public final class Cerveau {
 
     private Decision sansPersonne(Soi soi, List<Joueur> tous) {
         long tick = soi.tick();
-        figeDepuis = -1;
+        // il avancait sur toi et un tronc a coupe la vue une seconde : il ne renonce pas, il
+        // continue vers ou tu etais (avant, chaque coupure relancait l'observation depuis zero)
+        if (tactique == Tactique.INTIMIDATION && cible != null && tick - dernierContact < 100) {
+            Memoire.Trace t = m.connue(cible);
+            if (t != null && t.derniere != null) {
+                return new Decision(Tactique.INTIMIDATION, cible, t.derniere, Allure.MARCHE, t.derniere, null, false,
+                        null, "t'a perdu de vue un instant : il continue d'avancer");
+            }
+        }
+        if (tick - dernierContact > 100) {
+            figeDepuis = -1;
+        }
         // il vient de s'effacer : il finit de disparaitre, il ne revient pas aussitot « voir »
         if (tick < disparaitJusqua && derniereDestination != null) {
             changer(Tactique.DISPARITION, tick);

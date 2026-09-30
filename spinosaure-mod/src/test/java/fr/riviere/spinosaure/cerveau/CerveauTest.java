@@ -183,6 +183,26 @@ class CerveauTest {
     }
 
     @Test
+    void enAvancantSurToi_unTroncQuiCoupeLaVueNeLArretePas() {
+        Cerveau c = cerveau();
+        jusqua(c, List.of(avec(j(A, 0, -30), "detourne")), 0, 400, x -> false);
+        Decision d = null;
+        long t = 404;
+        for (; t <= 700; t += 4) {
+            d = c.penser(soi(t), List.of(j(A, 0, -30)), List.of());
+            if (d.tactique() == Tactique.INTIMIDATION) {
+                break;
+            }
+        }
+        assertEquals(Tactique.INTIMIDATION, d.tactique(), d.raison());
+        t += 4;
+        Decision perdu = c.penser(soi(t), List.of(avec(j(A, 0, -26), "cache")), List.of());   // un tronc coupe la vue
+        assertEquals(Tactique.INTIMIDATION, perdu.tactique(), "il continue : " + perdu.raison());
+        Decision revu = c.penser(soi(t + 20), List.of(j(A, 0, -24)), List.of());
+        assertEquals(Tactique.INTIMIDATION, revu.tactique(), "pas de nouvelle attente sous le regard : " + revu.raison());
+    }
+
+    @Test
     void frappeAuContact_ilRiposteMemeEnTrainDeDisparaitre() {
         Cerveau c = cerveau();
         Decision d = c.penser(soi(0), List.of(j(A, 0, -10)), List.of());
