@@ -145,7 +145,9 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
   désormais bloquants en CI (ils étaient en « continue-on-error » et deux échouaient). Ils ont
   révélé trois bugs que les tests unitaires ne voyaient pas : coincé dans un bassin après la
   correction de la flottaison (hissage sur la berge), boucle sauter / reculer du déblocage
-  (bug ancien), repas annulé par les coups du combat qu'il venait de gagner. Les tests du pilote simulent le modèle cinématique de
+  (bug ancien), repas annulé par les coups du combat qu'il venait de gagner. Les essais se
+  jouent en plein jour, sans apparition de monstres : la nuit, des creepers, squelettes et
+  zombies envahissaient l'arène et rendaient les résultats aléatoires. Les tests du pilote simulent le modèle cinématique de
   Minecraft : pivot, accélération, anti-orbite, freinage avant virage, dépassement après une
   charge ratée, essoufflement, stabilité du cap sur un chemin en escalier. S'y ajoutent
   l'échelle de déblocage, l'interception, le choix de l'eau de repli, l'errance sur les
