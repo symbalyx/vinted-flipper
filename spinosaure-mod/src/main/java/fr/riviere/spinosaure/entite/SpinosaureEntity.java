@@ -432,7 +432,10 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             // et seulement sur une berge naturelle : contre un ponton ou des pilotis, il se hissait
             // sur le village
             if (tetehors && horizontalCollision && !obstacleArtificiel() && peutSeHisser(v)) {
-                v = new Vec3(v.x, 0.3, v.z);
+                // monter ET avancer vers la berge : monte seulement, il passait au-dessus du bord,
+                // sortait de la collision et retombait dans l'eau avant d'avoir pris pied
+                Vec3 avant = Instantane.vec3(Instantane.avant(yBodyRot));
+                v = new Vec3(v.x + avant.x * 0.08, 0.3, v.z + avant.z * 0.08);
             } else if (!plongeeVoulue) {
                 // flottaison : sans plongee voulue, il se tient dos affleurant (la surface a
                 // PROFONDEUR_NAGE au-dessus des pieds), ou pose sur le fond si l'eau est moins
