@@ -253,7 +253,7 @@ def level_dat(chemin, nom, spawn, sea_monde, fond, graine=20260925):
         'Version': nbt.Compound({'Id': nbt.Int(DATA_VERSION), 'Name': nbt.String('1.20.1'), 'Series': nbt.String('main'),
                                  'Snapshot': nbt.Byte(0)}),
         'LevelName': nbt.String(nom),
-        'GameType': nbt.Int(1),
+        'GameType': nbt.Int(0),                 # survie : en creatif, il observe et n'attaque jamais
         'Difficulty': nbt.Byte(2), 'DifficultyLocked': nbt.Byte(0), 'hardcore': nbt.Byte(0),
         'allowCommands': nbt.Byte(1), 'initialized': nbt.Byte(1),
         'SpawnX': nbt.Int(spawn[0]), 'SpawnY': nbt.Int(spawn[1]), 'SpawnZ': nbt.Int(spawn[2]), 'SpawnAngle': nbt.Float(0.0),

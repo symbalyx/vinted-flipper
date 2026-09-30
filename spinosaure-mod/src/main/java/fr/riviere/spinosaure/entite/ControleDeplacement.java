@@ -56,6 +56,7 @@ final class ControleDeplacement extends MoveControl {
         spino.yBodyRot = k.lacet();
         float v = (float) (k.vitesse() * spino.getAttributeValue(Attributes.MOVEMENT_SPEED));
         spino.setSpeed(v);                                     // avance selon son lacet
+        spino.plongeeVoulue = spino.isInWater() && vise != null && vise.y() < spino.getY() - 1.0;
         if (spino.isInWater() && vise != null) {
             double d = Math.max(1e-3, vise.distance(Instantane.vec(spino.position())));
             double dy = (vise.y() - spino.getY()) / d;

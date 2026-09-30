@@ -362,11 +362,38 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             // sur le village
             if (tetehors && horizontalCollision && !obstacleArtificiel() && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
                 v = new Vec3(v.x, 0.3, v.z);
+            } else if (!plongeeVoulue) {
+                // flottaison : sans plongee voulue, il se tient dos affleurant (la surface a
+                // PROFONDEUR_NAGE au-dessus des pieds), ou pose sur le fond si l'eau est moins
+                // profonde. Avant, rien ne le tirait vers le haut ni vers le bas : il restait a
+                // la hauteur ou il etait entre dans l'eau et semblait voler au-dessus.
+                double surface = surfaceEau();
+                if (!Double.isNaN(surface)) {
+                    double ecart = (surface - PROFONDEUR_NAGE) - getY();
+                    v = new Vec3(v.x, v.y * 0.6 + Mth.clamp(ecart * 0.06, -0.08, 0.05), v.z);
+                }
             }
             setDeltaMovement(v);
         } else {
             super.travel(entree);
         }
+    }
+
+    /** Hauteur des pieds sous la surface quand il nage en surface (dos et voile hors de l'eau). */
+    static final double PROFONDEUR_NAGE = 2.6;
+    /** Posee par le controle de deplacement : il vise un point plus bas, on ne le fait pas remonter. */
+    boolean plongeeVoulue;
+
+    /** y de la surface de l'eau au-dessus de lui (NaN si pas d'eau a ses pieds). */
+    double surfaceEau() {
+        BlockPos p = BlockPos.containing(getX(), getY() + 0.1, getZ());
+        if (!level().getFluidState(p).is(FluidTags.WATER)) {
+            return Double.NaN;
+        }
+        for (int i = 0; i < 24 && level().getFluidState(p.above()).is(FluidTags.WATER); i++) {
+            p = p.above();
+        }
+        return p.getY() + level().getFluidState(p).getHeight(level(), p);
     }
 
     // ================================================================== degats recus
@@ -805,7 +832,10 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
                 nom = "marche_eau_peu_profonde";
                 nominale = EAU_NOMINALE;
             } else {
-                nom = t == Tactique.AFFUT_EAU ? "affut_eau" : "repos";
+                // pieds sur le fond : l'affut aquatique abaisse tout le modele de 1,45 bloc (fait
+                // pour flotter yeux au ras de l'eau) et enfoncait les pattes dans le sol ; debout,
+                // il se tapit comme a terre
+                nom = t == Tactique.AFFUT_EAU ? "fige_en_traque" : "repos";
             }
         } else if (isInWater()) {
             // (nage_derive_ror, portee de ROR ou le spino flotte a la verticale, cabre le corps
