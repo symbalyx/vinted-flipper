@@ -65,7 +65,7 @@ Réglages conseillés pour l'événement :
 
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
-Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`, `coupe_profond.jpg` (coupe de la crête jusqu'à la bedrock : puits de mine à échelles, mine profonde, lave), `ravin.jpg` (coupe d'un ravin), `tyrolienne.jpg` (la ligne relais radio → serres, câble dessiné en blanc), `mine_profonde.jpg` (plan de la mine profonde à y = −30).
+Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`, `coupe_profond.jpg` (coupe de la crête jusqu'à la bedrock : puits de mine à échelles, mine profonde, lave), `ravin.jpg` (coupe d'un ravin), `tyrolienne.jpg` (la ligne relais radio → serres, câble dessiné en blanc), `lagon.jpg` (le lagon du mosasaure et les deux tyroliennes qui le survolent), `lagon_coupe.jpg` (coupe : haut-fond, tombant, algues, fosse et épave, eau retirée), `lagon_epave.jpg` (l'épave au fond de la fosse), `mine_profonde.jpg` (plan de la mine profonde à y = −30).
 
 ## Les lieux
 
@@ -139,23 +139,26 @@ relatives au coin de l'île, y du monde.
 
 **Les liaisons, pour descendre**
 - **5 descentes en colimaçon**, praticables à pied, depuis des grottes sèches de l'île jusqu'aux cavernes profondes : départs en (470, 203), (569, 131), (419, 433), (173, 350) et (197, 483).
-- **2 ravins** ouverts dans la jungle, jusqu'à y ≈ −28 : un à-pic de plus de 100 blocs, centrés en (509, 103) et (653, 243). On y tombe, on n'y descend pas.
+- **2 ravins** ouverts dans la jungle, jusqu'à y ≈ −28 : un à-pic de plus de 100 blocs, centrés en (646, 235) et (138, 429). On y tombe, on n'y descend pas.
 - Le **puits de mine à échelles** (147, 417).
 - Aucune de ces liaisons ne touche l'eau : chaque tracé est refusé s'il passe à moins de 2 blocs d'une grotte noyée.
 
 ### Se déplacer : tyroliennes, passerelles, barques, wagonnets
 
-**Sept tyroliennes**, toujours en descente (on prend de l'élan en descendant, on en perd en montant) :
+**Huit tyroliennes**, toujours en descente (on prend de l'élan en descendant, on en perd en montant) :
 
 | Ligne | Longueur | Départ → arrivée (y) |
 |---|---|---|
+| **Rive nord → rive sud du lagon** (au-dessus du lagon du mosasaure) | 127 blocs, 5 tronçons | 102 → 69 |
+| **Serres → rive sud du lagon** (au-dessus du lagon) | 137 blocs, 6 tronçons | 102 → 70 |
 | Relais radio → Serres (au-dessus du campus) | 185 blocs, 7 tronçons | 113 → 76 |
 | Tour de guet → Affût (depuis la crête) | 152 blocs, 6 tronçons | 142 → 76 |
 | Phare → Volière | 99 blocs, 4 tronçons | 108 → 88 |
-| Campement abandonné → Enclos des herbivores | 55 blocs | 114 → 80 |
 | Hélicoptère abattu → Temple maya | 43 blocs | 100 → 75 |
 | Temple maya → Cénote | 42 blocs | 92 → 75 |
 | Relais radio → Village de pêcheurs | 33 blocs | 88 → 69 |
+
+Au-dessus du lagon, les pylônes plongent jusqu'au fond (et jusqu'au fond de la fosse quand ils tombent dessus).
 
 - **S'en servir :** monter à l'échelle de la tour de départ, se placer sous la barrière du portique, **pioche en main, clic droit maintenu** vers la chaîne. On regarde dans le sens de la marche. Relâcher le clic ou sauter pour lâcher ; accroupi pour se laisser tomber sans sauter.
 - **Construction :** tour de départ, pylônes à potence (poteau décalé de 2 blocs et bras au-dessus de la ligne, pour que le joueur, qui pend 2,3 blocs sous le câble, ne heurte rien) et portique d'arrivée avec plancher. Les tronçons font au plus 28 blocs : Reconnectible Chains casse une chaîne au-delà de 32 blocs, réglage par défaut. Le joueur passe d'un tronçon au suivant sans lâcher.
@@ -167,6 +170,20 @@ relatives au coin de l'île, y du monde.
 **Barques** amarrées au ponton, au village de pêcheurs, aux bungalows et à la station du delta. **Wagonnets** sur les rails des mines, dont quelques-uns avec un coffre, jusque dans la mine profonde.
 
 **Parkour (ParCool!)** : les rochers, les ruines du temple, les falaises en gradins et les pylônes deviennent des parcours.
+
+### Le lagon du mosasaure
+
+Un grand lagon tropical au sud de l'île, entre le delta et le ponton d'arrivée : on le voit en arrivant. Centre (428, 580), soit **(44, 196) dans le jeu**.
+- **En surface :** 120 × 108 blocs d'eau turquoise (biome océan chaud), plages de sable blanc (BOP), palmiers et jungle tout autour. Un chenal de 12 blocs de large et 10 de fond le relie à l'océan, au sud.
+- **Le piège :** une ceinture de haut-fond de sable blanc où l'on a pied (1 à 4 blocs), puis le **tombant**, une paroi de roche nue.
+- **La cuvette :** **40 blocs de fond** (y = 23 à 63), assez de place pour une grande bête marine. On y trouve :
+  - des **forêts de grandes algues** de 35 à 40 blocs de haut ;
+  - **11 rochers énormes** (jusqu'à 22 blocs de large) ;
+  - **3 aiguilles rocheuses** qui percent la surface, dont une percée d'une arche au ras de l'eau.
+- **La fosse :** au milieu, un entonnoir irrégulier de 44 × 32 blocs qui descend dans l'ardoise des abîmes jusqu'à **y = −30** : **93 blocs d'eau** en tout. Des algues géantes montent du fond jusque sous la surface (plus de 80 blocs).
+- **L'épave :** un caboteur rouillé de 44 blocs, couché sur le flanc et cassé en deux, **au fond de la fosse** (vers (52, 202) dans le jeu). Dans la cale, un coffre : or, cœur de la mer, diamants. Autour, des os.
+- **Étanche :** toute cavité du sous-sol à moins de 3 blocs de l'eau du lagon a été murée (4 100 blocs), avant et après la pose de l'épave. Mesuré : 0 bloc d'eau au contact de l'air dans toute la zone du lagon.
+- **Le mosasaure n'est pas fourni.** Le lagon est prêt pour une créature marine d'un autre mod : c'est de l'océan chaud, profond, relié à la mer.
 
 ### Rives, plages et gués
 
@@ -277,6 +294,7 @@ Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 | `flore.py` | clairières, mares, rochers, rideaux de lianes, mousse espagnole, lianes des falaises |
 | `recits.py` | les journaux (plus utilisés : les coffres n'en contiennent plus) |
 | `monde.py` | volume de blocs et écriture Sponge v2 |
+| `lagon.py` | le lagon du mosasaure : cuvette, plages, chenal, fosse, scellement, épave, rochers, algues |
 | `deplacements.py` | tyroliennes (tours, pylônes à potence, portiques, nœuds de chaîne), passerelles des ravins, barques, wagonnets |
 | `monde_java.py` | export en monde Minecraft 1.20.1 (régions Anvil, level.dat), blocs témoins |
 | `verif_monde.py` | relecture indépendante des régions avec nbtlib, comparée bloc à bloc au modèle |

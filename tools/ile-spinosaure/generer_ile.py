@@ -35,6 +35,7 @@ from monde import Monde, Decale
 import profond
 from profond import Profond
 import deplacements
+from lagon import Lagon
 from relief import Relief, catmull, distance_polyligne
 import rendu
 
@@ -446,6 +447,8 @@ def biomes(r, bambou):
     mer = (r.eau > r.h) & ~r.riviere & ~r.lac & (r.c < 0.4)
     b[mer] = 3
     b[mer & (r.h < SEA - 20)] = 4
+    if hasattr(r, 'grand_lagon'):
+        b[r.grand_lagon] = 3                     # ocean chaud : l'eau turquoise du lagon
     return b, pal
 
 
@@ -516,7 +519,7 @@ def sous_sol(m, r, gr, rng, mines):
 monde_java_ORIGINE = -384
 
 
-def tyroliennes(m, r, li, rng, n_max=7):
+def tyroliennes(m, r, li, rng, n_max=8):
     """Lignes de tyrolienne entre des lieux, de haut en bas. Station de depart : le point libre
     le plus haut a 12-32 blocs du lieu de depart ; arrivee : un point libre a 10-30 blocs du lieu
     d'arrivee, du cote du depart de preference. Pour chaque paire on garde la premiere ligne qui
@@ -548,7 +551,8 @@ def tyroliennes(m, r, li, rng, n_max=7):
                     out.append(p)
         return out
 
-    paires = [('Tour de guet', 'Affut'), ('Observatoire du volcan', 'Campement abandonne'), ('Phare', 'Voliere'),
+    paires = [('Rive nord du lagon', 'Rive sud du lagon'), ('Serres', 'Rive sud du lagon'), ('Checkpoint', 'Rive sud du lagon'),
+              ('Tour de guet', 'Affut'), ('Observatoire du volcan', 'Campement abandonne'), ('Phare', 'Voliere'),
               ('Relais radio', 'Village de pecheurs'), ('Helicoptere abattu', 'Temple maya en ruine'),
               ('Observatoire du volcan', 'Cimetiere'), ('Relais radio', 'Serres'), ('Tour de guet', 'Cenote'),
               ('Temple maya en ruine', 'Cenote'), ('Campement abandonne', 'Enclos des herbivores'),
@@ -612,6 +616,9 @@ def main(sortie):
     m.rng = rng
     journal('remplissage du terrain')
     remplir(m, r)
+    # le grand lagon du mosasaure (nord-ouest) : creuse avant les lieux, les pistes et la foret
+    lagon = Lagon(m, r, rng, centre=(428, 580), rx=60, rz=54)
+    journal('grand lagon : %d colonnes d\'eau' % lagon.creuser())
     chute = marche(r)
     foret = Foret(m, (r.h + 1).astype(np.int32), rng)
     # ------------------------------------------------ campus
@@ -624,6 +631,9 @@ def main(sortie):
     # ------------------------------------------------ lieux
     journal('lieux')
     li = Lieux(m, r, rng)
+    if lagon.rive_nord:
+        li.ajoute('Rive nord du lagon', lagon.rive_nord[0], lagon.rive_nord[1], 0)
+    li.ajoute('Rive sud du lagon', lagon.cx, lagon.cz + lagon.rz + 22, 0)
     li.ajoute('Campus Site B', ox + 70, oz + 60, 0)
     porte = (ox + 58, oz + 126)
     c = li.cote(porte[0] + 20, porte[1] + 10, 0, 1)
@@ -729,7 +739,7 @@ def main(sortie):
     pi.trace([camp, (460, 236), (476, 250)], 1.5)
     pi.trace([(ox + 146, oz + 80), (600, 470), relais], 1.8)
     pi.trace([tour, (170, 450), (200, 520), bung[1]], 1.6)
-    pi.trace([(porte[0], porte[1] + 30), (430, 560), (372, 600)], 1.6)
+    pi.trace([(porte[0], porte[1] + 30), (470, 500), (380, 496), (355, 560), (372, 600)], 1.6)   # contourne le grand lagon par le nord
     pi.trace([camp, (390, 180), phare], 1.6)
     pi.trace([heli, (230, 240), temple], 1.6)
     pi.trace([tour, (175, 300), temple], 1.4)
@@ -799,6 +809,7 @@ def main(sortie):
     gr.noyer()
     # ------------------------------------------------ sous-sol profond (y -64 a 14) et liaisons
     pr = sous_sol(m, r, gr, rng, mines)
+    journal('lagon : fosse, scellement, epave, rochers, algues %s' % lagon.approfondir(pr, li))
     for emprise, milieu in pr.emprises:
         bords = deplacements.passerelle_ravin(m, r, pr, emprise, milieu)
         if bords:
@@ -912,7 +923,8 @@ def main(sortie):
     bio3['minecraft:deep_dark'] = len(bio3)
     dossier = os.path.join(sortie, 'Site B')
     ex = monde_java.Exporteur(m, pr.b, bio, bio3, SEA, bio_profond=(bio3['minecraft:dripstone_caves'],
-                                                                     bio3['minecraft:deep_dark'], pr.sculk2d))
+                                                                     bio3['minecraft:deep_dark'], pr.sculk2d,
+                                                                     bio3['minecraft:warm_ocean'], r.grand_lagon))
     n = ex.regions(os.path.join(dossier, 'region'), journal)
     journal('entites : %d' % ex.entites(os.path.join(dossier, 'entities'), journal))
     # l'ocean plat autour : meme fond que le bord de l'ile
@@ -925,6 +937,9 @@ def main(sortie):
     with open(os.path.join(sortie, 'verif_monde.txt'), 'w') as f:
         for (x, y, z, e) in temoins:
             f.write('%s %s %s %s\n' % (x, y, z, e))
+    meta['lagon'] = {'centre': [lagon.cx + monde_java_ORIGINE, lagon.cz + monde_java_ORIGINE],
+                     'fosse': [lagon.fosse[0] + monde_java_ORIGINE, lagon.fosse[1] + monde_java_ORIGINE],
+                     'fond_fosse_y': lagon.fond_fosse, 'fond_cuvette_y': lagon.fond_cuvette + 15, 'surface_y': SEA + 15}
     meta['monde'] = {'dossier': 'Site B', 'chunks': n, 'spawn': spawn, 'fond_ocean': fond,
                      'origine': [monde_java.ORIGINE, monde_java.DECALAGE_Y, monde_java.ORIGINE]}
     json.dump(meta, open(os.path.join(sortie, 'site_b_v2.json'), 'w'), ensure_ascii=False, indent=1)

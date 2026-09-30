@@ -56,7 +56,7 @@ class Reseau:
         """Sommets solides, maximum sur 3 x 3 (le joueur a un peu de largeur, et le vent)."""
         if getattr(self, '_s3_', None) is None:
             self.haut_solide(0, 0)
-            s = self._sommets
+            s = np.maximum(self._sommets, self.r.eau.astype(np.int32))       # la surface de l'eau compte aussi
             t = s.copy()
             t[1:] = np.maximum(t[1:], s[:-1]); t[:-1] = np.maximum(t[:-1], s[1:])
             u = t.copy()
@@ -130,7 +130,8 @@ class Reseau:
                    for p, q, y0, y1 in zip(pts, pts[1:], hauteurs, hauteurs[1:])):
                 continue
             # pylones : pas plus de 45 blocs au-dessus du sol
-            if any(hy - self.haut_solide(*p) > 45 for p, hy in zip(pts[1:-1], hauteurs[1:-1])):
+            # (au-dessus de l'eau, compte depuis la surface : le poteau plonge jusqu'au fond)
+            if any(hy - max(self.haut_solide(*p), int(self.r.eau[p[1], p[0]])) > 45 for p, hy in zip(pts[1:-1], hauteurs[1:-1])):
                 continue
             marge = self._profil(pts, hauteurs)
             self.derniere_marge = max(getattr(self, 'derniere_marge', -99.0), marge)

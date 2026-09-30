@@ -114,9 +114,13 @@ class Exporteur:
         bio = np.broadcast_to(b2[None, :, :], (4, 4, 4))
         bio_bas = bio
         if self.bio_profond is not None:
-            i_bas, i_sculk, sculk = self.bio_profond
+            i_bas, i_sculk, sculk = self.bio_profond[:3]
             s2 = sculk[z0 + 2:z0 + 16:4, x0 + 2:x0 + 16:4]
-            bio_bas = np.broadcast_to(np.where(s2, i_sculk, i_bas)[None, :, :], (4, 4, 4))
+            b2b = np.where(s2, i_sculk, i_bas)
+            if len(self.bio_profond) > 3:                     # la fosse du lagon reste de l'ocean
+                i_oc, oc = self.bio_profond[3:5]
+                b2b = np.where(oc[z0 + 2:z0 + 16:4, x0 + 2:x0 + 16:4], i_oc, b2b)
+            bio_bas = np.broadcast_to(b2b[None, :, :], (4, 4, 4))
         sections = []
         for i in range(N_SECTIONS):
             sy = Y_MIN // 16 + i
@@ -299,7 +303,9 @@ def points_de_controle(m, profond, rng, n_hasard=160):
                     lignes.append((int(xs[k]) + ORIGINE, int(ys[k]) + dy, int(zs[k]) + ORIGINE, etat(i)))
                     trouves += 1
     for (x, y, z, d) in m.entites[::max(1, len(m.entites) // 12)]:
-        lignes.append((x + ORIGINE, y + DECALAGE_Y, z + ORIGINE, 'entite:' + str(d['Id'].v).replace('minecraft:', '')))
+        # le bloc porteur de l'entite (coffre, generateur...) doit etre la, dans l'etat prevu
+        i = m.blocs[y, z, x] if y >= 0 else profond[y + DECALAGE_Y - Y_MIN, z, x]
+        lignes.append((x + ORIGINE, y + DECALAGE_Y, z + ORIGINE, etat(i)))
     H = m.H
     for _ in range(n_hasard):
         x, z = int(rng.integers(0, m.W)), int(rng.integers(0, m.L))

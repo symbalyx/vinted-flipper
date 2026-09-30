@@ -451,7 +451,7 @@ class Lieux:
                         continue
                     fenetre = w > pont(u) + th - 1.6 and w < pont(u) + th - 0.4 and u > tu1 - 0.6 and abs(v) < bb - 0.8
                     if fenetre:
-                        e = AIR if rng.random() < 0.5 else 'minecraft:glass_pane'
+                        e = (EAU if p[1] <= SEA else AIR) if rng.random() < 0.5 else 'minecraft:glass_pane'
                     elif w > pont(u) + th:
                         e = 'minecraft:light_gray_concrete' if style == 'acier' else 'minecraft:spruce_planks'
                     else:
