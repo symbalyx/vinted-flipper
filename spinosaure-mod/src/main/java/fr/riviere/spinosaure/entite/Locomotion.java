@@ -244,10 +244,13 @@ final class Locomotion {
         if (but != null && reste > arrivee && reculTicks == 0 && spino.getNavigation().isDone()) {
             spino.getMoveControl().setWantedPosition(but.x, but.y, but.z, allure.vitesse);
         }
-        boolean veut = but != null && reste > arrivee && pilote.vitesseCourante() > 0.2 && reculTicks == 0;
+        boolean veut = but != null && reste > arrivee && pilote.vitesseCourante() > 0.2;
         // vitesse au sol attendue : ~2.2 x (attribut x multiplicateur)^2 blocs/tick (loi de Minecraft)
         double s = pilote.vitesseCourante() * spino.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
-        Deblocage.Action a = deblocage.evaluer(reste, veut, spino.isInWater() ? 0 : 2.2 * s * s);
+        // pendant un recul, on n'evalue pas : « ne veut pas avancer » remettait l'echelle a zero,
+        // et il bouclait sauter / reculer sans jamais contourner (essai « eau » : 75 s)
+        Deblocage.Action a = reculTicks > 0 ? Deblocage.Action.RIEN
+                : deblocage.evaluer(reste, veut, spino.isInWater() ? 0 : 2.2 * s * s);
         switch (a) {
             case SAUTER -> {
                 // saute un obstacle naturel ; jamais dans l'eau (sans pesanteur, chaque impulsion le

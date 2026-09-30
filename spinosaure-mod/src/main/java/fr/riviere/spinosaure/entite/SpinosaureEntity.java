@@ -431,7 +431,7 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
             // seulement tete hors de l'eau : sous l'eau, cette poussee le faisait escalader les parois
             // et seulement sur une berge naturelle : contre un ponton ou des pilotis, il se hissait
             // sur le village
-            if (tetehors && horizontalCollision && !obstacleArtificiel() && isFree(v.x, v.y + 1.6 - getY() + y0, v.z)) {
+            if (tetehors && horizontalCollision && !obstacleArtificiel() && peutSeHisser(v)) {
                 v = new Vec3(v.x, 0.3, v.z);
             } else if (!plongeeVoulue) {
                 // flottaison : sans plongee voulue, il se tient dos affleurant (la surface a
@@ -448,6 +448,20 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         } else {
             super.travel(entree);
         }
+    }
+
+    /**
+     * Une berge franchissable devant lui : libre en montant de 1 a 3,4 blocs. (On testait 1,6
+     * bloc seulement, cale pour l'ancienne flottaison : pieds a 2,2 sous la surface, une berge
+     * au ras de l'eau le bloquait toujours et il restait dans le bassin.)
+     */
+    private boolean peutSeHisser(Vec3 v) {
+        for (double dy = 1.0; dy <= 3.4; dy += 0.6) {
+            if (isFree(v.x, dy, v.z)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

@@ -84,7 +84,7 @@ public final class Cerveau {
     private Vec derniereDestination;
     /** Repas : ou est la proie, jusqu'a quand, prochaine animation. */
     private Vec repasPos;
-    private long repasJusqua = Long.MIN_VALUE / 2;
+    private long repasJusqua = Long.MIN_VALUE / 2, repasDepuis = Long.MIN_VALUE / 2;
     private long prochaineBouchee = Long.MIN_VALUE / 2;
     private long dernierCoupRecu = Long.MIN_VALUE / 2;
     /** Repos, sommeil, pauses d'errance. */
@@ -247,6 +247,7 @@ public final class Cerveau {
             } else if (e instanceof Evenement.Proie p) {
                 repasPos = p.pos();
                 repasJusqua = tick + r.dureeRepas;
+                repasDepuis = tick;
                 prochaineBouchee = Long.MIN_VALUE / 2;
             } else if (e instanceof Evenement.Bruit b) {
                 if (b.pos().distance(soi.pos()) <= b.portee()) {
@@ -592,8 +593,8 @@ public final class Cerveau {
 
     /** Une creature, un joueur trop pres, ou un coup : il laisse sa proie. */
     private boolean derangeAuRepas(Soi soi, List<Joueur> percus, long tick) {
-        if (tick - dernierCoupRecu < 100) {
-            return true;
+        if (dernierCoupRecu > repasDepuis) {
+            return true;                       // (les coups du combat qu'il vient de gagner ne comptent pas)
         }
         for (Joueur j : percus) {
             if (j.creature() || j.pos().distanceH(soi.pos()) <= r.derangeRepas) {

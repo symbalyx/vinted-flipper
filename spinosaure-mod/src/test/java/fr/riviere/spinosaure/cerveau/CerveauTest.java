@@ -242,6 +242,20 @@ class CerveauTest {
     }
 
     @Test
+    void apresUnCombatGagneIlMangeMalgreLesCoupsQuIlVientDeRecevoir() {
+        Cerveau c = cerveau();
+        Joueur loup = creature(j(D, 0, -6));
+        c.penser(soi(0), List.of(loup), coups(D, 4, false));
+        c.penser(soi(40), List.of(loup), coups(D, 4, false));
+        // la creature meurt au tick 44 : il la mange, meme s'il a ete frappe il y a 1 s
+        Decision d = c.penser(soi(44), List.of(), List.of(new Evenement.Proie(new Vec(0, 0, -6))));
+        assertEquals(Tactique.REPAS, d.tactique(), d.raison());
+        // un coup APRES la mise a mort : il laisse la proie
+        Decision e = c.penser(soi(60), List.of(), coups(A, 3, false));
+        assertNotEquals(Tactique.REPAS, e.tactique(), e.raison());
+    }
+
+    @Test
     void laNuitIlDortEtNEntendQueDePres() {
         Cerveau c = cerveau();
         Decision d = null;
