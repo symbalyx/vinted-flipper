@@ -15,6 +15,7 @@ import math
 
 from monde import Decale
 from mobilier import Kit, esc, dalle, trappe
+from souterrain_kilo import Souterrain
 
 AIR = 'minecraft:air'
 BETON = 'minecraft:light_gray_concrete'
@@ -58,7 +59,9 @@ class BaseMilitaire:
         self._mat_radio(33, 10)
         self._conteneurs(10, 68)
         self._projecteurs()
+        self._interieurs()
         self._degats()
+        Souterrain(self).construire()                  # les longs couloirs, pour les poursuites
         li.ajoute('Base militaire', bx + LX // 2, bz + LZ // 2, 0)
         return (bx + LX // 2, bz + LZ + 1)            # la porte sud (vers le ponton)
 
@@ -198,6 +201,65 @@ class BaseMilitaire:
         v.boite(x + 22, 10, z + 3, x + 22, 16, z + 3, GRILLE)
         v.pose(x + 22, 17, z + 3, 'minecraft:lightning_rod[facing=up,powered=false,waterlogged=false]')
         self.li.ajoute('QG (base militaire)', self.bx + x + L // 2, self.bz + z + P // 2, 0)
+
+    # ------------------------------------------------------------------ interieurs
+    def _interieurs(self):
+        """Le detail des interieurs : poste radio et carte murale au QG, cantines de campagne,
+        cuisine, atelier du hangar ; et des veilleuses partout (aucun monstre vanilla dedans)."""
+        v, k, rng = self.v, self.k, self.rng
+        # ---- QG (40, 8) : poste radio au nord, carte d'etat-major sur le mur ouest
+        k.baie_serveur(46, 0, 9, 'south', 5, 'east')
+        k.bureau(52, 0, 10, 'north', 3)
+        v.pose(55, 0, 9, 'minecraft:note_block[instrument=bit,note=12,powered=false]')
+        for z in range(17, 22):
+            for y in (1, 2):
+                v.pose(40, y, z, 'minecraft:%s_wool' % ('green' if (z + y) % 3 else 'lime'))
+        v.pose(40, 2, 19, 'minecraft:red_wool'); v.pose(40, 1, 20, 'minecraft:red_wool')
+        # etage : casiers, table de reunion sur un tapis, bibliotheque
+        k.casiers(44, 5, 9, 'south', 6, 'east')
+        v.boite(47, 5, 13, 55, 5, 17, 'minecraft:green_carpet', seulement_air=True)
+        k.table(51, 5, 15, 'dark_oak', 'white')
+        k.chaise(50, 5, 15, 'east'); k.chaise(52, 5, 15, 'west'); k.chaise(51, 5, 14, 'south')
+        k.etagere(65, 5, 10, 3, 'south', 2)
+        for y in (0, 5):
+            k.veilleuses(41, 9, 65, 21, y + 1, 3, 3)
+        # ---- baraquements : cantines au pied des lits, table de jeu au milieu
+        for bz in (36, 52):
+            for i in range(6):
+                xx = 12 + i * 3
+                if i % 2 == 0:
+                    v.coffre(xx, 0, bz + 3, 'south', [('minecraft:bread', 2), ('minecraft:string', 3), ('minecraft:torch', 4)])
+                else:
+                    v.coffre(xx, 0, bz + 6, 'north', [('minecraft:paper', 3), ('minecraft:leather', 2)])
+            k.table(23, 0, bz + 4, 'spruce')
+            k.chaise(22, 0, bz + 4, 'east', 'spruce'); k.chaise(24, 0, bz + 4, 'west', 'spruce')
+            v.pose(23, 1, bz + 5, 'minecraft:white_carpet')
+            k.veilleuses(11, bz + 1, 33, bz + 8, 1, 3, 3)
+        # ---- cantine : comptoir de service, plateaux, evier, reserve
+        for zz in range(39, 46):
+            v.pose(52, 0, zz, 'minecraft:smooth_stone_slab[type=top,waterlogged=false]')
+            if zz % 2:
+                v.pose(52, 1, zz, 'minecraft:heavy_weighted_pressure_plate[power=0]')
+        v.pose(54, 0, 41, 'minecraft:cauldron')
+        v.pose(54, 0, 44, 'minecraft:furnace[facing=west,lit=false]')
+        for zz in (38, 39, 40):
+            v.pose(55, 0, zz, 'minecraft:barrel[facing=west,open=false]')
+            v.pose(55, 1, zz, 'minecraft:barrel[facing=up,open=%s]' % ('true' if zz == 39 else 'false'))
+        k.veilleuses(41, 37, 55, 47, 1, 3, 3)
+        # ---- hangar : etageres, pneus, futs, palan, taches d'huile
+        k.etagere(66, 0, 50, 5, 'east', 3, 'barrel[facing=north,open=false]')
+        for (a, b, h) in ((92, 49, 3), (91, 49, 2), (92, 48, 1)):
+            v.boite(a, 0, b, a, h - 1, b, 'minecraft:black_concrete')
+        for zz in (47, 48, 49):
+            v.pose(84, 0, zz, 'minecraft:barrel[facing=up,open=false]')
+        for y in range(5, 11):
+            v.pose(85, y, 44, 'minecraft:chain[axis=y,waterlogged=false]')
+        v.pose(85, 4, 44, 'minecraft:lantern[hanging=true,waterlogged=false]')
+        for _ in range(14):
+            v.pose(int(rng.integers(79, 93)), 0, int(rng.integers(38, 50)), 'minecraft:black_carpet', seulement_air=True)
+        v.pose(90, 0, 39, 'minecraft:crafting_table')
+        v.pose(90, 0, 43, 'minecraft:grindstone[face=floor,facing=west]')
+        k.veilleuses(65, 31, 93, 51, 1, 3, 3)
 
     # ------------------------------------------------------------------ baraquements
     def _baraquement(self, x, z, couleur):

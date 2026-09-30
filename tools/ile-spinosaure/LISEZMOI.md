@@ -66,7 +66,7 @@ Réglages conseillés pour l'événement :
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
 Aperçus dans `apercus/` :
-- à jour (v3) : `carte.png` (la carte avec les lieux), `base_militaire.jpg`, `lagon_coupe.jpg` (coupe du lagon sans l'eau : parois, fond à y = −20, rochers, algues, épave), `lagon_epave.jpg` (l'épave sur le fond, entre les rochers) ;
+- à jour (v3) : `carte.png` (la carte avec les lieux), `base_militaire.jpg`, `base_interieurs.jpg` (QG, baraquement et cantine sans toit), `souterrain_plan.jpg` (plan des souterrains : la boucle, l'axe central, les salles, les puits aux coins), `souterrain_entrees.jpg` (l'effondrement et la rampe du hangar), `lagon_coupe.jpg` (coupe du lagon sans l'eau : parois, fond à y = −20, rochers, algues, épave), `lagon_epave.jpg` (l'épave sur le fond, entre les rochers) ;
 - des versions précédentes, encore représentatifs du style mais plus de l'emplacement : `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg`, `cratere.jpg`, `jungle.jpg`, `mine.jpg`, `gue.jpg`, `coupe_profond.jpg`, `ravin.jpg`, `tyrolienne.jpg`, `lagon.jpg`, `mine_profonde.jpg`, `grottes.png`.
 
 ## La logique de l'île
@@ -125,6 +125,46 @@ Des jeeps abandonnées jalonnent les routes et les pistes. Il n'y a **aucun pann
 - **parc de véhicules** (jeeps), dépôt de **carburant**, **château d'eau**, **mât radio**, **conteneurs** de matériel.
 
 Il est passé par là : un pan du grillage arraché au nord-est, des conteneurs renversés, du sang jusqu'au hangar, la base vide.
+
+Intérieurs :
+- **QG** : au rez, la table des opérations, un poste radio (baies, bureau à trois écrans) et une carte d'état-major sur le mur ouest ; à l'étage, des casiers, une table de réunion sur un tapis, une bibliothèque, le bureau du commandant et le dortoir des officiers ;
+- **baraquements** : des cantines au pied des lits et une table de jeu au milieu ;
+- **cantine** : comptoir de service avec plateaux, évier, fourneaux, réserve de tonneaux ;
+- **hangar** : étagères, pneus, fûts, palan suspendu, établi, taches d'huile ;
+- partout, des veilleuses invisibles (lumière 3) : aucun monstre vanilla n'apparaît dedans.
+
+### Les souterrains de la base (poursuites)
+
+Sous la base, un réseau de **longs couloirs à la taille du spinosaure** (5 de large, 6 de haut ; sa boîte fait 3,4 × 5), pensé pour une scène de poursuite :
+
+| Couloir | Longueur | Sous |
+|---|---|---|
+| **A** (nord) | 81 blocs en ligne droite | l'allée nord de la base |
+| **C** (sud) | 81 blocs en ligne droite | l'héliport et le parc de véhicules |
+| **W** et **E** | 43 blocs | ferment la boucle |
+| **B** (centre) | 42 blocs | coupe la boucle en deux |
+
+Environ 300 blocs de couloirs en **boucle** : on peut courir sans fin, et se faire couper la route par le couloir central. Sol d'andésite avec une ligne jaune, plinthes sombres, câbles le long du plafond, grilles d'aération, éclairage de secours rouge, bandes jaunes et noires aux croisements. Quelques plafonniers marchent encore (15 %).
+
+**Ses entrées** (à sa taille) :
+- la **rampe du hangar**, 5 de large, qui descend vers un tunnel rejoignant le couloir E ;
+- l'**effondrement** : le toit du couloir A s'est écroulé au bout de la traînée de sang, un talus d'éboulis descend de la surface. C'est par là qu'il est entré.
+
+**Les entrées des joueurs** : l'escalier du QG (2 de large) et **quatre puits à échelle** aux coins de la boucle, qui débouchent dans de petits abris en béton en surface.
+
+**Les salles** : leur porte fait 1 ou 2 blocs, il n'y entre pas. Ce sont des **refuges** :
+- **poste de commandement** sous le QG : table des opérations, consoles, baies de serveurs, carte murale ;
+- **armurerie** : arbalètes, flèches (dont spectrales), armures, bouclier, TNT, fusées ;
+- **dortoir de secours** : lits superposés, vivres, barricade arrachée, du sang ;
+- **infirmerie** : lits, paillasse, alambic, pommes dorées, du sang ;
+- **archives** : rayonnages, lutrin, table de cartographie ;
+- **réserve** : tonneaux, vivres, une pioche en fer.
+
+Exception : la **salle des générateurs** (groupes électrogènes, cuves en cuivre), ouverte en grand. Il y entre, et on peut s'y cacher entre les machines. La traînée de sang y mène, depuis l'effondrement.
+
+Coordonnées du jeu : rampe du hangar (142 à 149, 12 à 16) ; effondrement (143 à 151, −5 à 3) ; escalier du QG (134, −10) ; puits (82, 6), (166, 6), (82, 44), (166, 44).
+
+Le réseau est au-dessus de la nappe (on y marche à y = 68 dans le jeu, la mer est à 63) et sous la zone protégée de la base : aucune grotte n'y débouche, aucune eau n'y entre.
 
 ### Nids et antre
 
@@ -241,7 +281,8 @@ Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 
 ## Vérifié, et pas vérifié
 
-- Chaque état de bloc (606) est contrôlé contre les données Minecraft 1.20 de minecraft-data, et ceux de Biomes O' Plenty contre le jar : 0 erreur.
+- **Souterrains** (v3.1) : 0 bloc d'eau ou de lave dans leur volume ; hauteur libre d'au moins 5 blocs au cœur de chaque couloir (sa boîte fait 5), 9 à 10 au-dessus de la rampe et du talus d'éboulis ; le talus n'est fait que de blocs naturels (sur un bloc « ouvrage », son pas tombe à 0,6 bloc).
+- Chaque état de bloc (672 en v3.1) est contrôlé contre les données Minecraft 1.20 de minecraft-data, et ceux de Biomes O' Plenty contre le jar : 0 erreur.
 - **Eau** (v3) : sous le niveau de la mer, 0 bloc d'eau au contact de l'air et 0 au contact de la lave, dans le sous-sol profond comme au-dessus, jonction y = 14 / 15 comprise. Seule la cascade (eau source au-dessus du sol, voulue) touche de l'air.
 - Les fichiers portent le champ `BiomePaletteMax` exigé par WorldEdit 7.2.15 : sans lui, `//schem load` échouait avec « Unknown error ».
 - **Côtes** : sur tout le tour de l'île, la terre au bord de la mer est au niveau de l'eau (0 bloc à escalader pour sortir de l'eau). Mesuré sur la carte des hauteurs.
@@ -265,7 +306,8 @@ Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 |---|---|
 | `relief.py` | forme de l'île, volcan, rivières, lac, lagon |
 | `arbres.py` | les essences d'arbres |
-| `base_militaire.py` | la base militaire « Kilo » : enceinte, miradors, QG, baraquements, hangar, héliport, dépôts |
+| `base_militaire.py` | la base militaire « Kilo » : enceinte, miradors, QG, baraquements, hangar, héliport, dépôts, intérieurs |
+| `souterrain_kilo.py` | les souterrains de la base : boucle de couloirs, salles refuges, rampe, effondrement, puits |
 | `mobilier.py` | meubles et façades |
 | `lieux.py` | les autres lieux (temple maya, cénote, maisons, hélicoptère…) |
 | `grottes.py` | grottes, gouffres, lacs souterrains, cavernes, mines, antre et nids |

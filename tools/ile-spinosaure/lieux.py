@@ -313,6 +313,12 @@ class Lieux:
         m.pose(x - 2, y0, z, 'minecraft:dark_oak_stairs[facing=south,half=bottom,shape=straight,waterlogged=false]')
         m.coffre(x + 3, y0, z + 2, 'north', [('minecraft:redstone', 8), ('minecraft:map', 1), ('minecraft:bread', 4)])
         m.panneau(x + 3, y0 + 1, z - 1, 'west', ['RELAIS 2', 'Liaison coupee', 'depuis 3 jours.', 'Personne ne vient.'])
+        k.baie_serveur(x - 3, y0, z - 1, 'east', 3, 'south')          # emetteurs le long du mur ouest
+        k.lit(x + 2, y0, z, 'east', 'gray')                            # la couchette de l'operateur
+        v_bat = ['minecraft:copper_block', 'minecraft:exposed_copper', 'minecraft:cut_copper']
+        for i, xx in enumerate((x + 1, x + 2)):
+            m.pose(xx, y0, z + 2, v_bat[i % 3])                        # batteries
+        m.pose(x - 1, y0, z + 2, 'minecraft:barrel[facing=up,open=true]')
         k.veilleuses(x - 3, z - 2, x + 3, z + 2, y0, 3, 3)
         # mat haubane de 40 blocs
         m.boite(x + 7, y0 - 1, z, x + 7, y0 + 40, z, 'minecraft:iron_bars')
@@ -1265,6 +1271,9 @@ class Lieux:
         m.pose(x + 2, y0, z - 2, 'minecraft:target[power=0]')
         m.coffre(x + 2, y0, z + 1, 'west', [('minecraft:spyglass', 1), ('minecraft:map', 1), ('minecraft:clock', 1)])
         m.panneau(x - 2, y0 + 1, z + 2, 'east', ['SISMOGRAPHE', 'Pas le volcan.', 'Des pas. Lourds.', 'Rythmes de 3 s.'])
+        k.lit(x - 2, y0, z, 'south', 'light_gray')
+        k.casiers(x + 2, y0, z + 2, 'west', 1, 'south')
+        m.pose(x, y0, z - 1, 'minecraft:white_carpet'); m.pose(x + 1, y0, z - 1, 'minecraft:white_carpet')
         m.boite(x + 2, y0 + 5, z + 2, x + 2, y0 + 14, z + 2, 'minecraft:iron_bars')
         m.pose(x + 2, y0 + 15, z + 2, 'minecraft:lightning_rod[facing=up,powered=false,waterlogged=false]')
         # parabole

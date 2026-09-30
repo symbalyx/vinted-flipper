@@ -636,6 +636,12 @@ def poste_recherche(li, x, z):
     for i in range(3):
         v.boite(14 + i * 2, 0, 3, 14 + i * 2, 1, 3, 'minecraft:iron_bars')
     v.coffre(19, 0, 5, 'north', [('minecraft:bone', 6), ('minecraft:lead', 2), ('minecraft:name_tag', 1)])
+    # module 1 : bibliotheque d'echantillons ; module 2 : couchettes et la cuve, brisee et vide
+    k.etagere(7, 0, 1, 3, 'south', 2)
+    k.lit(13, 0, 6, 'east', 'white'); k.lit(13, 0, 7, 'east', 'white')
+    k.cuve(17, 0, 6, h=1, brisee=True)
+    k.veilleuses(1, 1, 7, 5, 0, 3, 3)
+    k.veilleuses(13, 3, 19, 7, 0, 3, 3)
     for y in range(4, 16):
         v.pose(4, y, 3, 'minecraft:iron_bars' if y % 5 else 'minecraft:iron_block')
     v.pose(4, 16, 3, 'minecraft:lightning_rod[facing=up,powered=false,waterlogged=false]')
