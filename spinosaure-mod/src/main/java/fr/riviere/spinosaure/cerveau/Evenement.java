@@ -5,12 +5,16 @@ import java.util.UUID;
 /** Ce qui arrive au spinosaure entre deux reflexions. */
 public sealed interface Evenement {
 
-    /** Il a ete blesse par un joueur. {@code aDistance} : fleche, trident, projectile. */
+    /** Il a ete blesse par un joueur ou une creature. {@code aDistance} : fleche, trident, projectile. */
     record Degats(UUID source, double montant, boolean aDistance) implements Evenement {
     }
 
     /** Coup de feu (TaCZ) : s'entend de tres loin, et s'il est vu du tireur, il est sous le feu. */
     record Tir(UUID tireur, Vec pos) implements Evenement {
+    }
+
+    /** Il vient de tuer une creature en (pos) : il la mange, s'il n'est pas derange. */
+    record Proie(Vec pos) implements Evenement {
     }
 
     /** Un bruit a ete percu (bloc casse, porte, coffre, explosion...). */

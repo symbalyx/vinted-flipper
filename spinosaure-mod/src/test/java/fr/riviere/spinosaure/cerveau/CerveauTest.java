@@ -92,6 +92,15 @@ class CerveauTest {
                 p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), true);
     }
 
+    static Joueur creature(Joueur p) {
+        return new Joueur(p.id(), p.pos(), p.regard(), p.sante(), p.armure(), p.arme(), false, false, false,
+                p.dansEau(), p.visible(), p.atteignable(), p.vitesse(), false, false, true, true);
+    }
+
+    static Soi nuit(long tick) {
+        return new Soi(Vec.ZERO, NORD, 1.0, 300, false, false, null, false, tick, List.of(), true, true);
+    }
+
     static boolean frappe(Decision d) {
         return d.tactique() == Tactique.ENGAGEMENT;
     }
@@ -153,11 +162,79 @@ class CerveauTest {
     }
 
     @Test
-    void phase3_mais_ilNeFrappePasSiOnLeRegarde() {
+    void phase3_seRetournerDePresNeLeFaitPlusFuir_ilFrappe() {
         Cerveau c = cerveau();
         Decision d = jusqua(c, List.of(avec(j(C, 0, -40), "detourne")), 0, 2000, x -> false);  // tension
-        d = c.penser(soi(2004), List.of(j(C, 0, -13)), List.of());                            // il se retourne
-        assertEquals(Tactique.DISPARITION, d.tactique(), "vu de pres : " + d.raison());
+        d = c.penser(soi(2004), List.of(j(C, 0, -10)), List.of());                            // il se retourne
+        assertTrue(frappe(d), "traque mure, vu de pres : il frappe au lieu de fuir (" + d.raison() + ")");
+    }
+
+    @Test
+    void phase2_regardSoutenu_ilAvanceSurToiPuisFrappe() {
+        Cerveau c = cerveau();
+        jusqua(c, List.of(avec(j(A, 0, -30), "detourne")), 0, 400, x -> false);                // phase 2
+        Decision d = jusqua(c, List.of(j(A, 0, -30)), 404, 700, x -> x.tactique() == Tactique.INTIMIDATION);
+        assertEquals(Tactique.INTIMIDATION, d.tactique(), "il soutient le regard puis avance : " + d.raison());
+        assertEquals(Allure.MARCHE, d.allure());
+        assertTrue(d.destination().distanceH(new Vec(0, 0, -30)) < 2, "droit sur toi");
+        // arrive a portee : il frappe, meme regarde
+        Decision e = c.penser(soi(720), List.of(j(A, 0, -12)), List.of());
+        assertTrue(frappe(e), e.raison());
+    }
+
+    @Test
+    void frappeAuContact_ilRiposteMemeEnTrainDeDisparaitre() {
+        Cerveau c = cerveau();
+        Decision d = c.penser(soi(0), List.of(j(A, 0, -10)), List.of());
+        assertEquals(Tactique.DISPARITION, d.tactique(), "vu de pres en phase 1 : il s'efface");
+        Decision e = c.penser(soi(8), List.of(j(A, 0, -6)), coups(A, 6, false));             // on le rattrape et on frappe
+        assertTrue(frappe(e), "le coup doit declencher la riposte : " + e.raison());
+    }
+
+    @Test
+    void uneCreatureQuiLAttaque_ilSeBatSansJeuDHorreur() {
+        Cerveau c = cerveau();
+        Joueur loup = creature(j(D, 0, -8));
+        Decision d = c.penser(soi(0), List.of(loup), coups(D, 4, false));
+        assertTrue(frappe(d), "il riposte : " + d.raison());
+        // meme regarde (une creature le fixe toujours), meme apres deux attaques : il ne s'efface pas
+        Decision fin = null;
+        for (long t = 4; t < 400; t += 4) {
+            fin = c.penser(soi(t), List.of(loup), List.of());
+            assertNotEquals(Tactique.DISPARITION, fin.tactique(), "il ne fuit pas une creature : " + fin.raison());
+            assertNotEquals(Tactique.OBSERVATION, fin.tactique());
+            assertNotEquals(Tactique.FIGE, fin.tactique());
+        }
+        assertTrue(frappe(fin), fin.raison());
+    }
+
+    @Test
+    void apresAvoirTueIlMangePuisSurveilleUnJoueurAuLoin() {
+        Cerveau c = cerveau();
+        Decision d = c.penser(soi(0), List.of(), List.of(new Evenement.Proie(new Vec(0, 0, -2))));
+        assertEquals(Tactique.REPAS, d.tactique(), d.raison());
+        assertEquals("mange_carcasse", d.animation());
+        Decision e = c.penser(soi(200), List.of(avec(j(A, 20, -30), "detourne")), List.of());
+        assertEquals(Tactique.REPAS, e.tactique(), "un joueur au loin ne le derange pas : " + e.raison());
+        assertTrue(e.animation() != null && e.animation().startsWith("mange_carcasse_regard"), "il releve la tete vers lui");
+        Decision f = c.penser(soi(204), List.of(j(A, 0, -10)), List.of());
+        assertNotEquals(Tactique.REPAS, f.tactique(), "trop pres : il laisse la proie");
+    }
+
+    @Test
+    void laNuitIlDortEtNEntendQueDePres() {
+        Cerveau c = cerveau();
+        Decision d = null;
+        for (long t = 0; t <= 800 && (d == null || d.tactique() != Tactique.SOMMEIL); t += 4) {
+            d = c.penser(nuit(t), List.of(), List.of());
+        }
+        assertEquals(Tactique.SOMMEIL, d.tactique(), d.raison());
+        // un joueur qui marche a 10 blocs, dans son dos : il ne l'entend pas en dormant
+        Decision e = c.penser(nuit(820), List.of(avec(j(A, 0, 10), "detourne")), List.of());
+        assertEquals(Tactique.SOMMEIL, e.tactique(), e.raison());
+        // qui sprinte a 10 blocs : ca le reveille
+        Decision f = c.penser(nuit(824), List.of(avec(avec(j(A, 0, 10), "detourne"), "sprint")), List.of());
+        assertNotEquals(Tactique.SOMMEIL, f.tactique(), f.raison());
     }
 
     @Test
@@ -201,7 +278,7 @@ class CerveauTest {
     @Test
     void vuDePres_ilDisparait_vuDeLoin_ilSeFigeEtSoutientLeRegard() {
         Cerveau c = cerveau();
-        assertEquals(Tactique.DISPARITION, c.penser(soi(0), List.of(j(A, 0, -15)), List.of()).tactique());
+        assertEquals(Tactique.DISPARITION, c.penser(soi(0), List.of(j(A, 0, -10)), List.of()).tactique());
 
         Cerveau loin = cerveau();
         loin.penser(soi(0), List.of(avec(j(A, 0, -30), "detourne")), List.of());
@@ -216,14 +293,14 @@ class CerveauTest {
         Cerveau c = cerveau();
         List<Joueur> groupe = List.of(avec(j(A, -3, -20), "detourne"), avec(j(B, 0, -21), "detourne"),
                 avec(j(C, 3, -20), "detourne"));
-        Decision d = jusqua(c, groupe, 0, 3000, CerveauTest::frappe);
+        Decision d = jusqua(c, groupe, 0, 2000, CerveauTest::frappe);
         assertFalse(frappe(d), "il n'attaque pas un groupe");
         assertEquals(Tactique.OBSERVATION, d.tactique(), d.raison());
 
         // C s'ecarte du groupe, dos tourne, a 12 blocs : il frappe
         List<Joueur> ecart = List.of(avec(j(A, -30, -30), "detourne"), avec(j(B, -28, -32), "detourne"),
                 avec(j(C, 0, -12), "detourne"));
-        Decision e = jusqua(c, ecart, 3004, 3100, CerveauTest::frappe);
+        Decision e = jusqua(c, ecart, 2004, 2100, CerveauTest::frappe);
         assertTrue(frappe(e), e.raison());
         assertEquals(C, e.cible());
     }

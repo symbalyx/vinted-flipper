@@ -14,18 +14,25 @@ import java.util.List;
  * @param tick           horloge du monde, en ticks (20 par seconde)
  * @param voisinage      points de terrain echantillonnes autour de lui (peut etre vide)
  * @param dansDomaine    lui-meme en jungle ou dans l'eau
+ * @param nuit           il fait nuit (il dort une partie de la nuit, quand rien ne le derange)
  */
 public record Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
                   Vec eauProfonde, boolean attaqueEnCours, long tick, List<PointTerrain> voisinage,
-                  boolean dansDomaine) {
+                  boolean dansDomaine, boolean nuit) {
+
+    public Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
+               Vec eauProfonde, boolean attaqueEnCours, long tick, List<PointTerrain> voisinage,
+               boolean dansDomaine) {
+        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, voisinage, dansDomaine, false);
+    }
 
     public Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
                Vec eauProfonde, boolean attaqueEnCours, long tick, List<PointTerrain> voisinage) {
-        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, voisinage, true);
+        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, voisinage, true, false);
     }
 
     public Soi(Vec pos, Vec regard, double sante, double santeMax, boolean dansEau, boolean submerge,
                Vec eauProfonde, boolean attaqueEnCours, long tick) {
-        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, List.of(), true);
+        this(pos, regard, sante, santeMax, dansEau, submerge, eauProfonde, attaqueEnCours, tick, List.of(), true, false);
     }
 }

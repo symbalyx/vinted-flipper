@@ -7,6 +7,7 @@ import fr.riviere.spinosaure.cerveau.Soi;
 import fr.riviere.spinosaure.cerveau.Vec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
@@ -14,6 +15,8 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ProjectileWeaponItem;
@@ -28,8 +31,10 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -44,7 +49,7 @@ final class Instantane {
     private final Map<UUID, Boolean> atteignable = new HashMap<>();
     private final Map<UUID, Long> atteignableCalcule = new HashMap<>();
     private Vec eauProfonde;
-    private Player cibleTerrain;
+    private LivingEntity cibleTerrain;
     /** Portee a laquelle le « directeur » connait les joueurs (au-dela de ses sens). */
     static final double PORTEE_DIRECTEUR = 160;
     private List<PointTerrain> voisinage = List.of();
@@ -77,7 +82,7 @@ final class Instantane {
         return niveau.getFluidState(pos).is(FluidTags.WATER) || niveau.getBiome(pos).is(BiomeTags.IS_JUNGLE);
     }
 
-    Soi soi(boolean attaqueEnCours, Player cible) {
+    Soi soi(boolean attaqueEnCours, LivingEntity cible) {
         long tick = spino.level().getGameTime();
         if (tick - terrainCalcule >= 40 || (cible != null && cible != cibleTerrain)) {
             cibleTerrain = cible;
@@ -87,13 +92,18 @@ final class Instantane {
         }
         return new Soi(vec(spino.position()), avant(spino.yBodyRot), spino.getHealth() / spino.getMaxHealth(),
                 spino.getMaxHealth(), spino.isInWater(), spino.estSubmerge(), eauProfonde, attaqueEnCours, tick,
-                voisinage, spino.isInWater() || domaine(spino.level(), spino.blockPosition()));
+                voisinage, spino.isInWater() || domaine(spino.level(), spino.blockPosition()), spino.level().isNight());
     }
 
+    /**
+     * Ses adversaires : les joueurs (jusqu'a 160 blocs, pour le « directeur ») et les creatures
+     * qu'il doit combattre (voir {@link SpinosaureEntity#ennemi}).
+     */
     List<Joueur> joueurs() {
         Level niveau = spino.level();
         long tick = niveau.getGameTime();
         List<Joueur> out = new ArrayList<>();
+        Set<UUID> vus = new HashSet<>();
         // jusqu'a 160 blocs : au-dela de ses sens (48), seul le « directeur » s'en sert
         List<Player> ps = niveau.getEntitiesOfClass(Player.class, spino.getBoundingBox().inflate(PORTEE_DIRECTEUR),
                 p -> p.isAlive() && !p.isSpectator());      // creatif inclus : observe, jamais attaque
@@ -107,17 +117,9 @@ final class Instantane {
                 atteignableCalcule.put(id, tick);
             }
             boolean visible = proche && !p.isInvisible() && spino.getSensing().hasLineOfSight(p);
-            // vitesse mesuree sur le deplacement reel : cote serveur, getDeltaMovement() d'un
-            // joueur est peu fiable (c'est le client qui le deplace)
             Vec pos = vec(p.position());
-            Vec vitesse = Vec.ZERO;
-            Vec avantPos = dernierePos.get(id);
-            Long avantTick = derniereFois.get(id);
-            if (avantPos != null && avantTick != null && tick > avantTick && tick - avantTick <= 10) {
-                vitesse = pos.moins(avantPos).fois(1.0 / (tick - avantTick));
-            }
-            dernierePos.put(id, pos);
-            derniereFois.put(id, tick);
+            Vec vitesse = vitesse(id, pos, tick);
+            vus.add(id);
             ItemStack main = p.getMainHandItem();
             out.add(new Joueur(id, pos, vec(p.getViewVector(1.0F)),
                     p.getHealth() / p.getMaxHealth(), p.getArmorValue(), arme(main),
@@ -125,14 +127,46 @@ final class Instantane {
                     visible, atteignable.getOrDefault(id, true), vitesse, p.isCreative(),
                     chargeurVide(main), p.isInWater() || domaine(niveau, p.blockPosition())));
         }
-        atteignable.keySet().removeIf(id -> ps.stream().noneMatch(p -> p.getUUID().equals(id)));
-        atteignableCalcule.keySet().retainAll(atteignable.keySet());
-        dernierePos.keySet().retainAll(atteignable.keySet());
-        derniereFois.keySet().retainAll(atteignable.keySet());
+        // les creatures a combattre, dans sa portee de vue
+        for (LivingEntity e : niveau.getEntitiesOfClass(LivingEntity.class, spino.getBoundingBox().inflate(r.porteeVue),
+                spino::ennemi)) {
+            UUID id = e.getUUID();
+            Long quand = atteignableCalcule.get(id);
+            if (quand == null || tick - quand >= 20 + (id.hashCode() & 7)) {
+                atteignable.put(id, calculerAtteignable(e));
+                atteignableCalcule.put(id, tick);
+            }
+            Vec pos = vec(e.position());
+            vus.add(id);
+            out.add(new Joueur(id, pos, vec(e.getViewVector(1.0F)), e.getHealth() / Math.max(1F, e.getMaxHealth()),
+                    e.getArmorValue(), Joueur.Arme.MELEE, false, false, false, e.isInWater(),
+                    !e.isInvisible() && spino.getSensing().hasLineOfSight(e), atteignable.getOrDefault(id, true),
+                    vitesse(id, pos, tick), false, false, true, true));
+        }
+        atteignable.keySet().retainAll(vus);
+        atteignableCalcule.keySet().retainAll(vus);
+        dernierePos.keySet().retainAll(vus);
+        derniereFois.keySet().retainAll(vus);
         return out;
     }
 
-    private boolean calculerAtteignable(Player p) {
+    /**
+     * Vitesse mesuree sur le deplacement reel : cote serveur, getDeltaMovement() d'un joueur est
+     * peu fiable (c'est le client qui le deplace).
+     */
+    private Vec vitesse(UUID id, Vec pos, long tick) {
+        Vec v = Vec.ZERO;
+        Vec avantPos = dernierePos.get(id);
+        Long avantTick = derniereFois.get(id);
+        if (avantPos != null && avantTick != null && tick > avantTick && tick - avantTick <= 10) {
+            v = pos.moins(avantPos).fois(1.0 / (tick - avantTick));
+        }
+        dernierePos.put(id, pos);
+        derniereFois.put(id, tick);
+        return v;
+    }
+
+    private boolean calculerAtteignable(Entity p) {
         if (p.isInWater() && spino.isInWater()) {
             return true;                                // en nage, rien ne l'arrete
         }
@@ -191,7 +225,7 @@ final class Instantane {
      * point : eau et profondeur, denivele, et danger selon le classement de pathfinding
      * de Minecraft lui-meme (lave, feu, cactus, neige poudreuse...).
      */
-    private List<PointTerrain> echantillonner(Player cible) {
+    private List<PointTerrain> echantillonner(LivingEntity cible) {
         Level niveau = spino.level();
         List<PointTerrain> out = new ArrayList<>();
         int x0 = spino.getBlockX(), z0 = spino.getBlockZ();
@@ -203,10 +237,19 @@ final class Instantane {
                 if (!niveau.hasChunkAt(new BlockPos(x, spino.getBlockY(), z))) {
                     continue;
                 }
-                int surface = niveau.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
-                int fond = niveau.getHeight(Heightmap.Types.OCEAN_FLOOR, x, z);
+                // sous la jungle : WORLD_SURFACE et OCEAN_FLOOR comptent les feuilles. Sous une
+                // canopee continue, chaque point tombait sur la cime des arbres, 15 a 20 blocs
+                // au-dessus de lui : refuse (denivele) ou vise sans chemin, il restait plante.
+                int surface = sousLeSol(niveau, x, z);
                 boolean eau = niveau.getFluidState(new BlockPos(x, surface - 1, z)).is(FluidTags.WATER);
                 boolean lave = niveau.getFluidState(new BlockPos(x, surface - 1, z)).is(FluidTags.LAVA);
+                int fond = surface;
+                if (eau) {
+                    fond = surface - 1;
+                    for (int k = 0; k < 96 && niveau.getFluidState(new BlockPos(x, fond - 1, z)).is(FluidTags.WATER); k++) {
+                        fond--;
+                    }
+                }
                 double profondeur = eau ? surface - fond : 0;
                 curseur.set(x, eau ? fond : surface, z);
                 BlockPathTypes type = WalkNodeEvaluator.getBlockPathTypeStatic(niveau, curseur);
@@ -232,6 +275,23 @@ final class Instantane {
             }
         }
         return out;
+    }
+
+    /**
+     * Premier y libre au-dessus du sol (ou de l'eau) en (x, z), feuillages ignores : la carte
+     * MOTION_BLOCKING_NO_LEAVES, puis on redescend le long d'un tronc s'il en coiffe un.
+     */
+    static int sousLeSol(Level niveau, int x, int z) {
+        int y = niveau.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos(x, y - 1, z);
+        for (int k = 0; k < 48 && niveau.getBlockState(p).is(BlockTags.LOGS); k++) {
+            p.move(0, -1, 0);
+        }
+        return p.getY() + 1;
+    }
+
+    List<PointTerrain> voisinage() {
+        return voisinage;
     }
 
     private Vec plusProcheEauProfonde() {

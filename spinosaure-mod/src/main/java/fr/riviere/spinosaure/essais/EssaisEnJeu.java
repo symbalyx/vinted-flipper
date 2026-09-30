@@ -94,10 +94,12 @@ public final class EssaisEnJeu {
     }
 
     /**
-     * Le joueur le fixe du regard a 20 blocs, en le suivant des yeux. Attendu : il ne s'approche
-     * pas pour frapper ; il disparait (fuite ou plongee) ou se fige.
+     * Le joueur le fixe du regard a 22 blocs, sans jamais detourner les yeux. Attendu : il se
+     * fige (et s'efface au debut de la traque), puis, la traque mure, il soutient le regard et
+     * AVANCE sur lui, et frappe. (Avant, il se figeait ou s'effacait indefiniment : en jeu, on
+     * le regarde toujours, et il semblait ne rien faire.)
      */
-    @GameTest(template = "arene", timeoutTicks = 1400, batch = "c_regard")
+    @GameTest(template = "arene", timeoutTicks = 1800, batch = "c_regard")
     public static void regard(GameTestHelper h) {
         Scene s = new Scene(h, "regard");
         ServerPlayer j = s.joueur("guetteur", 32, 12, 0F);
@@ -105,19 +107,111 @@ public final class EssaisEnJeu {
         h.onEachTick(() -> {
             regarder(j, spino);
             s.journal(spino, j);
-            if (spino.attaqueActive() != null) {
-                s.resume(spino, j, "a attaque alors qu'on le fixait");
+            if (spino.attaqueActive() != null || j.getHealth() < j.getMaxHealth()) {
+                boolean parLeRegard = s.vu(Tactique.FIGE) && s.vu(Tactique.INTIMIDATION);
+                s.resume(spino, j, "FRAPPE a %.0f s (fige puis avance : %s)".formatted(h.getTick() / 20.0, parLeRegard));
                 s.fin();
-                h.fail("attaque sous le regard");
-            }
-            if (h.getTick() >= 1300) {
-                boolean esquive = s.vu(Tactique.DISPARITION) || s.vu(Tactique.FIGE) || s.distanceMax > s.distanceDepart + 6;
-                s.resume(spino, j, esquive ? "il esquive le regard" : "il n'a pas reagi au regard");
-                s.fin();
-                if (!esquive) {
-                    h.fail("aucune reaction au regard");
+                if (!parLeRegard) {
+                    h.fail("a frappe sans s'etre fige puis avance sous le regard");
                 }
                 h.succeed();
+            } else if (h.getTick() >= 1700) {
+                s.resume(spino, j, "aucune frappe en 85 s sous le regard");
+                s.fin();
+                h.fail("il se fige ou s'efface indefiniment sous le regard");
+            }
+        });
+    }
+
+    /**
+     * Sous une canopee continue (feuilles a 7 blocs du sol, comme la jungle de Site B) : il doit
+     * lire le sol sous les feuilles et se deplacer. Avant, WORLD_SURFACE placait chaque point
+     * de terrain sur la cime : aucun point praticable.
+     */
+    @GameTest(template = "arene", timeoutTicks = 700, batch = "f_canopee")
+    public static void canopee(GameTestHelper h) {
+        Scene s = new Scene(h, "canopee");
+        BlockPos a = h.absolutePos(new BlockPos(0, SOL + 7, 0)), b = h.absolutePos(new BlockPos(63, SOL + 7, 63));
+        s.commande("fill %d %d %d %d %d %d minecraft:jungle_leaves[persistent=true]".formatted(
+                Math.min(a.getX(), b.getX()), a.getY(), Math.min(a.getZ(), b.getZ()),
+                Math.max(a.getX(), b.getX()), b.getY(), Math.max(a.getZ(), b.getZ())));
+        SpinosaureEntity spino = s.spino(32, 32);
+        Vec3 depart = spino.position();
+        long[] praticables = {-1};
+        h.onEachTick(() -> {
+            s.journal(spino, null);
+            if (h.getTick() == 100) {
+                praticables[0] = spino.pointsPraticables();
+            }
+            if (h.getTick() >= 640) {
+                double bouge = spino.position().distanceTo(depart);
+                s.resume(spino, null, "points praticables %d, deplacement %.1f blocs".formatted(praticables[0], bouge));
+                s.fin();
+                if (praticables[0] < 20) {
+                    h.fail("terrain lu sur la canopee : %d points praticables".formatted(praticables[0]));
+                }
+                if (bouge < 4) {
+                    h.fail("immobile sous la canopee : %.1f blocs".formatted(bouge));
+                }
+                h.succeed();
+            }
+        });
+    }
+
+    /**
+     * Un vindicateur l'attaque. Attendu : il riposte (sans jeu d'horreur), le tue, rugit et le
+     * mange. (Avant, seuls les coups des joueurs comptaient : les creatures l'attaquaient sans
+     * reponse.)
+     */
+    @GameTest(template = "arene", timeoutTicks = 1400, batch = "g_creature")
+    public static void creature(GameTestHelper h) {
+        Scene s = new Scene(h, "creature");
+        SpinosaureEntity spino = s.spino(32, 40);
+        net.minecraft.world.entity.monster.Vindicator v = h.spawn(net.minecraft.world.entity.EntityType.VINDICATOR,
+                new BlockPos(32, SOL, 30));
+        v.setPersistenceRequired();
+        v.setTarget(spino);
+        boolean[] vise = {false};
+        h.onEachTick(() -> {
+            s.journal(spino, null);
+            if (v.getUUID().equals(spino.cibleActuelle())) {
+                vise[0] = true;
+            }
+            if (!v.isAlive() && s.vu(Tactique.REPAS)) {
+                s.resume(spino, null, "vindicateur tue a %.0f s, puis repas".formatted(h.getTick() / 20.0));
+                s.fin();
+                h.succeed();
+            } else if (h.getTick() >= 1300) {
+                s.resume(spino, null, "vise %s, vindicateur %s".formatted(vise[0], v.isAlive() ? "vivant" : "mort"));
+                s.fin();
+                h.fail(vise[0] ? "il a vise le vindicateur sans le tuer ni le manger en 65 s"
+                        : "il a ignore le vindicateur qui l'attaquait");
+            }
+        });
+    }
+
+    /**
+     * Un autre mod lui designe une cible (setTarget, comme les mods de combats de creatures).
+     * Attendu : il la chasse et la tue.
+     */
+    @GameTest(template = "arene", timeoutTicks = 1400, batch = "h_designee")
+    public static void designee(GameTestHelper h) {
+        Scene s = new Scene(h, "designee");
+        SpinosaureEntity spino = s.spino(32, 44);
+        net.minecraft.world.entity.animal.Cow vache = h.spawn(net.minecraft.world.entity.EntityType.COW,
+                new BlockPos(32, SOL, 22));
+        vache.setPersistenceRequired();
+        spino.setTarget(vache);
+        h.onEachTick(() -> {
+            s.journal(spino, null);
+            if (!vache.isAlive()) {
+                s.resume(spino, null, "cible designee tuee a %.0f s".formatted(h.getTick() / 20.0));
+                s.fin();
+                h.succeed();
+            } else if (h.getTick() >= 1300) {
+                s.resume(spino, null, "la vache est vivante");
+                s.fin();
+                h.fail("il ignore la cible qu'on lui designe");
             }
         });
     }
@@ -227,6 +321,12 @@ public final class EssaisEnJeu {
             if (!jungle) {
                 h.fail("l'arene n'est pas en jungle");
             }
+        }
+
+        void commande(String c) {
+            MinecraftServer serveur = h.getLevel().getServer();
+            CommandSourceStack src = serveur.createCommandSourceStack().withSuppressedOutput().withLevel(h.getLevel());
+            serveur.getCommands().performPrefixedCommand(src, c);
         }
 
         SpinosaureEntity spino(int x, int z) {

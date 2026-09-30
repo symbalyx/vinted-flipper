@@ -20,7 +20,10 @@ public record Decision(Tactique tactique, UUID cible, Vec destination, Allure al
         MAINTIEN, REPLI, REGENERATION, ESQUIVE_TIR, ACCULE,
         /** horreur : observe de loin */ OBSERVATION,
         /** horreur : file sa proie par derriere */ FILATURE,
-        /** horreur : s'efface (vu, blesse de loin, ou apres une frappe) */ DISPARITION
+        /** horreur : s'efface (vu, blesse de loin, ou apres une frappe) */ DISPARITION,
+        /** mange ce qu'il vient de tuer */ REPAS,
+        /** couche, au repos (le jour, apres une longue errance) */ REPOS,
+        /** endormi (la nuit) : il n'entend qu'a courte portee et ne voit rien */ SOMMEIL
     }
 
     /**
@@ -31,7 +34,9 @@ public record Decision(Tactique tactique, UUID cible, Vec destination, Allure al
      * mettait 50 s a faire 10 blocs et le deblocage le croyait coince.)
      */
     public enum Allure {
-        ARRET(0.0), FEUTREE(0.47), MARCHE(0.65), COURSE(1.0), CHARGE(1.25), NAGE(0.8), NAGE_RAPIDE(1.2);
+        ARRET(0.0), FEUTREE(0.47), MARCHE(0.65), COURSE(1.0), CHARGE(1.25), NAGE(0.8), NAGE_RAPIDE(1.2),
+        /** avance menacante : ~0.5 bloc/s, les derniers metres avant de frapper un joueur qui le fixe */
+        MENACE(0.3);
 
         public final double vitesse;
 

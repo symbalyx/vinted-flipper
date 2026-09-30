@@ -59,26 +59,28 @@ public final class Reglages {
     public double traqueContact = 10;
     /** Un joueur regarde le spinosaure si l'ecart d'angle est sous ce seuil. */
     public double angleRegard = 28;
-    /** Fige sous un regard plus longtemps que ca : il bondit. */
-    public long figeMax = 90;
+    /** Fige sous un regard plus longtemps que ca : il avance sur toi (des la phase 2), sinon il s'efface. */
+    public long figeMax = 60;
 
     // ------------------------------------------------------------ horreur
     // La tension monte avec le temps passe a traquer UNE proie (ticks cumules) :
     //   phase 1 (< phaseFilature) : il observe de loin, planque ;
     //   phase 2 (< phaseFrappe)   : il la file, derriere elle, en silence ;
     //   phase 3                   : il frappe a la premiere ouverture.
-    public double phaseFilature = 600;          // 30 s
-    public double phaseFrappe = 1800;           // 1 min 30
-    /** Face a un groupe, il n'ose frapper qu'apres une tres longue traque. */
-    public double tensionGroupe = 4800;         // 4 min
+    // (etaient 30 s et 1 min 30 : en jeu, on le regardait tout le temps, il se figeait ou
+    //  s'effacait et donnait l'impression de ne rien faire)
+    public double phaseFilature = 240;          // 12 s
+    public double phaseFrappe = 720;            // 36 s
+    /** Face a un groupe, il n'ose frapper qu'apres une longue traque. */
+    public double tensionGroupe = 2400;         // 2 min
     public double demiVieTension = 2400;
     /** Ouverture : proie a moins de cette distance, dos tourne, sans allie proche. */
     public double distanceFrappe = 14;
     public double isolementFrappe = 16;
     /** Blesse par un joueur plus proche que ca : il riposte ; plus loin : il se derobe. */
-    public double distanceRiposte = 8;
-    /** Vu de plus pres que ca : il disparait. Plus loin : il se fige et soutient le regard. */
-    public double distanceDisparition = 24;
+    public double distanceRiposte = 10;
+    /** Vu de plus pres que ca (phases 1 et 2) : il disparait. Plus loin : il se fige et soutient le regard. */
+    public double distanceDisparition = 12;
     public double distanceObservation = 28;
     public double distanceFilature = 16, distanceFilatureProche = 10;
     /** Rayon d'arrivee a un poste : le meme que celui de la locomotion (demi-largeur + 2), sinon
@@ -124,6 +126,22 @@ public final class Reglages {
     public double liberationParAllies = 20;
     public double liberationParVictime = 12;
     public double regenParSeconde = 2.0;
+
+    // ------------------------------------------------------------ vie : repas, repos, sommeil
+    /** Apres avoir tue une creature, il la mange (ticks), sauf s'il est derange. */
+    public long dureeRepas = 500;
+    /** Un joueur plus pres que ca, ou un coup recu, interrompt le repas. */
+    public double derangeRepas = 14;
+    /** La nuit, apres ce calme (ticks sans contact), il s'endort... */
+    public long calmeAvantSommeil = 600;
+    /** ...pour 2 a 4 min, puis reste eveille au moins 8 min. */
+    public long sommeilMin = 2400, sommeilMax = 4800, veilleApresSommeil = 9600;
+    /** Endormi, il n'entend qu'a cette fraction de ses portees d'ouie, et ne voit rien. */
+    public double ouieSommeil = 0.5;
+    /** Le jour, apres ce calme, il se couche un moment (20 a 45 s), au plus toutes les 5 min. */
+    public long calmeAvantRepos = 2400, reposMin = 400, reposMax = 900, entreRepos = 6000;
+    /** Pause a chaque point d'errance : il flaire, ecoute, boit (ticks). */
+    public long pauseMin = 50, pauseMax = 140;
 
     public static Reglages defaut() {
         return new Reglages();
