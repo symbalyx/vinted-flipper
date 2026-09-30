@@ -1,8 +1,9 @@
 # Spinosaure — mod d'horreur Forge 1.20.1 + GeckoLib
 
-Un spinosaure amphibie qui **traque** : il observe de loin, te file sans bruit, disparaît
-quand tu le regardes de trop près, et ne frappe qu'à l'ouverture, avant de s'effacer. Ce
-n'est pas un boss : il n'a pas de barre de vie et ne cherche pas le combat loyal.
+Un spinosaure amphibie qui **traque** : il observe de loin, te file sans bruit, se fige sous
+ton regard puis avance sur toi, et frappe à l'ouverture avant de s'effacer. Il se bat contre
+les créatures qui l'attaquent, mange ses proies, dort la nuit. Ce n'est pas un boss : il n'a
+pas de barre de vie et ne cherche pas le combat loyal.
 
 ## Ce qu'il fait
 
@@ -10,17 +11,21 @@ La tension monte avec le temps qu'il passe à te traquer :
 
 | Phase | Durée de traque | Comportement |
 |---|---|---|
-| 1. Observation | 0 à 30 s | Il se poste à environ 28 blocs, de préférence dans l'eau, immobile, en respirant lourdement. Parfois sa tête se penche (`tete_inclinee_fixe`). |
-| 2. Filature | 30 s à 1 min 30 | Il te suit **dans ton dos**, hors de ton champ de vision, à 16 blocs, à pas feutrés, sans bruit de pas. |
-| 3. L'ouverture | au-delà | Il se rapproche à 10 blocs et attend que tu sois **isolé, dos tourné, à moins de 14 blocs**. Alors il jaillit : c'est son seul rugissement. |
+| 1. Observation | 0 à 12 s | Il se poste à environ 28 blocs, de préférence dans l'eau, immobile, en respirant lourdement. Parfois sa tête se penche, ou son cou tressaille. |
+| 2. Filature | 12 à 36 s | Il te suit **dans ton dos**, hors de ton champ de vision, à 16 blocs, à pas feutrés (`marche_observation`), sans bruit de pas. |
+| 3. L'ouverture | au-delà | Il se rapproche à 8 blocs et attend que tu sois **isolé, dos tourné, à moins de 18 blocs**. Alors il jaillit en hurlant (`hurle_en_courant`), puis se rue griffes en avant. |
+
+(Les phases duraient 30 s et 1 min 30, et il s'effaçait dès qu'on le regardait à moins de
+24 blocs : en jeu on le regarde tout le temps, il semblait ne rien faire. Les essais en jeu
+« dos tourné » et « groupe » échouaient d'ailleurs, sans que la CI ne le signale.)
 
 | Situation | Réaction |
 |---|---|
-| Tu le regardes de près (moins de 24 blocs) | Il **disparaît** : il plonge dans l'eau la plus proche, ou s'enfuit hors de vue. |
-| Tu le regardes de loin | Il se **fige** et soutient ton regard, puis s'efface au bout de 4,5 s. |
+| Tu le regardes de près (moins de 12 blocs) | Au début de la traque, il **disparaît** (plonge ou s'enfuit hors de vue). La traque mûre (phase 3), il **frappe**. |
+| Tu le regardes de loin | Il se **fige** et soutient ton regard 3 s. Au début de la traque il s'efface ; ensuite il **avance sur toi** (`avance_menacante`, lentement les 20 derniers blocs) et frappe. Un tronc qui coupe la vue une seconde ne l'arrête pas. |
 | Frappe éclair | Au plus 2 attaques ou 6 s, puis il s'efface avant qu'on riposte. La traque reprend plus tard. |
 | Tu le blesses de loin | Il se dérobe, et reviendra plus décidé. |
-| Tu le blesses au contact | Il riposte, frappe éclair comprise. |
+| Tu le blesses au contact (moins de 10 blocs) | Il riposte, **toujours**, même s'il était en train de s'effacer ou de se retirer. |
 | Groupe de joueurs | Il reste à distance et observe. Il frappe celui qui s'isole : la tension monte sur tous ceux qu'il surveille, donc celui qui s'écarte est déjà « mûr ». Au bout de 4 min de traque, il ose même dans un groupe. |
 | Proie affaiblie (moins de 35 % de vie) et isolée | Il frappe plus tôt, dès la phase 2. |
 | Joueur dans l'eau | C'est son domaine. Il approche par en dessous, le **saisit** et l'entraîne au fond. Ses alliés le libèrent en lui infligeant 20 dégâts, la victime en lui en infligeant 12. |
@@ -28,7 +33,13 @@ La tension monte avec le temps qu'il passe à te traquer :
 | Blessé à moins de 30 % en infériorité | Il se replie dans l'eau profonde et s'y soigne, puis revient en embuscade sur celui qui lui en veut le plus. |
 | Acculé, sans eau, presque mort | Il se bat jusqu'au bout. |
 | Plus personne en vue | Il va à la dernière position connue et renifle la piste. La rancune prolonge sa mémoire. |
-| Joueur en créatif | Il l'observe et le suit, mais ne l'attaque jamais. **Le combat se teste en survie.** |
+| Joueur en créatif | Il l'observe et le suit, mais ne l'attaque jamais, et tes coups ne comptent pas. **Le combat se teste en survie.** |
+| Une créature l'attaque ou le vise | Loup, golem, monstre, créature d'un autre mod : il se bat, sans jeu d'horreur, jusqu'au bout. Il la garde en mémoire une minute. |
+| Un autre mod lui désigne une cible | (commande, mod de combats de créatures : `setTarget`) il la chasse et la tue. |
+| Il vient de tuer | Il mange la proie (`mange_carcasse`), et relève la tête vers toi si tu es là (`..._regard_droite/gauche`). Trop près (14 blocs), ou un coup : il la laisse. Une grosse proie (20 PV et plus) : rugissement de victoire. |
+| La nuit, au calme | Il s'endort 2 à 4 min (`endormissement`, `dort`). Endormi, il ne voit rien et n'entend qu'à moitié : on peut passer, accroupi ou au pas. Un sprint le réveille (`reveil`). |
+| Le jour, après 2 min de calme | Il se couche un moment (`se_couche_ror`, `assis_ror`), puis se relève. |
+| À chaque point d'errance | Il s'arrête quelques secondes : boit au bord de l'eau, pêche dans l'eau, lève le nez, rugit (rarement), appelle un congénère s'il y en a un. |
 
 | Hors de la jungle | Il n'y va pas. Si tu sors en plaine, il te regarde depuis la lisière et ne te suit pas. L'eau reste son domaine partout. Il n'apparaît qu'en jungle. |
 | Joueur armé (TaCZ) | Il te file et t'observe de plus loin, de préférence à couvert : derrière un tronc, hors de ta ligne de vue, calculé par lancer de rayon. Un canon braqué sur lui à moins de 40 blocs : il disparaît. Jamais de charge de face contre un fusil braqué. |
@@ -64,7 +75,7 @@ comment un animal de 13 blocs y va :
 | Endurance | 12 s de course ou 5 s de charge l'essoufflent : il marche le temps de récupérer. Un joueur qui court longtemps peut le semer. |
 | Charge engagée | Elle part vers le point où le joueur sera (interception), prolongé de 6 blocs, sans correction ensuite. Elle ne touche que sur l'axe du corps, jusqu'au museau, et renverse ce qui se trouve sur la ligne. Un pas de côté l'évite. Lancé, il dépasse de plus de 9 blocs avant de revenir : c'est la fenêtre de contre-attaque. |
 | Interception | Il vise où le joueur sera, pas où il est : un fuyard en ligne droite se fait couper la route. |
-| Terrain | 48 points lus dans les cartes de hauteur toutes les 2 s : eau et profondeur, dénivelé, et danger selon le classement de pathfinding de Minecraft (lave, feu, cactus, neige poudreuse). |
+| Terrain | 48 points lus toutes les 2 s, **en descendant depuis 10 blocs au-dessus de lui, feuilles et troncs ignorés** : eau et profondeur, dénivelé, et danger selon le classement de pathfinding de Minecraft (lave, feu, cactus, neige poudreuse). Les cartes de hauteur tombaient sur la canopée de la jungle (et sur le plafond de barrières des essais en jeu) : aucun point n'était praticable. |
 | Errance | Il patrouille les berges de son territoire, sauvegardé dans la partie. Il évite falaises et lave, et ne repasse pas par ses derniers points. |
 | Repli | Il choisit l'eau profonde qui l'éloigne des joueurs, jamais une eau qu'il faudrait atteindre en leur passant au travers. |
 | Déblocage | Mesuré en distance gagnée vers le but, pas en distance parcourue. Dans l'ordre : sauter (et arracher les feuilles), reculer, contourner par un côté puis par l'autre la fois suivante, abandonner. S'il abandonne, le cerveau raye la destination pour une minute, ou déclare la cible inatteignable. |
@@ -124,8 +135,14 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
 
 ## Ce qui est vérifié, ce qui ne l'est pas
 
-- **Le cerveau et le pilote** (`cerveau/`, sans aucune dépendance à Minecraft) : 36 tests
-  JUnit, tous verts (`./gradlew test`). Les tests du pilote simulent le modèle cinématique de
+- **Le cerveau et le pilote** (`cerveau/`, sans aucune dépendance à Minecraft) : 67 tests
+  JUnit, tous verts (`./gradlew test`). `AnimationsTest` vérifie que chacune des 87 animations
+  est jouée (80) ou écartée avec sa raison (7, dans `Animations.ECARTEES`), et que tout nom
+  demandé est bien enregistré : `tete_inclinee_fixe` était demandée mais jamais enregistrée,
+  GeckoLib l'ignorait sans rien dire.
+- **Essais en jeu** (GameTest, serveur sans écran) : seul, sous une canopée, dos tourné,
+  regard soutenu, dans l'eau, groupe, créature qui l'attaque, cible désignée. Ils sont
+  désormais bloquants en CI (ils étaient en « continue-on-error » et deux échouaient). Les tests du pilote simulent le modèle cinématique de
   Minecraft : pivot, accélération, anti-orbite, freinage avant virage, dépassement après une
   charge ratée, essoufflement, stabilité du cap sur un chemin en escalier. S'y ajoutent
   l'échelle de déblocage, l'interception, le choix de l'eau de repli, l'errance sur les
@@ -146,8 +163,9 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
 
 ## Limites connues
 
-- Il ne réagit qu'aux **joueurs**. Un loup apprivoisé ou un golem qui l'attaque ne devient
-  pas une cible.
+- Animations écartées : l'enfouissement (le modèle descend de 10 blocs sous ses pieds, il
+  faudrait creuser le terrain), la capture et le transport sous l'eau (le joueur tenu
+  flotterait hors de la gueule), la dérive à la verticale, la pose de référence.
 - Le pathfinding vanilla gère mal les mobs larges. La boîte de collision fait 3,4 × 5 blocs
   (la largeur du corps) alors que le modèle mesure 13,4 blocs de long : la queue et le museau
   traversent les murs. Il peut aussi peiner en forêt dense (il arrache les feuilles qui le

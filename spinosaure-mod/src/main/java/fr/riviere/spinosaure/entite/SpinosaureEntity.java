@@ -450,8 +450,13 @@ public class SpinosaureEntity extends PathfinderMob implements GeoEntity, Enemy 
         }
     }
 
-    /** Hauteur des pieds sous la surface quand il nage en surface (dos et voile hors de l'eau). */
-    static final double PROFONDEUR_NAGE = 2.6;
+    /**
+     * Hauteur des pieds sous la surface quand il nage en surface (dos et voile hors de l'eau).
+     * Doit rester sous 2,5 (hauteur de tete testee par estSubmerge) : a 2,6 il se croyait
+     * submerge en surface, ne se hissait plus sur la berge (le hissage exige la tete hors de
+     * l'eau) et restait coince dans un bassin (essai en jeu « regard »).
+     */
+    static final double PROFONDEUR_NAGE = 2.2;
     /** Posee par le controle de deplacement : il vise un point plus bas, on ne le fait pas remonter. */
     boolean plongeeVoulue;
 

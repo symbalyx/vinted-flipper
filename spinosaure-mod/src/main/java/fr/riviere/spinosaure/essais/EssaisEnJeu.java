@@ -252,7 +252,10 @@ public final class EssaisEnJeu {
         h.onEachTick(() -> {
             long t = h.getTick();
             if (t == 400) {
-                Vec3 p = h.absoluteVec(new Vec3(14.5, SOL, 34.5));  // il s'ecarte : 27 blocs du groupe, a portee du spinosaure
+                // il s'ecarte : 22 blocs du groupe, a portee du spinosaure. (En 14.5, 34.5, il etait
+                // pile derriere le tronc de l'arene vu du spinosaure : invisible, l'issue de l'essai
+                // dependait du hasard de sa position.)
+                Vec3 p = h.absoluteVec(new Vec3(12.5, SOL, 26.5));
                 isole.moveTo(p.x, p.y, p.z, 180F, 0F);
                 isole.setYHeadRot(180F);
                 isole.yHeadRotO = 180F;
