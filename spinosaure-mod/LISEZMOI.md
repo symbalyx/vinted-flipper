@@ -135,14 +135,17 @@ Sa tactique et la raison de sa décision s'affichent au-dessus de sa tête, par 
 
 ## Ce qui est vérifié, ce qui ne l'est pas
 
-- **Le cerveau et le pilote** (`cerveau/`, sans aucune dépendance à Minecraft) : 67 tests
+- **Le cerveau et le pilote** (`cerveau/`, sans aucune dépendance à Minecraft) : 68 tests
   JUnit, tous verts (`./gradlew test`). `AnimationsTest` vérifie que chacune des 87 animations
   est jouée (80) ou écartée avec sa raison (7, dans `Animations.ECARTEES`), et que tout nom
   demandé est bien enregistré : `tete_inclinee_fixe` était demandée mais jamais enregistrée,
   GeckoLib l'ignorait sans rien dire.
 - **Essais en jeu** (GameTest, serveur sans écran) : seul, sous une canopée, dos tourné,
   regard soutenu, dans l'eau, groupe, créature qui l'attaque, cible désignée. Ils sont
-  désormais bloquants en CI (ils étaient en « continue-on-error » et deux échouaient). Les tests du pilote simulent le modèle cinématique de
+  désormais bloquants en CI (ils étaient en « continue-on-error » et deux échouaient). Ils ont
+  révélé trois bugs que les tests unitaires ne voyaient pas : coincé dans un bassin après la
+  correction de la flottaison (hissage sur la berge), boucle sauter / reculer du déblocage
+  (bug ancien), repas annulé par les coups du combat qu'il venait de gagner. Les tests du pilote simulent le modèle cinématique de
   Minecraft : pivot, accélération, anti-orbite, freinage avant virage, dépassement après une
   charge ratée, essoufflement, stabilité du cap sur un chemin en escalier. S'y ajoutent
   l'échelle de déblocage, l'interception, le choix de l'eau de repli, l'errance sur les
