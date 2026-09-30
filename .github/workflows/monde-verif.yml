@@ -56,37 +56,58 @@ jobs:
           PY
 
   recherche:
-    # Details pour pre-poser des tyroliennes : portee maximale d'une chaine (defaut, bornes),
-    # ce qui arrive au-dela, fichier de reglages ; versions de Forge disponibles.
+    # Version de Forge exigee par chaque mod de la carte (mods.toml), dont le ParCool du joueur (3.4.3.3)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Details
+      - name: Exigences Forge des mods
         run: |
-          curl -sSL -o rc.jar https://cdn.modrinth.com/data/5pzBXDS3/versions/nwJ6Xxt3/connectiblechains-forge-1.20.1-2.2.5.jar
-          mkdir x && (cd x && unzip -qo ../rc.jar)
-          P=com/evandev/connectiblechains
-          echo "=== ModConfig (constructeur et annotations)"
-          javap -c -v -p -cp x $P/config/ModConfig | grep -vE '^\s+(line|[0-9]+: (aload|return|dup))' | sed -n '/RuntimeVisible\|maxChainRange\|ModConfig();/,+6p' | head -150
-          javap -c -p -cp x $P/config/ModConfig | sed -n '/public com.evandev.connectiblechains.config.ModConfig();/,/^$/p'
-          echo "=== CommonClass.init"
-          javap -c -p -cp x $P/CommonClass | sed -n '/public static void init/,/^$/p' | head -60
-          echo "=== Chainable.getMaxChainLength"
-          javap -c -p -cp x $P/entity/Chainable | sed -n '/getMaxChainLength/,/^$/p' | head -30
-          echo "=== Chainable.tickChain"
-          javap -c -p -cp x $P/entity/Chainable | sed -n '/void tickChain/,/^$/p' | head -260
-          echo "=== ChainKnotEntity survives / setPos"
-          javap -c -p -cp x $P/entity/ChainKnotEntity | sed -n '/public boolean m_7088_/,/^$/p' | head -40
-          echo "=== fichiers de config dans le jar"
-          find x -iname '*.json*' -o -iname '*.toml' | grep -v lang | head
-          echo "=== versions Forge 1.20.1"
-          curl -sS https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml | grep -oE '1\.20\.1-47\.[0-9]+\.[0-9]+' | sort -t. -k4,4n -k5,5n | uniq | tail -8
-          echo "=== cloth-config forge 1.20.1"
-          q='loaders=%5B%22forge%22%5D&game_versions=%5B%221.20.1%22%5D'
-          curl -sS "https://api.modrinth.com/v2/project/cloth-config/version?$q" | python3 -c "import json,sys; v=json.load(sys.stdin)[0]; print('MOD cloth-config', v['version_number'], v['files'][0]['url'])"
+          get() { curl -sSL -o "$1" "$2"; }
+          get bop.jar https://cdn.modrinth.com/data/HXF82T3G/versions/jxUqRzSD/BiomesOPlenty-forge-1.20.1-19.0.0.96.jar
+          get tb.jar https://cdn.modrinth.com/data/kkmrDlKT/versions/zGconCHG/TerraBlender-forge-1.20.1-3.0.1.10.jar
+          get gc.jar https://cdn.modrinth.com/data/s3dmwKy5/versions/pYPZ5MNI/GlitchCore-forge-1.20.1-0.0.1.1.jar
+          get geo.jar https://cdn.modrinth.com/data/8BmcQJ2H/versions/aC5KMoNg/geckolib-forge-1.20.1-4.8.4.jar
+          get zip.jar https://cdn.modrinth.com/data/C1MoWQlb/versions/AZLF926r/zipline-forge-1.20.1-1.3.0.jar
+          get cc.jar https://cdn.modrinth.com/data/5pzBXDS3/versions/nwJ6Xxt3/connectiblechains-forge-1.20.1-2.2.5.jar
+          get cloth.jar https://cdn.modrinth.com/data/9s6osm5g/versions/t8TXrZvZ/cloth-config-11.1.136-forge.jar
+          get pc4.jar https://cdn.modrinth.com/data/Fsvx2bdR/versions/eDWn3zad/ParCool-1.20.1-4.0.0.5.jar
+          # ParCool 3.4.3.3 (celui du joueur) : on le cherche dans les versions Modrinth
+          curl -sS "https://api.modrinth.com/v2/project/parcool/version" | python3 -c "
+          import json,sys
+          for v in json.load(sys.stdin):
+              if v['version_number'] in ('1.20.1-3.4.3.3','3.4.3.3') or '3.4.3.3' in v['version_number']:
+                  print(v['files'][0]['url']); break
+          " > pc3.url
+          [ -s pc3.url ] && get pc3.jar "$(cat pc3.url)"
+          # BOP 18.0.0.592 (celui du joueur) : liste de ses blocs, pour comparer
+          curl -sS "https://api.modrinth.com/v2/project/biomes-o-plenty/version" | python3 -c "
+          import json,sys
+          for v in json.load(sys.stdin):
+              if '18.0.0.592' in v['version_number']:
+                  print(v['files'][0]['url']); break
+          " > bop18.url
+          [ -s bop18.url ] && get bop18.jar "$(cat bop18.url)"
+          for j in bop tb gc geo zip cc cloth pc4 pc3 bop18; do
+            [ -f $j.jar ] || { echo "EXIGE $j : jar introuvable"; continue; }
+            unzip -p $j.jar META-INF/mods.toml | python3 -c "
+          import sys, re
+          t = sys.stdin.read()
+          ids = re.findall(r'modId\s*=\s*\"([^\"]+)\"', t)
+          blocs = re.split(r'\[\[dependencies\.', t)
+          out = []
+          for b in blocs[1:]:
+              mid = re.search(r'modId\s*=\s*\"([^\"]+)\"', b)
+              man = re.search(r'mandatory\s*=\s*(\w+)', b) or re.search(r'type\s*=\s*\"(\w+)\"', b)
+              vr = re.search(r'versionRange\s*=\s*\"([^\"]+)\"', b)
+              out.append('%s %s %s' % (mid.group(1) if mid else '?', vr.group(1) if vr else '?', man.group(1) if man else '?'))
+          print('EXIGE', '$j', ids[:1], ' | '.join(out))
+          "
+          done
+          echo "=== blocs utilises par la carte absents de BOP 18.0.0.592"
+          if [ -f bop18.jar ]; then
+            for b in white_sand white_sandstone black_sand black_sandstone palm_log palm_leaves mahogany_log mahogany_leaves mahogany_wood willow_log willow_leaves willow_vine willow_wood spanish_moss spanish_moss_plant bush sprout clover wildflower high_grass high_grass_plant pink_hibiscus orange_cosmos violet glowflower sea_oats dune_grass cattail reed huge_lily_pad waterlily glowshroom toadstool glowing_moss_carpet hanging_cobweb spider_egg; do
+              unzip -l bop18.jar "assets/biomesoplenty/blockstates/$b.json" > /dev/null 2>&1 || echo "ABSENT_BOP18 $b"
+            done
+          fi
 
   serveur:
     # La carte chargee par un vrai serveur Forge 1.20.1 avec les mods que chaque joueur installe :
