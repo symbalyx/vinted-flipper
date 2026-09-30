@@ -64,6 +64,11 @@ class Reseau:
             self._s3_ = u
         return self._s3_
 
+    def _pourquoi(self, raison, h):
+        import os
+        if os.environ.get('TYRO_DEBUG'):
+            print('   refus h=%d : %s' % (h, raison))
+
     def _deficits(self, pts, hauteurs):
         """Pour chaque troncon : le plus grand manque de hauteur (obstacle + 1 - bas du joueur),
         fleche comprise. Les 2 premiers et les 4 derniers blocs de la ligne ne comptent pas : on y
@@ -104,10 +109,11 @@ class Reseau:
         D = math.dist(a, b)
         n = max(1, math.ceil(D / (PORTEE - 2)))
         pts = [(int(round(a[0] + (b[0] - a[0]) * i / n)), int(round(a[1] + (b[1] - a[1]) * i / n))) for i in range(n + 1)]
-        arrivee = yb + 3                                         # barriere d'ancrage du portique d'arrivee
+        arrivee = yb + 5                     # quai d'arrivee sureleve de 2 : ancrage 3 au-dessus du plancher
         for h in range(haut_min, haut_max + 1, 2):
             depart = ya + h + 3                                  # plancher a ya + h, ancrage 3 au-dessus
             if depart - arrivee < max(6, D * 0.06):               # il faut descendre (au moins ~6 %)
+                self._pourquoi('pente', h)
                 continue
             if depart >= self.m.H - 4:
                 break
@@ -128,14 +134,17 @@ class Reseau:
                     hauteurs[i] = min(hauteurs[i], hauteurs[i - 1])
             if any(math.dist((p[0], y0, p[1]), (q[0], y1, q[1])) > PORTEE
                    for p, q, y0, y1 in zip(pts, pts[1:], hauteurs, hauteurs[1:])):
+                self._pourquoi('portee', h)
                 continue
             # pylones : pas plus de 45 blocs au-dessus du sol
             # (au-dessus de l'eau, compte depuis la surface : le poteau plonge jusqu'au fond)
             if any(hy - max(self.haut_solide(*p), int(self.r.eau[p[1], p[0]])) > 45 for p, hy in zip(pts[1:-1], hauteurs[1:-1])):
+                self._pourquoi('pylone>45', h)
                 continue
             marge = self._profil(pts, hauteurs)
             self.derniere_marge = max(getattr(self, 'derniere_marge', -99.0), marge)
             if marge < 0.8:
+                self._pourquoi('marge %.1f' % marge, h)
                 continue
             return self._construire(pts, [int(round(y)) for y in hauteurs], ya, ya + h, yb, nom)
         return None
@@ -167,7 +176,7 @@ class Reseau:
             self.li.ajoute('', cx, cz, 3)
         # arrivee : plancher au sol, portique (2 poteaux, traverse, barriere pendue au milieu)
         bx, bz = pts[-1]
-        self._portique(bx, bz, yb + 1, d, arrivee=True)
+        self._portique(bx, bz, yb + 3, d, arrivee=True)
         ancres.append((bx, hauteurs[-1], bz))
         # couloir sans arbres et echantillons du cable
         for (p, hp), (q, hq) in zip(zip(pts, hauteurs), zip(pts[1:], hauteurs[1:])):
@@ -246,6 +255,17 @@ class Reseau:
                     for y in range(int(self.r.h[z + dz, x + dx]), y_pied - 1):
                         m.pose(x + dx, y, z + dz, BOIS % 'y' if (dx in (-2, 2) and dz in (-2, 2)) else AIR)
                     m.pose(x + dx, y_pied - 1, z + dz, PLANCHE)
+            # marches pour descendre du quai, dans le sens de la marche (on sort vers l'avant)
+            fx, fz = (int(np.sign(d[0])), 0) if abs(d[0]) >= abs(d[1]) else (0, int(np.sign(d[1])))
+            face = {(1, 0): 'west', (-1, 0): 'east', (0, 1): 'north', (0, -1): 'south'}[(fx, fz)]
+            for k in range(1, 5):
+                sx, sz = x + fx * (2 + k), z + fz * (2 + k)
+                ys = y_pied - 1 - k
+                if ys < int(self.r.h[sz, sx]):
+                    break
+                for l in (-1, 0, 1):
+                    m.pose(sx + fz * l, ys, sz + fx * l,
+                           'minecraft:spruce_stairs[facing=%s,half=bottom,shape=straight,waterlogged=false]' % face)
 
     # ------------------------------------------------------------------ apres la foret
     def degager(self):

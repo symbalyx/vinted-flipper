@@ -1,7 +1,7 @@
 """Export de l'ile en vrai monde Minecraft Java 1.20.1 (dossier de sauvegarde), a copier dans
 .minecraft/saves (ou comme dossier `world` d'un serveur Forge) : plus besoin de WorldEdit.
 
-- L'ile est centree sur l'origine : x et z de -384 a +383. Elle est posee comme le schematic
+- L'ile est centree sur l'origine : x et z de -320 a +319. Elle est posee comme le schematic
   colle a y = 15 (la mer a y = 63).
 - Sous l'ile, de y = -64 a y = 14, un sous-sol profond (tableau `profond`) : ardoise des abimes,
   cavernes, lave, minerais d'ardoise.
@@ -28,7 +28,7 @@ DATA_VERSION = 3465
 Y_MIN = -64
 N_SECTIONS = 24
 DECALAGE_Y = 15                     # y du schematic 0 -> y 15 du monde
-ORIGINE = -384                      # x (et z) du schematic 0 -> -384 dans le monde
+ORIGINE = -320                      # x (et z) du schematic 0 -> -320 dans le monde (ile de 640)
 
 
 def analyser(etat):

@@ -159,7 +159,7 @@ jobs:
           attendre 'Done (' 300
           echo "say VERIF_DEBUT" >&3
           attendre 'VERIF_DEBUT' 30
-          # 48 x 48 chunks de l'ile (x et z de -384 a 383), par blocs de 16 x 16 chunks
+          # chunks de l'ile (x et z de -320 a 319, marge comprise), par blocs de 16 x 16 chunks
           for bx in -384 -128 128; do for bz in -384 -128 128; do
             echo "forceload add $bx $bz $((bx+255)) $((bz+255))" >&3
           done; done

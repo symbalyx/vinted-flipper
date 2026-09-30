@@ -1,9 +1,9 @@
 """Genere « Site B » v2, l'ile du spinosaure, en schematics Sponge v2 (.schem, WorldEdit).
 
-Ile de 768 x 768 blocs (160 de haut), en un fichier complet et en 4 tuiles de 384 x 384 a
+Ile de 640 x 640 blocs (160 de haut), en un fichier complet et en 4 tuiles de 320 x 320 a
 coller une par une. Idees reprises des jeux de dinosaures et d'horreur :
-  - Jurassic Park / Isla Sorna : campus de recherche avec centre d'accueil a charpente, squelette
-    dans l'atrium, facade eventree, enclos breche, galerie d'observation sous-marine, portail ;
+  - Jurassic Park / Isla Sorna : base militaire evacuee (enceinte brechee, miradors, QG, hangar,
+    heliport), reliee par des routes aux lieux isoles : piste, relais, village, poste de recherche ;
   - Resident Evil / Dino Crisis : sous-sol noye et groupe de secours, couloirs etroits ou l'on
     se croit a l'abri, recits sur les panneaux et dans les coffres ;
   - Alien Isolation : la creature a une route cachee jusque dans le batiment (bassin -> tunnel
@@ -26,7 +26,7 @@ import time
 import numpy as np
 
 from arbres import Foret, F_JUNGLE, F_ACAJOU
-from campus import Campus
+from base_militaire import BaseMilitaire
 from grottes import Grottes
 import details
 import flore
@@ -39,7 +39,7 @@ from lagon import Lagon
 from relief import Relief, catmull, distance_polyligne
 import rendu
 
-W = L = 768
+W = L = 640
 H = 160
 SEA = 48                     # coller a y = 15 : la mer du schematic tombe a y = 63, comme la mer vanilla
 GRAINE = 20260925
@@ -65,7 +65,7 @@ def remplir(m, r):
     sous_eau = eau > h
     plage = (r.c > -0.3) & (r.c < 0.55) & (h <= SEA + 2) & ~r.riviere & ~r.lac
     plage |= r.plages_riv & (h <= SEA + 1) & ~sous_eau          # plages des rivieres et du lac
-    volcan = np.hypot(r.xx - r.VOLCAN[0], r.zz - r.VOLCAN[1]) < 110
+    volcan = np.hypot(r.xx - r.VOLCAN[0], r.zz - r.VOLCAN[1]) < 110 * r.K
     haut = h > SEA + 58
     dessus = np.full(h.shape, P('minecraft:grass_block[snowy=false]'), np.uint16)
     sous = np.full(h.shape, P('minecraft:dirt'), np.uint16)
@@ -78,7 +78,7 @@ def remplir(m, r):
     dessus[berge] = np.where(n1[berge] > 0.45, P('minecraft:mud'), P('minecraft:grass_block[snowy=false]'))
     dessus[plage] = P('minecraft:sand'); sous[plage] = P('minecraft:sandstone')
     # plages du volcan : sable noir (BOP)
-    noire = plage & (np.hypot(r.xx - r.VOLCAN[0], r.zz - r.VOLCAN[1]) < 175)
+    noire = plage & (np.hypot(r.xx - r.VOLCAN[0], r.zz - r.VOLCAN[1]) < 175 * r.K)
     dessus[noire] = P('biomesoplenty:black_sand'); sous[noire] = P('biomesoplenty:black_sandstone')
     # fonds
     fond_mer = sous_eau & ~r.riviere & ~r.lac & (r.c < 0.5)
@@ -186,7 +186,7 @@ class Pistes:
         """Points d'un sentier le long de la plage, de a a b en tournant autour de l'ile : sur
         chaque rayon, le premier point de terre ou c depasse `recul` (juste au-dessus de l'eau)."""
         r = self.r
-        cx, cz = 384.0, 392.0
+        cx, cz = r.CENTRE
         ta, tb = math.atan2(a[1] - cz, a[0] - cx), math.atan2(b[1] - cz, b[0] - cx)
         if tb - ta > math.pi:
             tb -= 2 * math.pi
@@ -195,7 +195,7 @@ class Pistes:
         pts = [a]
         for t in np.linspace(0, 1, n)[1:-1]:
             th = ta + (tb - ta) * t
-            for rr in range(420, 60, -1):
+            for rr in range(int(420 * r.K), int(60 * r.K), -1):
                 x, z = int(cx + math.cos(th) * rr), int(cz + math.sin(th) * rr)
                 if 0 <= x < W and 0 <= z < L and r.c[z, x] > recul and r.eau[z, x] <= r.h[z, x]:
                     pts.append((x, z))
@@ -279,7 +279,7 @@ def planter(m, r, foret, libre, rng, libre_pentes=None):
     terre = lambda x, z: libre[z, x]
     bas = lambda x, z: terre(x, z) and alt(x, z) < 42 and dist_eau[z, x] > 3 and not bambou[z, x]
     # mangrove du delta et du lagon : eau peu profonde
-    mangrove_zone = (r.eau > h) & (r.eau - h <= 3) & (r.zz > 560) & ~r.recif & np.isin(
+    mangrove_zone = (r.eau > h) & (r.eau - h <= 3) & (r.zz > 560 * r.K) & ~r.recif & np.isin(
         m.blocs[h.astype(np.int64), np.indices(h.shape)[0], np.indices(h.shape)[1]],
         [i for n_, i in m.palette.items() if 'sand' in n_ or 'mud' in n_ or 'gravel' in n_ or 'clay' in n_])
     def paletuvier(x, z):
@@ -310,8 +310,11 @@ def planter(m, r, foret, libre, rng, libre_pentes=None):
     # berges et plages : palmiers
     essai(7, 2, 0.6, 2, foret.palmier, lambda x, z: terre(x, z) and alt(x, z) <= 4 and dist_eau[z, x] <= 6)
     # etage bas plus fourni (jeunes arbres, buissons) : il masque la vue sans fermer le passage
-    essai(6, 2, 0.7, 3, foret.jeune, lambda x, z: terre(x, z) and alt(x, z) < 70)
-    essai(5, 1, 0.6, 2, foret.buisson, lambda x, z: terre(x, z) and alt(x, z) < 75)
+    essai(5, 2, 0.85, 2, foret.jeune, lambda x, z: terre(x, z) and alt(x, z) < 70)
+    essai(4, 1, 0.8, 1, foret.buisson, lambda x, z: terre(x, z) and alt(x, z) < 75)
+    # petits arbres (4 a 6 blocs) : l'etage qui manquait entre les buissons et la voute
+    essai(5, 2, 0.8, 2, foret.arbrisseau, lambda x, z: terre(x, z) and alt(x, z) < 72)
+    essai(7, 3, 0.6, 2, foret.jeune, lambda x, z: terre(x, z) and alt(x, z) < 70)
     essai(26, 6, 0.35, 3, foret.souche, bas)
     for gz in range(15, L, 30):
         for gx in range(15, W, 30):
@@ -400,6 +403,8 @@ def couvert(m, r, rng):
     # eau : herbiers, kelp, nenuphars, coraux
     prof = r.eau - h
     fond_libre = (r.eau > h) & (m.blocs[np.minimum(h + 1, H - 1), zz, xx] == m.P(EAU))
+    if hasattr(r, 'grand_lagon'):
+        fond_libre &= ~r.grand_lagon                 # le lagon du mosasaure a son propre decor (lagon.py)
     u = rng.random(h.shape)
     herb = fond_libre & (prof >= 2) & (u < 0.18)
     m.blocs[h[herb] + 1, zz[herb], xx[herb]] = m.P('minecraft:seagrass')
@@ -459,13 +464,14 @@ def sous_sol(m, r, gr, rng, mines):
     pr.roche()
     journal('profond : roche')
     journal('profond : %d blocs de cavernes' % pr.cavernes())
+    journal('profond : %d longs tunnels' % pr.tunnels(3))
     journal('profond : %d blocs de lave' % pr.lave())
     terre = (r.h >= SEA + 12) & (r.eau <= r.h)
     zs, xs = np.nonzero(terre[40:-40, 40:-40])
     for k in rng.choice(len(zs), 2, replace=False):
         pr.geode(int(xs[k]) + 40, int(rng.integers(-45, -15)), int(zs[k]) + 40, float(rng.uniform(4, 6)))
     mx, mz = mines[0]
-    journal('profond : mine %s' % pr.mine(mx, mz, -30, profondeur=4))
+    journal('profond : mine %s' % pr.mine(mx, mz, -30, profondeur=5))
     journal('profond : puits de mine %d blocs' % profond.puits_de_mine(pr, gr, mx, mz, SEA + 8 + 15, -30))
     # descentes depuis des grottes seches de l'ile
     A = m.AIR
@@ -516,7 +522,7 @@ def sous_sol(m, r, gr, rng, mines):
     return pr
 
 
-monde_java_ORIGINE = -384
+monde_java_ORIGINE = -320  # = monde_java.ORIGINE (ile de 640 centree sur 0, 0)
 
 
 def tyroliennes(m, r, li, rng, n_max=8):
@@ -539,7 +545,7 @@ def tyroliennes(m, r, li, rng, n_max=8):
         bloc = S[z - 3:z + 4, x - 3:x + 4]
         sol = r.h[z - 3:z + 4, x - 3:x + 4]
         return bool((bloc <= sol + 1).all() and (r.eau[z - 3:z + 4, x - 3:x + 4] <= sol).all()
-                    and not res.couloir[z, x] and (np.ptp(sol) <= 4))
+                    and not res.couloir[z, x] and (np.ptp(sol) <= 6))
 
     def autour(c, r0, r1):
         out = []
@@ -551,13 +557,11 @@ def tyroliennes(m, r, li, rng, n_max=8):
                     out.append(p)
         return out
 
-    paires = [('Rive nord du lagon', 'Rive sud du lagon'), ('Serres', 'Rive sud du lagon'), ('Checkpoint', 'Rive sud du lagon'),
-              ('Tour de guet', 'Affut'), ('Observatoire du volcan', 'Campement abandonne'), ('Phare', 'Voliere'),
-              ('Relais radio', 'Village de pecheurs'), ('Helicoptere abattu', 'Temple maya en ruine'),
-              ('Observatoire du volcan', 'Cimetiere'), ('Relais radio', 'Serres'), ('Tour de guet', 'Cenote'),
-              ('Temple maya en ruine', 'Cenote'), ('Campement abandonne', 'Enclos des herbivores'),
-              ('Relais radio', 'Checkpoint'), ('Phare', 'Campement abandonne'), ('Observatoire du volcan', 'Grotte de la cascade'),
-              ('Tour de guet', 'Mine abandonnee'), ('Helicoptere abattu', 'Cimetiere'), ('Relais radio', 'Piste d\'atterrissage')]
+    paires = [('Base militaire', 'Rive sud du lagon'), ('Rive nord du lagon', 'Rive sud du lagon'),
+              ('Relais radio', 'Base militaire'), ('Tour de guet', 'Affut'), ('Relais radio', 'Village de pecheurs'),
+              ('Observatoire du volcan', 'Campement abandonne'), ('Helicoptere abattu', 'Temple maya en ruine'),
+              ('Temple maya en ruine', 'Cenote'), ('Phare', 'Campement abandonne'), ('Tour de guet', 'Mine abandonnee'),
+              ('Tour de guet', 'Poste de recherche (lac)')]
     faites = []
     for (na, nb) in paires:
         if na not in poi or nb not in poi:
@@ -590,10 +594,58 @@ def tyroliennes(m, r, li, rng, n_max=8):
     return res
 
 
+def site_plat(r, cx, cz, R, t):
+    """Point le plus plat (ecart-type des hauteurs sur un carre de demi-cote t) a moins de R de
+    (cx, cz), sur la terre ferme."""
+    mieux, best = None, 1e9
+    for z in range(cz - R, cz + R + 1, 3):
+        for x in range(cx - R, cx + R + 1, 3):
+            if not (t + 2 <= x < W - t - 2 and t + 2 <= z < L - t - 2):
+                continue
+            zone = r.h[z - t:z + t + 1, x - t:x + t + 1]
+            if (r.eau[z - t:z + t + 1, x - t:x + t + 1] > zone).any():
+                continue
+            cout = float(zone.std()) + 0.02 * math.hypot(x - cx, z - cz)
+            if cout < best:
+                best, mieux = cout, (x, z)
+    return mieux or (cx, cz)
+
+
+def poste_recherche(li, x, z):
+    """Poste de recherche prefabrique au bord du lac : il observait l'ilot du repaire. Deux
+    modules, une antenne, un ponton d'observation, des cages vides."""
+    from mobilier import Kit
+    m, rng = li.m, li.rng
+    y0 = li.sol_moyen(x - 10, z - 8, x + 10, z + 8)
+    li.plateforme(x - 12, z - 10, x + 12, z + 10, y0, 'minecraft:coarse_dirt', 'minecraft:dirt', 16, talus=8)
+    v = Decale(m, x - 10, y0 + 1, z - 7)
+    k = Kit(v, rng)
+    for (ox, oz) in ((0, 0), (12, 2)):
+        v.boite(ox, 0, oz, ox + 8, 3, oz + 6, 'minecraft:white_concrete')
+        v.boite(ox + 1, 0, oz + 1, ox + 7, 2, oz + 5, 'minecraft:air')
+        v.boite(ox, 3, oz, ox + 8, 3, oz + 6, 'minecraft:light_gray_concrete')
+        v.boite(ox + 1, -1, oz + 1, ox + 7, -1, oz + 5, 'minecraft:polished_andesite')
+        v.boite(ox + 2, 1, oz, ox + 6, 1, oz, 'minecraft:glass_pane')
+        v.boite(ox + 2, 1, oz + 6, ox + 6, 1, oz + 6, 'minecraft:glass_pane')
+        v.boite(ox, 0, oz + 3, ox, 1, oz + 3, 'minecraft:air')
+        k.porte(ox, 0, oz + 3, 'west', 'iron')
+        k.lampes_plafond(ox + 1, oz + 1, ox + 7, oz + 5, 2, 3, 0.3)
+    k.paillasse(2, 1, 6, 1, 0, 'south')
+    k.bureau(5, 0, 4, 'north', 2)
+    v.coffre(7, 0, 5, 'west', [('minecraft:spyglass', 1), ('minecraft:glass_bottle', 6), ('minecraft:book', 3), ('minecraft:bread', 4)])
+    for i in range(3):
+        v.boite(14 + i * 2, 0, 3, 14 + i * 2, 1, 3, 'minecraft:iron_bars')
+    v.coffre(19, 0, 5, 'north', [('minecraft:bone', 6), ('minecraft:lead', 2), ('minecraft:name_tag', 1)])
+    for y in range(4, 16):
+        v.pose(4, y, 3, 'minecraft:iron_bars' if y % 5 else 'minecraft:iron_block')
+    v.pose(4, 16, 3, 'minecraft:lightning_rod[facing=up,powered=false,waterlogged=false]')
+    li.ajoute('Poste de recherche (lac)', x, z, 14)
+
+
 def meta_spawn(r, li):
-    """Point d'apparition (coordonnees du monde) : au ponton du campus, sur la terre ferme."""
+    """Point d'apparition (coordonnees du monde) : au ponton d'arrivee, sur la terre ferme."""
     import monde_java
-    x, z = r.CAMPUS[0] + 58, r.CAMPUS[1] + 140
+    x, z = W // 2, L // 2
     for nom, a, b, _ in li.poi:
         if nom.lower().startswith('ponton'):
             x, z = a, b
@@ -617,160 +669,163 @@ def main(sortie):
     journal('remplissage du terrain')
     remplir(m, r)
     # le grand lagon du mosasaure (nord-ouest) : creuse avant les lieux, les pistes et la foret
-    lagon = Lagon(m, r, rng, centre=(428, 580), rx=60, rz=54)
+    lagon = Lagon(m, r, rng, centre=(340, 452), rx=46, rz=42)      # entre la riviere, la base et la cote sud
     journal('grand lagon : %d colonnes d\'eau' % lagon.creuser())
     chute = marche(r)
     foret = Foret(m, (r.h + 1).astype(np.int32), rng)
-    # ------------------------------------------------ campus
-    journal('campus')
-    ox, oz = r.CAMPUS
-    G = r.G
-    v = Decale(m, ox, G, oz)
-    Campus(v, foret).construire(chenal_nord=16)
-    campus_x0, campus_z0, campus_x1, campus_z1 = ox - 8, oz - 4, ox + 146, oz + 136
-    # ------------------------------------------------ lieux
+    # ------------------------------------------------ lieux : une operation militaire sur l'ile
+    # La base est au coeur de tout : pres du ponton (ravitaillement par la mer), de la piste
+    # d'atterrissage et du relais radio sur la colline ; le bunker de commandement a cote.
+    # Autour, ce que l'operation est venue faire (poste de recherche au lac, observatoire du
+    # volcan, station du delta) et ce qu'il y avait avant elle (village de pecheurs, temple,
+    # phare, mine, bungalows). Les routes partent de la base ; les sentiers menent au reste.
     journal('lieux')
+    D = r.D
     li = Lieux(m, r, rng)
     if lagon.rive_nord:
         li.ajoute('Rive nord du lagon', lagon.rive_nord[0], lagon.rive_nord[1], 0)
-    li.ajoute('Rive sud du lagon', lagon.cx, lagon.cz + lagon.rz + 22, 0)
-    li.ajoute('Campus Site B', ox + 70, oz + 60, 0)
-    porte = (ox + 58, oz + 126)
-    c = li.cote(porte[0] + 20, porte[1] + 10, 0, 1)
+    li.ajoute('Rive sud du lagon', lagon.cx, lagon.cz + lagon.rz + 18, 0)
+    journal('base militaire')
+    bx, bz = D(470, 360)
+    base = BaseMilitaire(li, bx, bz)
+    base.construire()
+    pb = base.portes()
+    c = li.cote(pb['sud'][0], pb['sud'][1] + 10, 0, 1)
     dock = li.ponton(c[0], c[1] - 2)
-    # tour : point le plus haut de la crete, vers le milieu
-    zone = r.h[300:420, 110:190]
+    # la piste d'atterrissage longe la base au sud-est ; l'avion cargo a fini dans la jungle
+    px0, pz_ = bx + base.LX + 18, bz + base.LZ + 26
+    li.piste(px0, pz_, px0 + 64, avion=(px0 + 8, pz_ + 16))      # sorti de piste, dans la jungle
+    li.ajoute('', px0 + 32, pz_, 40)
+    # relais radio : le point le plus haut de la colline a l'est de la base
+    x0_, z0_ = bx + base.LX + 10, bz - 10
+    zone = r.h[z0_:z0_ + 80, x0_:x0_ + 70]
     iz, ix = np.unravel_index(np.argmax(zone), zone.shape)
-    tour = (110 + ix, 300 + iz)
-    li.tour(*tour)
-    heli = (262, 196)
-    li.helicoptere(*heli)
-    camp = (408, 238)
-    li.campement(*camp)
-    lagon_bord = li.cote(250, 560, -0.7, 0.7) or (215, 600)
-    bung = [(lagon_bord[0] + 10, lagon_bord[1] - 12), (lagon_bord[0] + 22, lagon_bord[1] - 22),
-            (lagon_bord[0] + 2, lagon_bord[1] - 26)]
-    li.bungalows(bung)
-    relais = (652, 492)
-    zone = r.h[450:540, 610:700]
-    iz, ix = np.unravel_index(np.argmax(zone), zone.shape)
-    relais = (610 + ix, 450 + iz)
+    relais = (x0_ + ix, z0_ + iz)
     li.relais(*relais)
-    rec = np.argwhere(r.recif)
-    ez, ex = rec[len(rec) // 3]
-    li.epave(int(ex) - 6, int(ez))
+    # bunker de commandement, a demi enterre juste a l'ouest de la base
+    bunker = (bx - 26, bz + base.LZ // 2 + 18)
+    li.bunker(*bunker)
+    # checkpoint sur la route du ponton
+    check = (pb['sud'][0] + 4, (pb['sud'][1] + dock[1]) // 2)
+    # tour de guet : point le plus haut de la crete ouest (elle surveille le lac et la riviere)
+    zx0, zz0 = D(110, 300)
+    zone = r.h[zz0:zz0 + 100, zx0:zx0 + 66]
+    iz, ix = np.unravel_index(np.argmax(zone), zone.shape)
+    tour = (zx0 + ix, zz0 + iz)
+    li.tour(*tour)
+    # poste de recherche au bord du lac : il observait l'ilot (le repaire)
+    lx_, lz_ = r.LAC
+    poste = (int(lx_) + 60, int(lz_))
+    for dxl in range(int(52 * r.K), 140):              # la premiere terre seche a l'est du lac (apres l'ilot), +12
+        px_l, pz_l = int(lx_) + dxl, int(lz_) - 8
+        if r.eau[pz_l, px_l] <= r.h[pz_l, px_l] and r.h[pz_l, px_l] >= SEA + 1 and not r.lac[pz_l, px_l]:
+            poste = (px_l + 12, pz_l)
+            break
+    poste_recherche(li, *poste)
     li.repaire(int(r.ILOT[0]), int(r.ILOT[1]))
+    li.affut(int(lx_) - 52, int(lz_) - 5)
+    # la cascade et sa grotte, le pont suspendu au-dessus de la gorge
     li.grotte(chute[0] - chute[2] * 2, chute[1] - chute[3] * 2, -chute[2], -chute[3], SEA)
     cascade(m, r, chute)
-    li.affut(int(r.LAC[0]) - 62, int(r.LAC[1]) - 6)
-    li.passerelle([(372, 600), (356, 614), (344, 626), (336, 642)])
-    # ------------------------------------------------ les autres lieux, repartis sur toute l'ile
-    def site(cx, cz, R, t, eau_ok=False, tz=None):
-        """Point le plus plat (ecart-type des hauteurs sur un carre de demi-cote t) a moins de R
-        de (cx, cz), sur la terre ferme, loin des rivieres."""
-        mieux, best = None, 1e9
-        for z in range(cz - R, cz + R + 1, 3):
-            for x in range(cx - R, cx + R + 1, 3):
-                u = t if tz is None else tz
-                if not (t + 2 <= x < W - t - 2 and u + 2 <= z < L - u - 2):
-                    continue
-                zone = r.h[z - u:z + u + 1, x - t:x + t + 1]
-                mouille = (r.eau[z - u:z + u + 1, x - t:x + t + 1] > zone).mean()
-                if mouille > (0.5 if eau_ok else 0.0):
-                    continue
-                cout = float(zone.std()) + 0.02 * math.hypot(x - cx, z - cz)
-                if cout < best:
-                    best, mieux = cout, (x, z)
-        return mieux or (cx, cz)
-    cap = li.cote(345, 330, 0, -1)
-    phare = (cap[0], cap[1] + 14)
-    li.phare(*phare)
-    temple = site(205, 262, 26, 20)
-    li.temple(*temple)
-    herb = site(360, 302, 20, 30)
-    li.enclos_herbivores(herb[0] - 34, herb[1] - 24, herb[0] + 34, herb[1] + 24)
-    li.ajoute('', herb[0], herb[1], 30)
-    est = li.cote(640, 395, 1, 0)
-    village = (est[0] + 4, est[1] + 22)
-    li.village(*village)
-    vx_, vz_ = r.VOLCAN
-    zone = r.h[int(vz_) - 30:int(vz_) + 10, int(vx_) + 28:int(vx_) + 48]
-    iz, ix = np.unravel_index(np.argmax(zone), zone.shape)
-    obs = (int(vx_) + 28 + ix, int(vz_) - 30 + iz)
-    li.observatoire(*obs)
-    voliere = site(468, 160, 40, 22)
-    li.voliere(*voliere)
-    piste_c = (586, 522)
-    li.piste(546, 522, 626, avion=(588, 562))
-    li.ajoute('', piste_c[0], piste_c[1], 48)
-    check = (porte[0] + 6, porte[1] + 40)
-    bunker = site(268, 505, 24, 12)
-    li.bunker(*bunker)
-    # entree de la mine : pied du versant est de la crete (le terrain monte de 10 blocs en 12)
-    mine = (196, 450)
-    for mx_ in range(250, 150, -1):
-        if r.h[450, mx_ - 12] - r.h[450, mx_] >= 10 and r.eau[450, mx_] <= r.h[450, mx_]:
-            mine = (mx_, 450)
-            break
-    li.mine(mine[0], mine[1], -1, 0.0)
-    serres = site(392, 462, 16, 20)
-    li.serres(serres[0] - 20, serres[1] - 10)
-    cimet = (camp[0] + 18, camp[1] + 16)
-    li.cimetiere(*cimet)
-    # pont suspendu au-dessus de la gorge de la cascade
-    gx_, gz_ = chute[0] + chute[2] * 14, chute[1] + chute[3] * 14
-    px_, pz_ = -chute[3], chute[2]
+    gx_, gz_ = chute[0] + chute[2] * 12, chute[1] + chute[3] * 12
+    px_, pz2 = -chute[3], chute[2]
     bords = []
     for sgn in (-1, 1):
-        for d in range(4, 40):
-            qx, qz = int(gx_ + px_ * d * sgn), int(gz_ + pz_ * d * sgn)
+        for d in range(4, 36):
+            qx, qz = int(gx_ + px_ * d * sgn), int(gz_ + pz2 * d * sgn)
             if r.h[qz, qx] > SEA + 22:
                 bords.append((qx, qz, int(r.h[qz, qx])))
                 break
     if len(bords) == 2:
-        yb = min(bords[0][2], bords[1][2]) + 1
-        li.pont_suspendu(bords[0][:2], bords[1][:2], yb)
-    journal('pistes')
+        li.pont_suspendu(bords[0][:2], bords[1][:2], min(bords[0][2], bords[1][2]) + 1)
+    # le camp de la premiere expedition, sur la route du volcan ; l'observatoire sur le flanc
+    camp = site_plat(r, *D(408, 238), 20, 14)
+    li.campement(*camp)
+    vx_, vz_ = r.VOLCAN
+    zone = r.h[int(vz_) - 25:int(vz_) + 8, int(vx_) + 23:int(vx_) + 40]
+    iz, ix = np.unravel_index(np.argmax(zone), zone.shape)
+    obs = (int(vx_) + 23 + ix, int(vz_) - 25 + iz)
+    li.observatoire(*obs)
+    # l'helicoptere abattu sur la route du temple ; le temple et son cenote dans la jungle
+    heli = D(262, 196)
+    li.helicoptere(*heli)
+    temple = site_plat(r, *D(205, 262), 22, 17)
+    li.temple(*temple)
+    # le phare sur le cap nord
+    cap = li.cote(*D(345, 330), 0, -1)
+    phare = (cap[0], cap[1] + 12)
+    li.phare(*phare)
+    # le village de pecheurs sur la cote est, son cimetiere juste derriere
+    est = li.cote(*D(640, 395), 1, 0)
+    village = (est[0] + 4, est[1] + 18)
+    li.village(*village)
+    cimet = site_plat(r, village[0] - 34, village[1] - 6, 10, 8)
+    li.cimetiere(*cimet)
+    # la mine, au pied du versant est de la crete
+    mine = D(196, 450)
+    zm = D(0, 450)[1]
+    for mx_ in range(D(250, 0)[0], D(150, 0)[0], -1):
+        if r.h[zm, mx_ - 10] - r.h[zm, mx_] >= 9 and r.eau[zm, mx_] <= r.h[zm, mx_]:
+            mine = (mx_, zm)
+            break
+    li.mine(mine[0], mine[1], -1, 0.0)
+    # bungalows du lagon corallien (un ancien hotel) ; station du delta et sa passerelle
+    lagon_bord = li.cote(*D(250, 560), -0.7, 0.7) or D(215, 600)
+    bung = [(lagon_bord[0] + 10, lagon_bord[1] - 12), (lagon_bord[0] + 22, lagon_bord[1] - 22),
+            (lagon_bord[0] + 2, lagon_bord[1] - 26)]
+    li.bungalows(bung)
+    rec = np.argwhere(r.recif)
+    ez, ex = rec[len(rec) // 3]
+    li.epave(int(ex) - 6, int(ez))
+    li.passerelle([D(372, 600), D(356, 614), D(344, 626), D(336, 642)])
+    # ------------------------------------------------ routes et sentiers
+    journal('routes et sentiers')
     pi = Pistes(m, r)
-    pi.trace([porte, (porte[0] + 6, porte[1] + 40), (dock[0], (porte[1] + dock[1]) // 2), dock], 2.5, route=True)
-    pi.trace([(ox - 6, oz + 64), (420, 420), (372, 404), (300, 380), (240, 360), (tour[0] + 8, tour[1] + 4)], 1.8)
-    pi.trace([tour, (tour[0] + 20, 280), (220, 240), heli], 1.6)
-    pi.trace([(ox + 30, oz - 6), (440, 300), camp], 1.8)
-    pi.trace([camp, (460, 236), (476, 250)], 1.5)
-    pi.trace([(ox + 146, oz + 80), (600, 470), relais], 1.8)
-    pi.trace([tour, (170, 450), (200, 520), bung[1]], 1.6)
-    pi.trace([(porte[0], porte[1] + 30), (470, 500), (380, 496), (355, 560), (372, 600)], 1.6)   # contourne le grand lagon par le nord
-    pi.trace([camp, (390, 180), phare], 1.6)
-    pi.trace([heli, (230, 240), temple], 1.6)
-    pi.trace([tour, (175, 300), temple], 1.4)
-    pi.trace([(372, 404), (365, 360), (herb[0], herb[1] + 26)], 1.6)
-    # le village de pecheurs ne se rejoint plus par la jungle : on longe la plage depuis le ponton
-    # et la piste d'atterrissage, a decouvert, a portee de l'eau
-    pi.trace(pi.cotier(dock, village), 1.4)
-    pi.trace(pi.cotier(bung[1], (336, 642)), 1.2)             # des bungalows a la station du delta
-    pi.trace(pi.cotier(phare, voliere), 1.2)                 # du phare vers la voliere, par la cote nord
-    pi.trace([camp, (440, 200), voliere], 1.5)
-    pi.trace([camp, (470, 200), (520, 150), (570, 140), obs], 1.3)
-    pi.trace([(dock[0] + 2, (porte[1] + dock[1]) // 2 - 4), (546, piste_c[1])], 1.8)
-    pi.trace([(372, 600), (300, 560), bunker], 1.6)
-    pi.trace([(170, 450), mine], 1.4)
-    pi.trace([(ox - 6, oz + 110), (serres[0] + 22, serres[1])], 1.6)
-    pi.trace([camp, cimet], 1.2)
+    ROUTE, SENTIER = 2.6, 1.3
+    pi.trace([pb['sud'], check, dock], ROUTE, route=True)                                   # base -> ponton
+    pi.trace([pb['est'], (pb['est'][0] + 14, pb['est'][1]), (px0, pz_ - 6), (px0 + 8, pz_)], ROUTE, route=True)   # -> piste
+    pi.trace([pb['est'], ((pb['est'][0] + relais[0]) // 2, pb['est'][1] - 8), relais], 2.0, route=True)  # -> relais
+    pi.trace([pb['ouest'], (bunker[0] + 6, bunker[1] - 10), bunker], 2.0, route=True)        # -> bunker
+    pi.trace([pb['ouest'], (poste[0] + 20, poste[1] + 6), poste], ROUTE, route=True)          # -> poste du lac (gue)
+    pi.trace([poste, (int(lx_) + 10, int(lz_) - 58), (tour[0] + 40, tour[1] - 20), tour], 2.0, route=True)   # -> crete
+    pi.trace([pb['nord'], (pb['nord'][0] - 6, pb['nord'][1] - 30), camp], ROUTE, route=True)  # -> camp (gue)
+    pi.trace([camp, (camp[0] + 50, camp[1] - 40), obs], 2.0, route=True)                      # -> volcan
+    pi.trace(pi.cotier(dock, village), 2.0, route=True)                                       # ponton -> village
+    # sentiers
+    pi.trace([camp, D(390, 180), phare], SENTIER)
+    pi.trace([camp, D(330, 200), heli], SENTIER)
+    pi.trace([heli, D(230, 240), temple], SENTIER)
+    pi.trace([tour, D(175, 300), temple], SENTIER)
+    pi.trace([tour, D(170, 450), mine], SENTIER)
+    pi.trace([mine, D(200, 520), bung[1]], SENTIER)
+    pi.trace(pi.cotier(bung[1], D(336, 642)), SENTIER)
+    pi.trace([poste, (int(lx_) + 30, int(lz_) + 40), (int(lx_) - 40, int(lz_) + 30), (int(lx_) - 52, int(lz_) - 5)], SENTIER)
+    pi.trace([dock, (lagon.cx + lagon.rx + 20, lagon.cz + 10), (lagon.cx, lagon.cz + lagon.rz + 18)], SENTIER)
+    pi.trace([pb['nord'], (lagon.cx + 10, lagon.cz - lagon.rz - 30), lagon.rive_nord or (lagon.cx, lagon.cz - lagon.rz - 12)], SENTIER)
+    pi.trace([village, cimet], SENTIER)
+    pi.trace([camp, D(470, 150), D(560, 110)], SENTIER)
+    pi.trace([relais, (relais[0] + 10, village[1] + 20), village], SENTIER)
     li.checkpoint(*check)
-    # vehicules abandonnes le long des pistes (plus de poteaux indicateurs : pas de panneaux)
-    li.jeep(560, 548, 'east'); li.jeep(300, 372, 'west', renversee=True); li.jeep(446, 290, 'north')
-    li.jeep(640, 470, 'south', renversee=True); li.jeep(200, 470, 'north')
+    # vehicules abandonnes le long des routes
+    for (p, sens, renv) in (((pb['sud'][0] + 6, pb['sud'][1] + 12), 'south', False),
+                            ((pb['ouest'][0] - 30, pb['ouest'][1] + 2), 'west', True),
+                            ((camp[0] + 20, camp[1] + 30), 'north', False),
+                            ((tour[0] + 30, tour[1] - 10), 'east', True)):
+        li.jeep(p[0], p[1], sens, renversee=renv)
     # ------------------------------------------------ tyroliennes (mods Ziplines: Rezipped! + Reconnectible Chains)
     reseau = tyroliennes(m, r, li, rng)
     if os.environ.get('ARRET') == 'tyroliennes':
+        np.save(os.path.join(sortie, 'blocs.npy'), m.blocs)
+        json.dump(m.palette, open(os.path.join(sortie, 'palette.json'), 'w'))
+        json.dump([(n, x, z) for n, x, z, _ in li.poi if n], open(os.path.join(sortie, 'lieux.json'), 'w'))
         sys.exit(0)
     # ------------------------------------------------ grottes, gouffres et nids
     journal('grottes')
     zz, xx = r.zz, r.xx
-    protege = (xx >= campus_x0 - 24) & (xx <= campus_x1 + 24) & (zz >= campus_z0 - 24) & (zz <= campus_z1 + 24)
+    protege = (xx >= bx - 24) & (xx <= bx + base.LX + 24) & (zz >= bz - 24) & (zz <= bz + base.LZ + 24)
     for nom, x, z, ray in li.poi:
         protege |= np.hypot(xx - x, zz - z) < max(ray, 12) + 16
-    protege_lieux = protege.copy()                 # lieux et campus seulement (pour les falaises)
+    protege_lieux = protege.copy()                 # lieux et base seulement (pour les falaises)
     protege_dur = protege | r.cratere | r.canyon_haut | r.canyon_bas
     pm = pi.masque.copy()
     for _ in range(4):
@@ -784,9 +839,10 @@ def main(sortie):
     gr.creuser()
     # sous-sol « monde classique » : galeries et cavernes au bruit, mine abandonnee sous la crete
     journal('cavernes : %d blocs creuses' % gr.cavernes())
-    zc = r.h[330:480, 110:210].astype(float) * ~protege_dur[330:480, 110:210]
+    (mx0, mz0), (mx1, mz1) = D(110, 330), D(210, 480)
+    zc = r.h[mz0:mz1, mx0:mx1].astype(float) * ~protege_dur[mz0:mz1, mx0:mx1]
     iz, ix = np.unravel_index(np.argmax(zc), zc.shape)
-    mine_v = (110 + int(ix), 330 + int(iz))
+    mine_v = (mx0 + int(ix), mz0 + int(iz))
     journal('mine abandonnee : %d couloirs' % gr.mine_vanilla(mine_v[0], mine_v[1], SEA + 8, profondeur=4))
     # deux autres mines, sous d'autres hauteurs
     mines = [mine_v]
@@ -852,7 +908,7 @@ def main(sortie):
     libre = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 1.6) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
     libre &= ~pi.masque & ~pr.ravins2d & ~reseau.couloir
     zz, xx = r.zz, r.xx
-    libre &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
+    libre &= ~((xx >= bx - 8) & (xx <= bx + base.LX + 8) & (zz >= bz - 8) & (zz <= bz + base.LZ + 8))
     for nom, x, z, ray in li.poi:
         if ray:
             libre &= np.hypot(xx - x, zz - z) > ray + 10
@@ -865,7 +921,7 @@ def main(sortie):
     # versants : buissons et jeunes arbres aussi la ou la pente interdit les grands arbres
     libre_pentes = (r.h >= SEA + 1) & (r.eau <= r.h) & (r.pente < 2.8) & ~r.cratere & ~r.canyon_haut & ~r.canyon_bas
     libre_pentes &= ~pi.masque & ~clair & ~pr.ravins2d & ~reseau.couloir
-    libre_pentes &= ~((xx >= campus_x0 - 6) & (xx <= campus_x1 + 6) & (zz >= campus_z0 - 6) & (zz <= campus_z1 + 6))
+    libre_pentes &= ~((xx >= bx - 8) & (xx <= bx + base.LX + 8) & (zz >= bz - 8) & (zz <= bz + base.LZ + 8))
     for nom, x, z, ray in li.poi:
         if ray:
             libre_pentes &= np.hypot(xx - x, zz - z) > ray + 10
@@ -901,7 +957,7 @@ def main(sortie):
         reseau.noeuds(), deplacements.barques(m, r, li), deplacements.wagonnets(m, pr, rng)))
     # ------------------------------------------------ ecriture
     journal('ecriture')
-    meta = {'W': W, 'H': H, 'L': L, 'SEA': SEA, 'coller_y': 63 - SEA, 'campus': [ox, G, oz],
+    meta = {'W': W, 'H': H, 'L': L, 'SEA': SEA, 'coller_y': 63 - SEA, 'base': [bx, base.y0, bz],
             'lieux': [(n, x, z) for n, x, z, _ in li.poi],
             'entrees_grottes': [(int(x), int(r.h[z, x]), int(z)) for x, z in gr.entrees],
             'tyroliennes': [(nom, [(x + monde_java_ORIGINE, y + 15, z + monde_java_ORIGINE) for x, y, z in a]) for nom, a in reseau.lignes],
@@ -911,7 +967,7 @@ def main(sortie):
     journal('site_b_v2.schem : %.1f Mo' % (taille / 1e6))
     for i in range(2):
         for j in range(2):
-            t = m.ecrire(os.path.join(sortie, 'site_b_v2_%d_%d.schem' % (i, j)), 384 * i, 384 * j, 384 * (i + 1), 384 * (j + 1),
+            t = m.ecrire(os.path.join(sortie, 'site_b_v2_%d_%d.schem' % (i, j)), 320 * i, 320 * j, 320 * (i + 1), 320 * (j + 1),
                          biomes=bio, bio_palette=bio_pal, nom='Site B v2 tuile %d-%d' % (i, j))
             journal('tuile %d-%d : %.1f Mo' % (i, j, t / 1e6))
     np.save(os.path.join(sortie, 'grottes.npy'), carte_grottes)
@@ -938,8 +994,8 @@ def main(sortie):
         for (x, y, z, e) in temoins:
             f.write('%s %s %s %s\n' % (x, y, z, e))
     meta['lagon'] = {'centre': [lagon.cx + monde_java_ORIGINE, lagon.cz + monde_java_ORIGINE],
-                     'fosse': [lagon.fosse[0] + monde_java_ORIGINE, lagon.fosse[1] + monde_java_ORIGINE],
-                     'fond_fosse_y': lagon.fond_fosse, 'fond_cuvette_y': lagon.fond_cuvette + 15, 'surface_y': SEA + 15}
+                     'epave': [lagon.epave_xz[0] + monde_java_ORIGINE, lagon.epave_xz[1] + monde_java_ORIGINE],
+                     'fond_y': lagon.fond_monde, 'surface_y': SEA + 15}
     meta['monde'] = {'dossier': 'Site B', 'chunks': n, 'spawn': spawn, 'fond_ocean': fond,
                      'origine': [monde_java.ORIGINE, monde_java.DECALAGE_Y, monde_java.ORIGINE]}
     json.dump(meta, open(os.path.join(sortie, 'site_b_v2.json'), 'w'), ensure_ascii=False, indent=1)

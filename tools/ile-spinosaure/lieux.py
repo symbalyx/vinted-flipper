@@ -488,7 +488,8 @@ class Lieux:
         profonde et detachee, gite de 25 degres, flanc tribord eventre, cales noyees."""
         m, r, SEA = self.m, self.r, self.r.SEA
         # orientation : l'etrave vers la terre (vers le centre du lagon)
-        cap = math.atan2(612 - z, 178 - x)
+        gx, gz = self.r.D(178, 612) if hasattr(self.r, 'D') else (178, 612)
+        cap = math.atan2(gz - z, gx - x)
         fond = int(np.median(r.h[z - 6:z + 7, x - 6:x + 7]))
         self.navire(x, fond - 1, z, cap, 30, 4.5, 6.5, 'acier', gite=math.radians(25), tangage=math.radians(-6),
                     dechirure=True, rupture=True)
@@ -622,6 +623,7 @@ class Lieux:
         """Aplanit un rectangle a y (sol) : remblai ou deblai, air au-dessus. Met a jour la
         carte de hauteur (pour la foret, le sous-bois et les pistes)."""
         m, r = self.m, self.r
+        y = max(int(y), r.SEA + 1)                 # jamais sous la mer : l'air degage au-dessus toucherait l'eau
         x0, x1 = sorted((int(x0), int(x1))); z0, z1 = sorted((int(z0), int(z1)))
         for z in range(z0, z1 + 1):
             for x in range(x0, x1 + 1):

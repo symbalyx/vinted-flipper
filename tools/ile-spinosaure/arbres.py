@@ -398,6 +398,19 @@ class Foret:
         tx, tz, _ = centres[-1]
         self.grappe(tx, y0 + h, tz, rng.uniform(2.2, 3.2), 1.4, f)
 
+    def arbrisseau(self, x, z):
+        """Petit arbre de 4 a 6 blocs, feuillage a hauteur de tete : il bouche la vue sans
+        fermer le passage."""
+        rng, m = self.rng, self.m
+        y0 = int(self.sol[z, x])
+        h = int(rng.integers(3, 6))
+        bois, f = (('jungle', F_JUNGLE), ('biomesoplenty:mahogany', F_ACAJOU), ('oak', F_CHENE), ('jungle', F_AZALEE))[rng.integers(0, 4)]
+        etat = tronc(bois)('y')
+        for k in range(h):
+            m.pose(x, y0 + k, z, etat)
+        m.ellipsoide(x + 0.5, y0 + h - 0.3, z + 0.5, rng.uniform(1.8, 2.6), rng.uniform(1.3, 1.9), rng.uniform(1.8, 2.6),
+                     self.P(f), bruit=0.45, rng=rng)
+
     def buisson(self, x, z, feuille=None):
         rng, m = self.rng, self.m
         y0 = int(self.sol[z, x])

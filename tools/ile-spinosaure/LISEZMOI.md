@@ -1,14 +1,15 @@
-# Site B, l'île du spinosaure (v2) : monde Minecraft Forge 1.20.1
+# Site B, l'île du spinosaure (v3) : monde Minecraft Forge 1.20.1
 
-Île de **768 × 768 blocs**, générée par `generer_ile.py`. Elle est pensée pour un événement :
-une vingtaine de lieux, dispersés et reliés par des pistes dans la jungle, et un sous-sol complet
-jusqu'à la bedrock.
+Île de **640 × 640 blocs**, générée par `generer_ile.py`. Elle est pensée pour un événement :
+une **base militaire** au centre-est, cœur de l'opération, reliée par des routes aux lieux qui la
+servent (ponton, piste, relais radio, checkpoint, village), et des lieux isolés dans la jungle
+reliés par des sentiers. Un sous-sol complet jusqu'à la bedrock.
 
 ## Fichiers (dans `dist/`)
 
 | Fichier | Contenu |
 |---|---|
-| **`site_b_monde.zip`** | **le monde prêt à jouer** (dossier de sauvegarde « Site B », 12 Mo) : l'île de y = −64 à 174, et l'océan tout autour |
+| **`site_b_monde.zip`** | **le monde prêt à jouer** (dossier de sauvegarde « Site B », 7 Mo) : l'île de y = −64 à 174, et l'océan tout autour |
 | `site_b_v2.schem`, `site_b_v2_0_0.schem` … `site_b_v2_1_1.schem` | l'ancienne voie WorldEdit : l'île de y = 15 à 174, sans le sous-sol profond |
 
 ## Installer le monde (solo, CurseForge)
@@ -39,14 +40,13 @@ sans feuilles, plages du volcan sans sable.
 2. Dézipper `site_b_monde.zip` dans le dossier `saves/` de l'instance : on obtient `saves/Site B/`.
 3. Lancer le jeu. *Solo* : le monde « Site B » apparaît dans la liste.
 
-On apparaît au ponton d'arrivée, en créatif, commandes activées. `/gamemode survival` pour jouer.
+On apparaît au ponton d'arrivée, **en survie**, commandes activées. Attention : en créatif, le spinosaure observe le joueur sans jamais l'attaquer, et les coups portés en créatif ne comptent pas. C'est voulu (mode organisateur).
 
 Sur un serveur : copier le dossier `Site B` à la racine du serveur et mettre `level-name=Site B`
 dans `server.properties`.
 
-**Coordonnées.** Dans le monde, l'île est centrée sur l'origine : un point noté (x, z) plus bas,
-relatif au coin nord-ouest de l'île, se trouve en **(x − 384, z − 384)** dans le jeu. La mer est
-à y = 63, comme en vanilla.
+**Coordonnées.** Dans le monde, l'île est centrée sur l'origine (x et z de −320 à 319). Les
+coordonnées données plus bas sont **celles du jeu** (touche F3). La mer est à y = 63, comme en vanilla.
 
 Autour de l'île, le monde est un superflat océanique au même niveau (fond de sable, 31 blocs
 d'eau) : la mer continue jusqu'à l'horizon.
@@ -55,7 +55,7 @@ d'eau) : la mer continue jusqu'à l'horizon.
 
 WorldEdit 7.2.15 : copier les `.schem` dans `config/worldedit/schematics/`, puis sur un monde
 océan ou vide, `/tp @s X 15 Z`, `//schem load site_b_v2`, `//paste -a -b` (coin nord-ouest en
-(X, 15, Z) ; tuile `site_b_v2_i_j` en (X + 384·i, 15, Z + 384·j)). Le sous-sol profond n'est que
+(X, 15, Z) ; tuile `site_b_v2_i_j` en (X + 320·i, 15, Z + 320·j)). Le sous-sol profond n'est que
 dans le monde.
 
 Réglages conseillés pour l'événement :
@@ -65,125 +65,127 @@ Réglages conseillés pour l'événement :
 
 L'intérieur des bâtiments reste très sombre, mais des blocs de lumière invisibles (niveau 3) y empêchent l'apparition des monstres vanilla. Les grottes, elles, ne sont pas éclairées : des monstres vanilla peuvent y apparaître la nuit comme le jour.
 
-Aperçus dans `apercus/` : `carte.png`, `grottes.png` (en orange les galeries sèches, en cyan les parties noyées), `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg` (récif et lagon, sans l'eau), `cratere.jpg` (coupe), `jungle.jpg` (coupe dans la jungle : sous-bois, lianes, minerais dans la roche), `mine.jpg` (la mine vue de dessus), `gue.jpg`, `coupe_profond.jpg` (coupe de la crête jusqu'à la bedrock : puits de mine à échelles, mine profonde, lave), `ravin.jpg` (coupe d'un ravin), `tyrolienne.jpg` (la ligne relais radio → serres, câble dessiné en blanc), `lagon.jpg` (le lagon du mosasaure et les deux tyroliennes qui le survolent), `lagon_coupe.jpg` (coupe : haut-fond, tombant, algues, fosse et épave, eau retirée), `lagon_epave.jpg` (l'épave au fond de la fosse), `mine_profonde.jpg` (plan de la mine profonde à y = −30).
+Aperçus dans `apercus/` :
+- à jour (v3) : `carte.png` (la carte avec les lieux), `base_militaire.jpg`, `lagon_coupe.jpg` (coupe du lagon sans l'eau : parois, fond à y = −20, rochers, algues, épave), `lagon_epave.jpg` (l'épave sur le fond, entre les rochers) ;
+- des versions précédentes, encore représentatifs du style mais plus de l'emplacement : `ile_iso.jpg`, `temple.jpg`, `cenote.jpg`, `village.jpg`, `helicoptere.jpg`, `epave.jpg`, `fond_marin.jpg`, `cratere.jpg`, `jungle.jpg`, `mine.jpg`, `gue.jpg`, `coupe_profond.jpg`, `ravin.jpg`, `tyrolienne.jpg`, `lagon.jpg`, `mine_profonde.jpg`, `grottes.png`.
+
+## La logique de l'île
+
+Une base militaire (« Kilo ») a été installée pour une opération sur l'île, et tout le reste en découle :
+- **par la mer**, le ravitaillement arrive au **ponton** au sud ; une route monte à la base en passant par le **checkpoint** ;
+- **par les airs**, la **piste d'atterrissage** à l'est, où un avion cargo s'est écrasé en bout de piste ;
+- **les liaisons** : le **relais radio** sur la colline au nord-est de la base, et le **village de pêcheurs** sur la côte est ;
+- **en avant-poste**, le **bunker** à l'ouest de la base et le **poste de recherche** sur la rive du lac, face à l'îlot aux carcasses ;
+- **loin de tout**, les lieux isolés où l'on n'arrive que par des sentiers : campement, hélicoptère abattu, temple, cénote, phare, tour de guet, mine, bungalows, delta.
+
+Les **routes** (4 à 5 blocs de large, en terre battue, boue tassée et terre grossière) partent des portes de la base : vers le ponton par le checkpoint, la piste, le relais, le bunker, le poste de recherche, la crête ouest et le campement, puis le volcan. Des **sentiers** étroits (2 à 3 blocs) desservent le reste : phare, hélicoptère, temple, tour de guet, mine, bungalows, delta, tour du lac, rives du lagon, village et cimetière.
 
 ## Les lieux
 
+Coordonnées du jeu (x, z).
+
 | Lieu | x, z | Ce qu'on y trouve |
 |---|---|---|
-| **Ponton d'arrivée** (départ) | 533, 603 | Ponton, bateau de pêche couché sur le flanc et à demi rempli d'eau, abri avec le coffre de départ (carte vierge, boussole, arbalète, barque). La route mène au campus. |
-| **Campus Site B** | 455–600, 345–480 | Voir plus bas |
-| Checkpoint | 519, 511 | Barrière cassée, guérite, sacs de sable, projecteur |
-| Piste d'atterrissage | 546–626, 522 | Piste, hangar, manche à air |
-| Avion cargo | 588, 562 | Écrasé en bord de plage, caisses éparpillées |
-| Relais radio | 617, 450 | Local technique, mât haubané de 40 blocs |
-| Village de pêcheurs | 655, 402 | Six maisons sur pilotis, toutes différentes : charpente apparente, volets, véranda couverte sur le ponton, toit à débord, cheminée, intérieur meublé. L'une a perdu sa porte et porte des griffures, une autre a le toit crevé. Ponton, séchoirs, barques. |
-| Serres | 406, 476 | Trois serres voûtées, carreaux brisés, plantes |
-| Lac central et îlot aux carcasses | 342, 434 | Îlot couvert d'os, accessible seulement à la nage. C'est là que tout le monde le cherchera : ce n'est que l'endroit où il mange. |
-| Affût | 268, 434 | Poste de chasse sur pilotis au bord du lac |
-| Enclos des herbivores | 358, 321 | Clôture électrique arrachée, carcasses, tour d'observation |
-| Campement abandonné | 408, 238 | Tentes, feu, traces de sang |
-| Cimetière | 434, 257 | Tombes avec noms |
-| Volière | 440, 159 | Dôme géodésique éventré, passerelle effondrée, nids |
-| Phare | 345, 131 | Tour de 36 blocs à colimaçon, galerie, maison du gardien |
-| Volcan : cascade et pont suspendu | 511, 227 | Chute de 80 blocs depuis le lac de cratère, gorge, pont cassé |
-| Grotte de la cascade | 544, 196 | Galerie sous le volcan : l'antre, os rangés |
-| Observatoire du volcan | 600, 170 | Sur la lèvre du cratère : sismographe, parabole |
-| Hélicoptère abattu | 262, 196 | Transport militaire couché sur le flanc : cockpit vitré, poutre de queue et dérive, pales brisées (une plantée dans le sol), porte cargo ouverte vers le ciel, soute en désordre, fumée qui monte encore du moteur, sillon d'arbres arrachés |
-| **Temple maya en ruine** | 227, 269 | Pyramide de 8 terrasses (talud-tablero, angles rentrants), escalier central raide gardé par deux têtes de serpent, sanctuaire au sommet avec voûte en encorbellement et crête ajourée, 50 blocs de haut. Place à stèles. Galerie basse vers la chambre du trésor. |
-| **Cénote** | 186, 273 | Puits naturel noyé à côté du temple : 12 blocs de chute jusqu'à l'eau, lianes le long des parois, un nid sur la corniche |
-| Tour de guet | 140, 357 | Sur la crête ouest, 26 blocs |
-| Mine abandonnée | 202, 450 | Galerie boisée de 50 blocs, rails, minerai, salle du fond |
-| Bunker | 265, 523 | Abri à demi enterré : couchettes, armurerie, vivres |
-| Bungalows | 239, 568 | Trois cabanes sur pilotis au bord du lagon, toit de bambou, escalier jusqu'au sol |
-| Épave | 83, 608 | Caboteur rouillé de 30 blocs échoué sur le récif : étrave montée sur le corail, gîte de 25°, flanc tribord éventré, cales noyées, poupe brisée et affaissée, timonerie, cheminée, mât plié, coraux sur la coque |
-| Station du delta | 336, 642 | Passerelle dans la mangrove, labo de terrain |
+| **Ponton d'arrivée** (départ) | 124, 202 | Ponton, bateau de pêche couché sur le flanc, abri avec le coffre de départ. La route monte à la base par le checkpoint. |
+| **Base militaire** | 72 à 176, −20 à 64 | Voir plus bas |
+| Checkpoint | 128, 131 | Barrière cassée, guérite, sacs de sable, projecteur |
+| Piste d'atterrissage | 226, 90 | Piste, hangar, manche à air |
+| Avion cargo | 202, 106 | Écrasé en bout de piste, caisses éparpillées |
+| Relais radio | 186, −30 | Local technique, mât haubané, sur la colline au-dessus de la base |
+| Village de pêcheurs | 233, 12 | Maisons sur pilotis, ponton, séchoirs, barques ; cimetière à côté (215, 17) |
+| Bunker | 46, 40 | Abri à demi enterré : couchettes, armurerie, vivres |
+| Poste de recherche (lac) | 20, 38 | Cabane de terrain sur la rive est du lac |
+| Lac central et îlot aux carcasses | −35, 41 | Îlot couvert d'os, accessible seulement à la nage. C'est là que tout le monde le cherchera : ce n'est que l'endroit où il mange. |
+| Affût | −97, 41 | Poste de chasse sur pilotis au bord du lac |
+| **Lagon du mosasaure** | 20, 132 | Voir plus bas |
+| Campement abandonné | 15, −118 | Tentes, feu, traces de sang |
+| Volcan : cascade et pont suspendu | 113, −132 | Chute depuis le lac de cratère, gorge, pont cassé |
+| Grotte de la cascade | 148, −158 | Galerie sous le volcan |
+| Observatoire du volcan | 179, −156 | Sur la lèvre du cratère : sismographe, parabole |
+| Hélicoptère abattu | −102, −157 | Transport militaire couché sur le flanc, fumée qui monte encore du moteur, sillon d'arbres arrachés |
+| **Temple maya en ruine** | −135, −118 | Pyramide à terrasses, escalier gardé par deux têtes de serpent, sanctuaire au sommet, chambre du trésor |
+| **Cénote** | −176, −114 | Puits naturel noyé à côté du temple |
+| Phare | −32, −238 | Tour à colimaçon, galerie, maison du gardien |
+| Tour de guet | −203, −23 | Sur la crête ouest |
+| Mine abandonnée | −112, 55 | Galerie boisée, rails, minerai, salle du fond |
+| Bungalows | −118, 145 | Trois cabanes sur pilotis au bord du récif |
+| Épave | −113, 199 | Caboteur rouillé échoué sur le récif |
+| Station du delta | −40, 215 | Passerelle dans la mangrove, labo de terrain |
 
-Des jeeps abandonnées jalonnent les pistes. Il n'y a **aucun panneau** : la carte se découvre en explorant.
+Des jeeps abandonnées jalonnent les routes et les pistes. Il n'y a **aucun panneau** : la carte se découvre en explorant.
+
+**Retirés en v3** : le campus-musée (centre d'accueil, squelette, labos), l'enclos au bassin, l'enclos des herbivores, les serres et la volière.
+
+### La base militaire « Kilo »
+
+104 × 84 blocs sur une dalle de gravier et de béton :
+- **enceinte** grillagée, quatre **portes** gardées par des guérites, quatre **miradors** (longue-vue et arbalète en haut), **projecteurs** ;
+- **QG** sur deux niveaux : salle des opérations (table de cartes), radio, armurerie (arbalètes, flèches, plastrons, TNT) ; à l'étage, bureau du commandant et dortoir des officiers ;
+- deux **baraquements**, une **cantine** (vivres), un **hangar** (atelier, rails, wagonnet), un **héliport** ;
+- **parc de véhicules** (jeeps), dépôt de **carburant**, **château d'eau**, **mât radio**, **conteneurs** de matériel.
+
+Il est passé par là : un pan du grillage arraché au nord-est, des conteneurs renversés, du sang jusqu'au hangar, la base vide.
 
 ### Nids et antre
 
-Sept nids : une cuvette de vase, une couronne de racines tressées, des œufs (œufs de renifleur) et des restes de repas. Ils sont volontairement **là où on ne les attend pas** : pas au bord des rivières.
-
 | Nid | x, z |
 |---|---|
-| **Antre** : salle sèche au bout d'un tunnel noyé, sans autre issue. On n'y entre qu'**en plongeant dans le trou bleu du lagon** (150, 640), par une galerie ouverte à 12 blocs sous la surface. | 197, 485 |
-| Sous le dôme éventré de la volière, parmi les nids d'oiseaux | 444, 154 |
-| Perché sur le flanc du volcan, en plein découvert | 553, 248 |
-| Grotte sous la crête ouest | 180, 365 |
-| Grotte sous le flanc nord du volcan | 530, 101 |
-| Corniche du cénote, en bas du puits | 186, 273 |
-
-L'antre est entouré d'une gaine de roche : aucune autre galerie n'y débouche. Contrôlé par un remplissage 3D depuis le nid : la seule issue est le trou bleu.
+| **Antre** : salle sèche au bout d'un tunnel noyé, sans autre issue. On n'y entre qu'**en plongeant dans le trou bleu du lagon de récif**, par une galerie ouverte sous la surface. | −181, 110 |
+| Perché sur le flanc du volcan, en plein découvert | 136, −104 |
+| Grotte sous le flanc nord du volcan | 196, −183 |
 
 ### Sous-sol : grottes, galeries, mines et minerais
 
-Sous l'île, un sous-sol **comme dans un monde classique**, jusqu'à la bedrock. Coordonnées (x, z)
-relatives au coin de l'île, y du monde.
-
 **Sous les collines (y ≈ 57 à 160)**
-- **Cavernes vanilla :** galeries sinueuses entrelacées (« spaghetti ») et grandes cavernes (« fromage »), plus larges qu'avant, sous toutes les collines. Les parties au niveau de la nappe (y ≈ 57 à 61) sont noyées : lacs souterrains.
-- **Grottes à salles :** 72 salles avec des galeries principales où **le spinosaure passe**, et des boyaux de 3 blocs pour les joueurs : parois irrégulières, colonnes de stalactites, éboulis, salles envahies de végétation (avec de la mousse luisante), racines, lianes des cavernes, ossements, amanites et champignons luisants.
-- **Deux mines abandonnées de type vanilla**, sur quatre générations de couloirs :
-  - sous la crête ouest (147, 417) : 47 couloirs de 3 × 3 étayés, rails, toiles, coffres. **Un puits de 3 × 3 à échelles** (paliers tous les 16 blocs) descend de là jusqu'à la mine profonde, 100 blocs plus bas ;
-  - sous le plateau de l'est (632, 216) : 69 couloirs.
-- **Entrées :** porches rocheux en surplomb et deux gouffres ouverts dans la jungle. Les 11 entrées (x, z) : (169, 472), (98, 354), (644, 144), (543, 106), (144, 255), (559, 257), (645, 228), (503, 182), (180, 391), (422, 505), (426, 209). Elles sont aussi dans `site_b_v2.json`.
+- **Grottes à salles**, plus grandes qu'avant : 44 salles et des galeries principales de 8 à 11 blocs de large où **le spinosaure passe**, plus des boyaux de 3 blocs pour les joueurs. Peu de concrétions : quelques stalactites et stalagmites par salle, pas de forêt de pointes.
+- **Cavernes vanilla** (galeries sinueuses et grandes cavernes) sous les collines.
+- **Deux mines abandonnées** : sous la crête ouest (−197, 28), 27 couloirs, avec **un puits à échelles** jusqu'à la mine profonde ; sous le volcan (140, −208), 62 couloirs.
+- **Entrées** (9) : (116, −176), (239, −180), (−205, 35), (−226, −67), (206, −101), (160, −247), (−182, −155), (−181, 118), (53, −120).
 
 **Le sous-sol profond (y = −64 à 14), sous toute l'île**
-- Ardoise des abîmes sous y = 0, transition mêlée jusqu'à 8, pierre au-dessus ; poches de tuf, granite, diorite et andésite ; bedrock irrégulière au fond.
-- **Cavernes** au bruit 3D : grandes salles à piliers, longues galeries, boyaux étroits. Environ 15 % du volume, soit 7 millions de blocs.
-- **Lacs de lave** sous y = −55, comme en vanilla : ils éclairent le fond.
-- **Minerais d'ardoise :** diamant (≈ 15 700 blocs, surtout vers y = −58), redstone, or, lapis, fer, cuivre, charbon.
-- Deux **géodes d'améthyste**, des régions de **gouttes** (stalactites et stalagmites de dripstone, biome *dripstone caves*), et une **région de sculk** (biome *deep dark*).
-- **La mine profonde** à y = −30, sous la crête : salle de terre centrale, 60 couloirs, rails, toiles et toiles pendantes, **œufs d'araignée** (BOP), **4 générateurs d'araignées venimeuses** enrobés de toiles, et des coffres un peu mieux garnis (diamants, pomme dorée, étiquette).
+- **Cavernes** plus larges et plus régulières : grandes salles et galeries (5 millions de blocs), sans les boyaux « nouilles ».
+- **3 longs tunnels** de 220 à 340 blocs, 6 à 9 blocs de diamètre, qui traversent l'île entre y = −48 et −4.
+- **Grande mine profonde** à y = −30, sous la crête : 172 couloirs, 36 coffres, rails, toiles, 4 générateurs d'araignées venimeuses.
+- **Lave** réduite aux lacs du fond (y = −59 et −58) par poches, bordés de tuf : 25 000 blocs (contre 473 000 avant).
+- **Gouttes** (dripstone) rares : 1 700 blocs (contre 72 000). Une région de sculk.
+- Minerais d'ardoise : diamant, redstone, or, lapis, fer, cuivre, charbon.
 
 **Les liaisons, pour descendre**
-- **5 descentes en colimaçon**, praticables à pied, depuis des grottes sèches de l'île jusqu'aux cavernes profondes : départs en (470, 203), (569, 131), (419, 433), (173, 350) et (197, 483).
-- **2 ravins** ouverts dans la jungle, jusqu'à y ≈ −28 : un à-pic de plus de 100 blocs, centrés en (646, 235) et (138, 429). On y tombe, on n'y descend pas.
-- Le **puits de mine à échelles** (147, 417).
-- Aucune de ces liaisons ne touche l'eau : chaque tracé est refusé s'il passe à moins de 2 blocs d'une grotte noyée.
+- 2 **descentes en colimaçon** depuis des grottes sèches : (70, −147) et (211, −139).
+- 2 **ravins** jusqu'au sous-sol profond, avec une passerelle de corde au-dessus : (253, −163) et (−223, 26).
+- Le **puits de mine à échelles** (−197, 28).
 
-### Se déplacer : tyroliennes, passerelles, barques, wagonnets
+### Se déplacer : routes, tyroliennes, passerelles, barques, wagonnets
 
-**Huit tyroliennes**, toujours en descente (on prend de l'élan en descendant, on en perd en montant) :
+**Huit tyroliennes**, toujours en descente :
 
 | Ligne | Longueur | Départ → arrivée (y) |
 |---|---|---|
-| **Rive nord → rive sud du lagon** (au-dessus du lagon du mosasaure) | 127 blocs, 5 tronçons | 102 → 69 |
-| **Serres → rive sud du lagon** (au-dessus du lagon) | 137 blocs, 6 tronçons | 102 → 70 |
-| Relais radio → Serres (au-dessus du campus) | 185 blocs, 7 tronçons | 113 → 76 |
-| Tour de guet → Affût (depuis la crête) | 152 blocs, 6 tronçons | 142 → 76 |
-| Phare → Volière | 99 blocs, 4 tronçons | 108 → 88 |
-| Hélicoptère abattu → Temple maya | 43 blocs | 100 → 75 |
-| Temple maya → Cénote | 42 blocs | 92 → 75 |
-| Relais radio → Village de pêcheurs | 33 blocs | 88 → 69 |
+| **Base militaire → rive sud du lagon** (au-dessus du lagon) | 168 blocs, 7 tronçons | 91 → 79 |
+| **Rive nord → rive sud du lagon** (au-dessus du lagon) | 122 blocs, 5 tronçons | 85 → 76 |
+| Relais radio → Base militaire | 67 blocs, 3 tronçons | 101 → 81 |
+| Tour de guet → Affût (depuis la crête) | 127 blocs, 5 tronçons | 141 → 83 |
+| Relais radio → Village de pêcheurs | 44 blocs | 89 → 70 |
+| Hélicoptère abattu → Temple maya | 43 blocs | 97 → 81 |
+| Temple maya → Cénote | 53 blocs | 119 → 81 |
+| Phare → Campement abandonné | 67 blocs | 91 → 84 |
 
-Au-dessus du lagon, les pylônes plongent jusqu'au fond (et jusqu'au fond de la fosse quand ils tombent dessus).
+- **S'en servir :** monter à l'échelle de la tour de départ, se placer sous la barrière du portique, **pioche en main, clic droit maintenu** vers la chaîne. Relâcher ou sauter pour lâcher.
+- **Construction :** tour de départ, pylônes à potence (le joueur pend 2,3 blocs sous le câble), tronçons de 28 blocs au plus (Reconnectible Chains casse une chaîne au-delà de 32), **plate-forme d'arrivée surélevée de 2 blocs avec un escalier** : on arrive au-dessus du sol, pas dedans. Au-dessus du lagon, les pylônes plongent jusqu'au fond.
+- **Dégagement** vérifié sous toute la ligne (relief, bâtiments, feuillages, eau). Refusée faute de dégagement : observatoire → campement (la lèvre du cratère coupe la ligne).
 
-- **S'en servir :** monter à l'échelle de la tour de départ, se placer sous la barrière du portique, **pioche en main, clic droit maintenu** vers la chaîne. On regarde dans le sens de la marche. Relâcher le clic ou sauter pour lâcher ; accroupi pour se laisser tomber sans sauter.
-- **Construction :** tour de départ, pylônes à potence (poteau décalé de 2 blocs et bras au-dessus de la ligne, pour que le joueur, qui pend 2,3 blocs sous le câble, ne heurte rien) et portique d'arrivée avec plancher. Les tronçons font au plus 28 blocs : Reconnectible Chains casse une chaîne au-delà de 32 blocs, réglage par défaut. Le joueur passe d'un tronçon au suivant sans lâcher.
-- **Dégagement :** le relief, les bâtiments et les feuillages sont vérifiés sous toute la ligne, flèche de la chaîne comprise. On ne plante aucun arbre dans le couloir des câbles, et les feuillages qui y débordent sont retirés.
-- Tyroliennes refusées faute de pente ou à cause d'un relief qui les barrait : observatoire du volcan → campement ou → cimetière (la lèvre du cratère coupe la ligne).
-
-**Passerelles de corde** au-dessus des deux ravins : planches, garde-corps de chaînes, et elles s'affaissent au milieu.
-
-**Barques** amarrées au ponton, au village de pêcheurs, aux bungalows et à la station du delta. **Wagonnets** sur les rails des mines, dont quelques-uns avec un coffre, jusque dans la mine profonde.
-
-**Parkour (ParCool!)** : les rochers, les ruines du temple, les falaises en gradins et les pylônes deviennent des parcours.
+**Passerelles de corde** au-dessus des deux ravins. **Barques** au ponton, au village, aux bungalows et au delta. **Wagonnets** sur les rails des mines. **Parkour (ParCool!)** : rochers, ruines, falaises en gradins, pylônes.
 
 ### Le lagon du mosasaure
 
-Un grand lagon tropical au sud de l'île, entre le delta et le ponton d'arrivée : on le voit en arrivant. Centre (428, 580), soit **(44, 196) dans le jeu**.
-- **En surface :** 120 × 108 blocs d'eau turquoise (biome océan chaud), plages de sable blanc (BOP), palmiers et jungle tout autour. Un chenal de 12 blocs de large et 10 de fond le relie à l'océan, au sud.
-- **Le piège :** une ceinture de haut-fond de sable blanc où l'on a pied (1 à 4 blocs), puis le **tombant**, une paroi de roche nue.
-- **La cuvette :** **40 blocs de fond** (y = 23 à 63), assez de place pour une grande bête marine. On y trouve :
-  - des **forêts de grandes algues** de 35 à 40 blocs de haut ;
-  - **11 rochers énormes** (jusqu'à 22 blocs de large) ;
-  - **3 aiguilles rocheuses** qui percent la surface, dont une percée d'une arche au ras de l'eau.
-- **La fosse :** au milieu, un entonnoir irrégulier de 44 × 32 blocs qui descend dans l'ardoise des abîmes jusqu'à **y = −30** : **93 blocs d'eau** en tout. Des algues géantes montent du fond jusque sous la surface (plus de 80 blocs).
-- **L'épave :** un caboteur rouillé de 44 blocs, couché sur le flanc et cassé en deux, **au fond de la fosse** (vers (52, 202) dans le jeu). Dans la cale, un coffre : or, cœur de la mer, diamants. Autour, des os.
-- **Étanche :** toute cavité du sous-sol à moins de 3 blocs de l'eau du lagon a été murée (4 100 blocs), avant et après la pose de l'épave. Mesuré : 0 bloc d'eau au contact de l'air dans toute la zone du lagon.
-- **Le mosasaure n'est pas fourni.** Le lagon est prêt pour une créature marine d'un autre mod : c'est de l'océan chaud, profond, relié à la mer.
+Un lagon fermé au milieu du sud de l'île, entre le lac et le ponton, relié à l'océan par un chenal vers le delta. Centre **(20, 132)**.
+- **En surface :** environ 92 × 84 blocs d'eau turquoise (biome océan chaud), une fine bande de sable blanc (1 à 4 blocs) au bord, jungle tout autour.
+- **Profond partout :** passé la bande de sable, le fond tombe d'un coup. Le **fond est à y = −20 au centre** (83 blocs d'eau) et remonte doucement vers les bords (y ≈ −10), sans cuvette ni haut-fond au milieu : tout le lagon laisse la place à une grande bête marine.
+- **Rochers énormes** (8) posés sur le fond, et **3 aiguilles** qui montent du fond jusqu'au-dessus de la surface.
+- **Algues** : peu, par massifs, seulement dans le tiers extérieur (89 pieds de kelp de 10 à 22 blocs) : l'eau reste claire, on voit le fond et l'épave.
+- **L'épave :** un caboteur rouillé de 44 blocs, **posé sur le fond à y = −20**, vers (26, 136). Dans la cale, un coffre : or, cœur de la mer, diamants.
+- **Étanche :** toute cavité à moins de 3 blocs de l'eau du lagon est murée (2 366 blocs). Mesuré : 0 bloc d'eau au contact de l'air sous le niveau de la mer, 0 au contact de la lave.
+- **Le mosasaure n'est pas fourni** : le lagon est prêt pour une créature marine d'un autre mod.
 
 ### Rives, plages et gués
 
@@ -191,66 +193,41 @@ On ne traverse plus les rivières sur des ponts : **les ponts se sont effondrés
 
 Une rive de rivière ou du lac sur deux environ est une **plage** au ras de l'eau, avec un haut-fond où l'on a pied.
 
-Trois lieux ne se rejoignent **que par la plage** :
-- le village de pêcheurs, depuis le ponton ;
-- la station du delta, depuis les bungalows ;
-- la volière, depuis le phare.
-
-### Le campus
-
-- **Centre d'accueil** :
-  - atrium sous une charpente à deux pans, avec une verrière de faîtage et un pan effondré sous un arbre tombé ;
-  - squelette de spinosaure et grand escalier ;
-  - mezzanine d'exposition, café et boutique ;
-  - façade vitrée éventrée : il peut entrer dans l'atrium.
-- **Galerie d'observation sous-marine**, sous le parvis : une vitre sur le bassin de l'enclos.
-- **Aile des laboratoires**, sur deux niveaux :
-  - génétique, couveuse (un nid éclos), chambre froide, salle des cuves (une brisée), sécurité ;
-  - salle de contrôle face à l'enclos, bureaux et bureau du directeur, serveurs, réunion, infirmerie ;
-  - sur le toit : héliport, climatisation, panneaux solaires, antennes.
-- **Sous-sol noyé** : passerelles, groupe de secours à cinq leviers, **tunnel de drainage** ouvert sur le bassin. C'est sa route pour entrer dans le bâtiment.
-- **Loge du personnel** : cantine, cuisine, laverie, salle de détente, douze chambres, dont une barricadée, et toit en cuivre.
-- **Belvédère** : tour ronde à colimaçon.
-- **Centrale électrique** : cheminée et cuves.
-- **Enclos S-01** : bassin, île intérieure, brèche vers la rivière, grue et cage.
-- **Extérieur** : parvis avec fontaine, parking, portail, clôture de périmètre trouée.
-
-Les couloirs font 2 blocs de large : il n'y entre pas. Mais il voit à travers les vitres.
 
 ### Objectifs possibles pour l'événement
 
-Il n'y a plus ni journaux ni panneaux. Le décor raconte l'histoire, et on peut bâtir l'événement dessus :
-- relancer le groupe de secours au sous-sol des labos (cinq leviers) ;
+Il n'y a ni journaux ni panneaux. Le décor raconte l'histoire, et on peut bâtir l'événement dessus :
+- rejoindre la base et s'armer au QG ;
 - joindre le relais radio ;
 - trouver les nids ;
-- tenir jusqu'à l'évacuation au ponton sud.
+- tenir jusqu'à l'évacuation, par la piste ou par le ponton.
 
 ## Le terrain
 
 - Volcan au nord-est : lac de cratère perché, cascade, gorge.
 - Crête rocheuse à l'ouest, avec falaises en gradins.
 - Rivière principale : de la cascade au lac central, puis en delta à mangrove au sud, avec un affluent et un bras vers l'est.
-- Lagon et récif de corail au sud-ouest, plages de sable.
+- Lagon de récif et barrière de corail au sud-ouest, lagon du mosasaure au sud, plages de sable.
 - **Plages en pente douce tout autour de l'île** : le fond remonte jusqu'à la ligne d'eau et la terre repart de là. On sort de l'eau à pied partout, lagon compris ; seules les falaises du volcan et de la crête font exception, volontairement.
 - **Falaises au bord de l'eau** (cratère, gorges, trous bleus, crevasses, pointes rocheuses) : elles ne tombent plus en mur droit. Un bruit 3D les ronge et les fait déborder : niches, surplombs sous la lèvre, bancs horizontaux, éperons, et un talus d'éboulis au pied qui remonte sous l'eau. Près de 89 000 blocs retravaillés. Le rideau de la cascade n'est pas touché.
 - **Barrière de corail en volume** : dômes, tables en champignon, tours et arches de corail, par colonies de couleur, avec des gorgones, des éventails sur les flancs et des concombres de mer. D'autres pâtés isolés parsèment le lagon.
-- **Fond marin travaillé** : plage immergée puis tombant, bancs et rides de sable, gravier, argile et vase au large, pitons rocheux, **crevasses** étroites et sinueuses jusqu'à 18 blocs plus bas, forêts de kelp. **Sept trous bleus**, des puits à parois verticales jusqu'à 4 blocs du fond du monde, dont un dans le lagon : x, z = (150, 640), (712, 405), (708, 588), (79, 162), (32, 486), (287, 66), (495, 725).
+- **Fond marin travaillé** : plage immergée puis tombant, bancs et rides de sable, gravier, argile et vase au large, pitons rocheux, **crevasses** étroites et sinueuses jusqu'à 18 blocs plus bas, forêts de kelp. **Sept trous bleus**, des puits à parois verticales jusqu'à 4 blocs du fond du monde, dont un dans le lagon de récif (l'accès à l'antre). Coordonnées du jeu : (−195, 213), (13, 274), (270, 170), (−96, 247), (293, 58), (135, 276), (22, −291).
 - **Toutes les eaux libres sont au niveau de la mer** et forment un seul réseau : c'est son territoire.
 - **Jungle à étages**, pas une forêt :
   - fromagers géants à contreforts et couronne en parasol ;
   - arbres de voûte (un sur trois est un **acajou** BOP), figuiers étrangleurs creux, **palmiers** BOP sur les berges, palétuviers dans le delta ;
   - **saules pleureurs** BOP le long des rivières et du lac : des rideaux de lianes jusqu'au sol ;
-  - **mousse espagnole** BOP qui pend des feuillages (13 500 blocs) ;
-  - jeunes arbres, buissons, bambous, troncs couchés moussus ;
+  - **mousse espagnole** BOP qui pend des feuillages (9 200 blocs) ;
+  - beaucoup de **petits arbres** : 690 jeunes arbres, 1 000 buissons et des arbrisseaux de 3 à 5 blocs (jungle, acajou, chêne, azalée), bambous, troncs couchés moussus ;
   - sous-bois dense : herbes, fougères, buissons, pousses et trèfle BOP, hautes herbes BOP et plantes de 2 blocs couvrent environ 80 % du sol, avec de nombreux jeunes arbres et buissons. Sous les arbres, on ne voit plus à 50 blocs. De rares **fleurs luisantes** brillent dans le noir ;
   - fleurs de jungle : hibiscus, cosmos orange, violettes, fleurs sauvages (BOP) ;
   - au bord de l'eau : **massettes** et **roseaux** (BOP), cannes à sucre, nénuphars fleuris et **nénuphars géants** ;
   - sur les plages : oyats et herbes des dunes ; **sable noir** sur les plages du volcan ;
-  - **rideaux de lianes** : 120 000 blocs de lianes pendent des feuillages sur 3 à 14 blocs ;
+  - **rideaux de lianes** : 82 000 blocs de lianes pendent des feuillages sur 3 à 14 blocs ;
   - **clairières** fleuries (herbes hautes, fougères géantes, orchidées, torchères, pétales roses, melons) : on y voit loin, et on y est vu ;
-  - **mares** boueuses (40), avec nénuphars, grandes feuilles et cannes à sucre ;
+  - **mares** boueuses (38), avec nénuphars, grandes feuilles et cannes à sucre ;
   - **rochers moussus** (320), certains grands comme une cabane : de quoi se cacher ;
-  - 38 **bambouseraies** ;
+  - 23 **bambouseraies** ;
   - **versants et montagnes couverts** : mousse et herbe sur les pentes, buissons et jeunes arbres accrochés, parois tapissées de lianes par plaques (12 000 blocs). Seules les parois quasi verticales restent en roche nue.
 
 Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
@@ -260,9 +237,12 @@ Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 - les rivières font **9 blocs de fond** en médiane, et 94 % font au moins 4 blocs ;
 - les troncs de la voûte sont espacés d'au moins 8 blocs.
 
+(Ces trois mesures datent de l'île de 768 ; elles n'ont pas été refaites sur la v3.)
+
 ## Vérifié, et pas vérifié
 
-- Chaque état de bloc (650) est contrôlé contre les données Minecraft 1.20 de minecraft-data : 0 erreur.
+- Chaque état de bloc (606) est contrôlé contre les données Minecraft 1.20 de minecraft-data, et ceux de Biomes O' Plenty contre le jar : 0 erreur.
+- **Eau** (v3) : sous le niveau de la mer, 0 bloc d'eau au contact de l'air et 0 au contact de la lave, dans le sous-sol profond comme au-dessus, jonction y = 14 / 15 comprise. Seule la cascade (eau source au-dessus du sol, voulue) touche de l'air.
 - Les fichiers portent le champ `BiomePaletteMax` exigé par WorldEdit 7.2.15 : sans lui, `//schem load` échouait avec « Unknown error ».
 - **Côtes** : sur tout le tour de l'île, la terre au bord de la mer est au niveau de l'eau (0 bloc à escalader pour sortir de l'eau). Mesuré sur la carte des hauteurs.
 - **Grottes** : 5 blocs de roche au moins entre le plafond et la surface (7 pour les cavernes), hors entrées. Toute cavité sous le niveau de la nappe est pleine d'eau, à surface plane. 10 cellules d'air couvertes touchent de l'eau sur toute l'île : au pire, quelques blocs d'eau couleront au premier bloc voisin modifié.
@@ -279,13 +259,13 @@ Blocs vanilla 1.20.1 et **Biomes O' Plenty** (à installer, voir plus haut).
 
 ## Régénérer ou modifier
 
-`python3 generer_ile.py sortie/` (numpy requis, environ 3 min) produit le monde (`sortie/Site B/`, à zipper dans `dist/site_b_monde.zip`), les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `verif_monde.txt` (blocs témoins pour la CI), `blocs.npy`, `profond.npy` et `grottes.npy`. `python3 verif_monde.py sortie/` relit ensuite les régions. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
+`python3 generer_ile.py sortie/` (numpy requis, environ 2 min) produit le monde (`sortie/Site B/`, à zipper dans `dist/site_b_monde.zip`), les 5 `.schem`, `site_b_v2.json` (coordonnées des lieux, des entrées de grottes et des trous bleus), `verif_monde.txt` (blocs témoins pour la CI), `blocs.npy`, `profond.npy` et `grottes.npy`. `python3 verif_monde.py sortie/` relit ensuite les régions. La graine est fixe : on obtient la même île à chaque fois. Pour remettre les panneaux, passer `PANNEAUX` à `True` dans `monde.py`.
 
 | Module | Rôle |
 |---|---|
 | `relief.py` | forme de l'île, volcan, rivières, lac, lagon |
 | `arbres.py` | les essences d'arbres |
-| `campus.py` | les bâtiments du campus |
+| `base_militaire.py` | la base militaire « Kilo » : enceinte, miradors, QG, baraquements, hangar, héliport, dépôts |
 | `mobilier.py` | meubles et façades |
 | `lieux.py` | les autres lieux (temple maya, cénote, maisons, hélicoptère…) |
 | `grottes.py` | grottes, gouffres, lacs souterrains, cavernes, mines, antre et nids |

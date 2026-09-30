@@ -103,32 +103,74 @@ class Profond:
 
     # ------------------------------------------------------------------ cavernes
     def cavernes(self):
-        """Fromage, spaghetti et nouilles ; rien dans le socle ni dans les 6 couches du haut
-        (l'ile repose sur du plein)."""
+        """Grandes cavernes (« fromage » a grande echelle : des salles de 30 a 60 blocs a piliers)
+        et longues galeries lisses (« spaghetti » etires) ; plus de boyaux etroits. Rien dans le
+        socle ni dans les 6 couches du haut (l'ile repose sur du plein)."""
         W, L = self.W, self.L
         A = self.m.AIR
-        b1, b2 = Bruit3D(W, NY, L, 16, 971), Bruit3D(W, NY, L, 16, 972)
-        b3, b4 = Bruit3D(W, NY, L, 22, 973), Bruit3D(W, NY, L, 8, 974)
-        b5, b6 = Bruit3D(W, NY, L, 7, 975), Bruit3D(W, NY, L, 7, 976)
+        b1, b2 = Bruit3D(W, NY, L, 26, 971), Bruit3D(W, NY, L, 26, 972)
+        b3, b4 = Bruit3D(W, NY, L, 34, 973), Bruit3D(W, NY, L, 11, 974)
         socle = self.P('minecraft:bedrock')
         for i in range(5, NY - 6):
             y = Y0 + i
-            # les salles s'etirent vers le bas (plus on descend, plus c'est vaste)
-            seuil = 0.705 + 0.02 * max(0, (y + 10) / 20.0)
-            fromage = (b3.couche(i) + 0.3 * (b4.couche(i) - 0.5)) > seuil
-            spaghetti = (np.abs(b1.couche(i) - 0.5) < 0.04) & (np.abs(b2.couche(i) - 0.5) < 0.065)
-            nouilles = (np.abs(b5.couche(i) - 0.5) < 0.022) & (np.abs(b6.couche(i) - 0.5) < 0.022)
-            sel = (fromage | spaghetti | nouilles) & (self.b[i] != socle)
+            seuil = 0.70 + 0.02 * max(0, (y + 10) / 20.0)
+            fromage = (b3.couche(i) + 0.25 * (b4.couche(i) - 0.5)) > seuil
+            spaghetti = (np.abs(b1.couche(i) - 0.5) < 0.05) & (np.abs(b2.couche(i) - 0.5) < 0.075)
+            sel = (fromage | spaghetti) & (self.b[i] != socle)
             self.b[i][sel] = A
             self.creuse[i] |= sel
         return int(self.creuse.sum())
 
+    def tunnels(self, n=3):
+        """Longs tunnels (300 a 500 blocs, 6 a 9 de large) qui traversent tout le sous-sol en
+        ondulant : les autoroutes du dessous, qui relient les grandes cavernes."""
+        rng, W, L = self.rng, self.W, self.L
+        A = self.m.AIR
+        socle = self.P('minecraft:bedrock')
+        faits = 0
+        for k in range(n):
+            a = rng.uniform(0, 2 * math.pi)
+            x, z = W / 2 - math.cos(a) * W * 0.38, L / 2 - math.sin(a) * L * 0.38
+            y = float(rng.uniform(-40, -12))
+            cap, pente = a + rng.uniform(-0.3, 0.3), 0.0
+            for pas in range(int(rng.integers(220, 340))):
+                R = 3.0 + 1.2 * math.sin(pas * 0.07 + k) + rng.uniform(0, 0.5)
+                Rv = R * 0.75
+                x0, x1 = int(x - R) - 1, int(x + R) + 2
+                z0, z1 = int(z - R) - 1, int(z + R) + 2
+                i0, i1 = max(5, int(y - Rv - Y0) - 1), min(NY - 7, int(y + Rv - Y0) + 2)
+                if not (2 <= x0 and x1 < W - 2 and 2 <= z0 and z1 < L - 2):
+                    break
+                ii, zz, xx = np.ogrid[i0:i1, z0:z1, x0:x1]
+                sel = (((xx + 0.5 - x) / R) ** 2 + ((zz + 0.5 - z) / R) ** 2 + ((ii + Y0 + 0.5 - y) / Rv) ** 2) <= 1
+                bloc = self.b[i0:i1, z0:z1, x0:x1]
+                sel &= bloc != socle
+                bloc[sel] = A
+                self.creuse[i0:i1, z0:z1, x0:x1] |= sel
+                cap += rng.normal(0, 0.06)
+                pente = float(np.clip(pente + rng.normal(0, 0.03), -0.2, 0.2))
+                x += math.cos(cap) * 1.5
+                z += math.sin(cap) * 1.5
+                y = float(np.clip(y + pente * 1.5, -48, -4))
+            faits += 1
+        return faits
+
     def lave(self):
-        """Sous y = -55, toute cavite est un lac de lave a surface plane (rien ne coule)."""
-        n = -55 - Y0 + 1
-        c = self.creuse[:n]
-        self.b[:n][c] = self.P(LAVE)
-        return int(c.sum())
+        """Quelques mares de lave seulement, au plus bas (y -59 et -58) et par endroits ; leur bord
+        est borde de tuf pour que rien ne coule."""
+        P = self.P
+        L_ = P(LAVE)
+        tuf = P('minecraft:tuff')
+        masque = Bruit3D(self.W, NY, self.L, 40, 979).couche(6) > 0.62
+        n = 0
+        for i in (5, 6):
+            c = self.creuse[i] & masque
+            self.b[i][c] = L_
+            n += int(c.sum())
+            bord = voisins4(c) & self.creuse[i] & ~c
+            self.b[i][bord] = tuf
+            self.creuse[i] &= ~bord
+        return n
 
     # ------------------------------------------------------------------ minerais
     def minerais(self):
@@ -231,7 +273,7 @@ class Profond:
             sol = air & plein_dessous
             plafond = air & plein_dessus
             u = rng.random(air.shape, dtype=np.float32)
-            gouttes = reg.couche(i) > 0.56
+            gouttes = reg.couche(i) > 0.72                         # des regions rares
             zone_sculk = self.sculk2d & (y < -25)
             # sculk : le sol devient sculk, veines et capteurs par-dessus
             s = sol & zone_sculk & (u < 0.8)
@@ -242,7 +284,7 @@ class Profond:
             # gouttes : sol en bloc de dripstone, stalagmites ; stalactites au plafond
             g = sol & gouttes & ~zone_sculk & (u < 0.5)
             self.b[i - 1][g] = P('minecraft:dripstone_block')
-            zs, xs = np.nonzero(sol & gouttes & ~zone_sculk & (u > 0.93))
+            zs, xs = np.nonzero(sol & gouttes & ~zone_sculk & (u > 0.985))
             for z, x in zip(zs, xs):
                 n = int(rng.integers(1, 5))
                 for k, t in enumerate(ep[n]):
@@ -250,7 +292,7 @@ class Profond:
                         break
                     self.b[i + k, z, x] = P(pd % (t, 'up'))
                 stats['gouttes'] += 1
-            zs, xs = np.nonzero(plafond & gouttes & ~zone_sculk & (u < 0.09))
+            zs, xs = np.nonzero(plafond & gouttes & ~zone_sculk & (u < 0.02))
             for z, x in zip(zs, xs):
                 n = int(rng.integers(1, 5))
                 for k, t in enumerate(ep[n]):
@@ -337,12 +379,12 @@ class Profond:
             if prof <= 0:
                 return
             for nd in dirs:
-                if nd == (-dx, -dz) or rng.random() < 0.4:
+                if nd == (-dx, -dz) or rng.random() < 0.35 or stats['couloirs'] > 170:
                     continue
-                couloir(fx, fz, nd, int(rng.integers(14, 36)), prof - 1)
+                couloir(fx, fz, nd, int(rng.integers(18, 44)), prof - 1)
 
         for d in dirs:
-            couloir(cx + d[0] * 6, cz + d[1] * 6, d, int(rng.integers(16, 30)), profondeur)
+            couloir(cx + d[0] * 6, cz + d[1] * 6, d, int(rng.integers(22, 40)), profondeur)
         return stats
 
     def coffre(self, x, y, z, objets):

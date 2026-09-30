@@ -95,7 +95,7 @@ class Grottes:
             if y < plancher:
                 pente = abs(pente) + 0.08
                 y = max(y, plancher - 1)
-            rh = float(np.clip(rh + rng.normal(0, 0.08), 1.3, 5.0))
+            rh = float(np.clip(rh + rng.normal(0, 0.08), 1.3, 6.0))
             if profondeur == 0 and rng.random() < 0.02:
                 self.salle(x, y, z)
             if branches and profondeur < 2 and rng.random() < 0.02:
@@ -144,7 +144,7 @@ class Grottes:
         return bas
 
     # ------------------------------------------------------------------ l'ensemble
-    def creuser(self, n_reseaux=14):
+    def creuser(self, n_reseaux=11):
         self._lut = self._creusable()
         r, rng = self.r, self.rng
         pente = r.pente
@@ -165,7 +165,7 @@ class Grottes:
             gz, gx = np.gradient(r.h[z - 3:z + 4, x - 3:x + 4].astype(float))
             cap = math.atan2(gz[3, 3], gx[3, 3]) if (gx[3, 3] or gz[3, 3]) else rng.uniform(0, 6.28)
             ex, ey, ez = self.entree(x, z, cap)
-            self.ver(ex, ey, ez, cap, int(rng.integers(240, 440)), rng.uniform(3.4, 4.4), -0.15)
+            self.ver(ex, ey, ez, cap, int(rng.integers(260, 460)), rng.uniform(4.2, 5.4), -0.15)
         # deux gouffres dans la jungle, loin des entrees
         plats = (~self.protege) & (r.h >= self.SEA + 20) & (pente < 0.8) & (r.eau <= r.h)
         zs, xs = np.nonzero(plats[40:-40, 40:-40])
@@ -211,7 +211,7 @@ class Grottes:
         m.blocs[ys[tache] - 1, zs[tache], xs[tache]] = P('minecraft:moss_block')
         grav = (~tache) & (v > 0.93)
         m.blocs[ys[grav] - 1, zs[grav], xs[grav]] = P('minecraft:coarse_dirt')
-        stal = v < 0.035
+        stal = v < 0.008
         m.blocs[ys[stal], zs[stal], xs[stal]] = P('minecraft:pointed_dripstone[thickness=tip,vertical_direction=up,waterlogged=false]')
         tapis = tache & (v > 0.6) & (v < 0.75)
         m.blocs[ys[tapis], zs[tapis], xs[tapis]] = P('minecraft:moss_carpet')
@@ -224,7 +224,7 @@ class Grottes:
         m.blocs[ys[lueur], zs[lueur], xs[lueur]] = P('biomesoplenty:glowshroom')
         ys, zs, xs = np.nonzero(plafond)
         v = u[ys, zs, xs]
-        stal = v < 0.05
+        stal = v < 0.012
         m.blocs[ys[stal], zs[stal], xs[stal]] = P('minecraft:pointed_dripstone[thickness=tip,vertical_direction=down,waterlogged=false]')
         racines = (v > 0.05) & (v < 0.075)
         m.blocs[ys[racines], zs[racines], xs[racines]] = P('minecraft:hanging_roots[waterlogged=false]')
@@ -406,7 +406,7 @@ def formations(self):
     for (x, y, z, rx) in self.salles:
         luxuriante = rng.random() < 0.33
         R = int(rx * 0.7)
-        for _ in range(int(rng.integers(6, 14))):
+        for _ in range(int(rng.integers(2, 6))):
             px, pz = x + int(rng.integers(-R, R + 1)), z + int(rng.integers(-R, R + 1))
             if not (2 <= px < m.W - 2 and 2 <= pz < m.L - 2) or not self.creuse[max(0, y), pz, px]:
                 continue

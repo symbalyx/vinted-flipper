@@ -1,4 +1,9 @@
-"""Relief de l'ile (768 x 768) : cartes de hauteur, d'eau et de zones.
+"""Relief de l'ile : cartes de hauteur, d'eau et de zones.
+
+Le relief est concu dans un espace de 768 x 768 (toutes les coordonnees ci-dessous) puis
+echantillonne sur la grille reelle (640 x 640 par defaut, facteur K = 5/6) : l'ile est plus
+petite sans rien redessiner. Les points remarquables exposes (VOLCAN, LAC, CHUTE...) sont, eux,
+en coordonnees de la grille.
 
   - cote decoupee (baies, caps), plages, recif et lagon au sud-ouest ;
   - volcan endormi au nord-est : lac de cratere, canyon ouvert a l'ouest, cascade ;
@@ -62,19 +67,21 @@ def catmull(pts, pas=4.0):
     return out
 
 
-def distance_polyligne(W, L, ligne, rayon_max, val=None):
+def distance_polyligne(W, L, ligne, rayon_max, val=None, k=1.0):
     """Distance (bornee a rayon_max) de chaque colonne a la polyligne, et valeur interpolee
-    `val` (liste par sommet) au point le plus proche. Calcule par boites englobantes."""
+    `val` (liste par sommet) au point le plus proche. Calcule par boites englobantes.
+    k : la polyligne et les distances sont dans l'espace de conception (grille = conception x k)."""
     d = np.full((L, W), 1e9, np.float32)
     v = np.zeros((L, W), np.float32)
     val = val if val is not None else [0.0] * len(ligne)
     for i in range(len(ligne) - 1):
         (ax, az), (bx, bz) = ligne[i], ligne[i + 1]
-        x0 = max(int(min(ax, bx) - rayon_max), 0); x1 = min(int(max(ax, bx) + rayon_max) + 1, W)
-        z0 = max(int(min(az, bz) - rayon_max), 0); z1 = min(int(max(az, bz) + rayon_max) + 1, L)
+        x0 = max(int((min(ax, bx) - rayon_max) * k), 0); x1 = min(int((max(ax, bx) + rayon_max) * k) + 2, W)
+        z0 = max(int((min(az, bz) - rayon_max) * k), 0); z1 = min(int((max(az, bz) + rayon_max) * k) + 2, L)
         if x0 >= x1 or z0 >= z1:
             continue
         zz, xx = np.mgrid[z0:z1, x0:x1].astype(np.float32)
+        zz /= k; xx /= k
         vx, vz = bx - ax, bz - az
         l2 = max(vx * vx + vz * vz, 1e-6)
         t = np.clip(((xx - ax) * vx + (zz - az) * vz) / l2, 0, 1)
@@ -87,8 +94,9 @@ def distance_polyligne(W, L, ligne, rayon_max, val=None):
 
 
 class Relief:
-    def __init__(self, W=768, L=768, SEA=48, graine=7):
+    def __init__(self, W=640, L=640, SEA=48, graine=7, K=None):
         self.W, self.L, self.SEA = W, L, SEA
+        self.K = W / 768.0 if K is None else K
         self.n = Bruit(W, L, graine)
         self.zz, self.xx = np.mgrid[0:L, 0:W].astype(np.float32)
         # points remarquables (x, z)
@@ -105,7 +113,10 @@ class Relief:
 
     def calculer(self):
         W, L, SEA, n = self.W, self.L, self.SEA, self.n
-        xx, zz = self.xx, self.zz
+        K = self.K
+        xx, zz = self.xx / K, self.zz / K                   # espace de conception (768)
+        WD, LD = W / K, L / K
+        gi = lambda v: min(int(v * K), W - 1)               # coordonnee de conception -> indice de grille
         # ------------------------------------------------ contour de l'ile (distorsion de domaine)
         wx = (n.fbm(160, 3, 1) - 0.5) * 120
         wz = (n.fbm(160, 3, 2) - 0.5) * 120
@@ -142,7 +153,7 @@ class Relief:
         h = np.where(c >= 0, plaine, h)
         # ------------------------------------------------ crete ouest
         crete = catmull([(170, 170), (148, 260), (140, 350), (152, 440), (176, 510), (205, 555)], 6)
-        dc, tc = distance_polyligne(W, L, crete, 70, list(np.linspace(0, 1, len(crete))))
+        dc, tc = distance_polyligne(W, L, crete, 70, list(np.linspace(0, 1, len(crete))), k=K)
         haut_crete = 58 * np.clip(np.sin(np.clip(tc, 0, 1) * math.pi), 0, 1) ** 0.6 * (0.75 + 0.5 * n.fbm(40, 3, 6))
         profil = haut_crete * np.clip(1 - dc / 60, 0, 1) ** 1.4
         # falaises en gradins : on quantifie une partie du profil
@@ -167,12 +178,12 @@ class Relief:
         self.cratere = cratere
         # canyon ouvert a l'ouest du cratere : du lac jusqu'au bassin de la cascade
         canyon = catmull([(vx - 24, vz + 4), (vx - 48, vz + 14), (vx - 62, vz + 26), self.CASCADE_BASSIN], 3)
-        dk, tk = distance_polyligne(W, L, canyon, 30, list(np.linspace(0, 1, len(canyon))))
+        dk, tk = distance_polyligne(W, L, canyon, 30, list(np.linspace(0, 1, len(canyon))), k=K)
         # la chute : premier point de l'axe, sorti du cratere, ou le flanc passe sous le niveau du lac
         h_cone = h.copy()
         i_chute = len(canyon) // 2
         for i, (px, pz) in enumerate(canyon):
-            if not cratere[int(pz), int(px)] and h_cone[int(pz), int(px)] < self.LAC_CRATERE + 2:
+            if not cratere[gi(pz), gi(px)] and h_cone[gi(pz), gi(px)] < self.LAC_CRATERE + 2:
                 i_chute = i
                 break
         chute = i_chute / (len(canyon) - 1)
@@ -191,7 +202,7 @@ class Relief:
         # ------------------------------------------------ rivieres
         def riviere(pts, w0, w1, prof):
             ligne = catmull(pts, 4)
-            dr, t = distance_polyligne(W, L, ligne, w1 / 2 + 26, list(np.linspace(0, 1, len(ligne))))
+            dr, t = distance_polyligne(W, L, ligne, w1 / 2 + 26, list(np.linspace(0, 1, len(ligne))), k=K)
             demi = (w0 + (w1 - w0) * t) / 2
             return dr, demi, prof
         self.lits = []
@@ -247,12 +258,12 @@ class Relief:
         essais = 0
         while len(cand) < 7 and essais < 4000:
             essais += 1
-            px, pz = float(g.uniform(30, W - 30)), float(g.uniform(30, L - 30))
-            cc = c[int(pz), int(px)]
-            if not (-2.6 < cc < -0.9) or lagon[int(pz), int(px)]:
+            px, pz = float(g.uniform(30, WD - 30)), float(g.uniform(30, LD - 30))
+            cc = c[gi(pz), gi(px)]
+            if not (-2.6 < cc < -0.9) or lagon[gi(pz), gi(px)]:
                 continue
             # en pleine eau : pas sur le pied du volcan ni sur un haut-fond
-            zone_g = h[max(0, int(pz) - 20):int(pz) + 21, max(0, int(px) - 20):int(px) + 21]
+            zone_g = h[max(0, gi(pz) - 17):gi(pz) + 18, max(0, gi(px) - 17):gi(px) + 18]
             if zone_g.max() > SEA - 5:
                 continue
             if all(math.hypot(px - qx, pz - qz) > 110 for qx, qz in cand):
@@ -265,17 +276,6 @@ class Relief:
             h = np.where(dg_ < R + 3, np.minimum(h, np.maximum(bas + 14, h - 3)), h)
             h = np.where(dg_ < R, bas + 2 * (dg_ / R) ** 4, h)
             self.gouffres.append((int(px), int(pz), R, bas))
-        # ------------------------------------------------ plate-forme du campus
-        ox, oz = self.CAMPUS
-        G = SEA + 5
-        x0, z0, x1, z1 = ox - 8, oz - 2, ox + 146, oz + 136
-        dcamp = np.maximum(np.maximum(x0 - xx, xx - x1), np.maximum(z0 - zz, zz - z1))
-        dedans = dcamp <= 0
-        h = np.where(dedans, G - 1, h)
-        marge = (dcamp > 0) & (dcamp < 30) & (h >= SEA + 1)
-        h = np.where(marge, (G - 1) + (h - (G - 1)) * lisse(0, 30, dcamp), h)
-        self.campus_zone = dcamp < 6
-        self.G = G
         # ------------------------------------------------ finitions
         self.h = np.clip(np.round(h), 2, 250).astype(np.int16)
         eau = np.where(self.h < SEA, SEA, -1).astype(np.int16)
@@ -286,4 +286,14 @@ class Relief:
         self.lac = lac
         gz_, gx_ = np.gradient(self.h.astype(np.float32))
         self.pente = np.hypot(gx_, gz_)
+        # reperes en coordonnees de la grille (le reste du generateur travaille sur la grille)
+        g2 = lambda p: (p[0] * K, p[1] * K)
+        self.VOLCAN, self.LAC, self.ILOT = g2(self.VOLCAN), g2(self.LAC), g2(self.ILOT)
+        self.CHUTE, self.CASCADE_BASSIN = g2(self.CHUTE), g2(self.CASCADE_BASSIN)
+        self.gouffres = [(int(px * K), int(pz * K), R * K, bas) for (px, pz, R, bas) in self.gouffres]
+        self.CENTRE = (384.0 * K, 392.0 * K)
         return self
+
+    def D(self, x, z):
+        """Coordonnees de conception (768) -> grille."""
+        return int(round(x * self.K)), int(round(z * self.K))
