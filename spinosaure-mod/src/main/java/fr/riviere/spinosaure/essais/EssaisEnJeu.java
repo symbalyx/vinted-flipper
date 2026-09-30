@@ -314,6 +314,14 @@ public final class EssaisEnJeu {
             List<Entity> restes = h.getLevel().getEntitiesOfClass(Entity.class, zone,
                     e -> !(e instanceof net.minecraft.world.entity.player.Player));
             restes.forEach(Entity::discard);
+            // conditions fixes : en plein jour, sans monstres vanilla (ils apparaissaient la nuit
+            // dans l'arene : creepers, squelettes, zombies, endermen, 3 a 8 par essai, et rendaient
+            // les essais aleatoires ; la nuit, il s'endort aussi quand tout est calme)
+            CommandSourceStack src0 = serveur.createCommandSourceStack().withSuppressedOutput().withLevel(h.getLevel());
+            for (String c : List.of("time set 1000", "gamerule doDaylightCycle false", "gamerule doMobSpawning false",
+                    "weather clear")) {
+                serveur.getCommands().performPrefixedCommand(src0, c);
+            }
             LOG.info("[ESSAI] {} : {} entite(s) d'un essai precedent retiree(s) {}", nom, restes.size(),
                     restes.stream().map(e -> e.getType().toShortString()).toList());
             CommandSourceStack src = serveur.createCommandSourceStack().withSuppressedOutput().withLevel(h.getLevel());
